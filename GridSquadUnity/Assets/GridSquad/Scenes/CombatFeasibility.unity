@@ -3361,6 +3361,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: EnemyUnit Variant (3)
       objectReference: {fileID: 0}
+    - target: {fileID: 8143215982652270006, guid: 88c935558177fb84e8cd9d383754aa40, type: 3}
+      propertyPath: cameraTransform
+      value: 
+      objectReference: {fileID: 734008857}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -3401,6 +3405,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: AllyUnit Variant (2)
       objectReference: {fileID: 0}
+    - target: {fileID: 4180644918802153279, guid: 0166c2a71dd3b4c47a110fc0b32237c3, type: 3}
+      propertyPath: cameraTransform
+      value: 
+      objectReference: {fileID: 734008857}
     - target: {fileID: 5204849837482731502, guid: 0166c2a71dd3b4c47a110fc0b32237c3, type: 3}
       propertyPath: m_LocalPosition.x
       value: 5
@@ -4641,6 +4649,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: EnemyUnit Variant (2)
       objectReference: {fileID: 0}
+    - target: {fileID: 8143215982652270006, guid: 88c935558177fb84e8cd9d383754aa40, type: 3}
+      propertyPath: cameraTransform
+      value: 
+      objectReference: {fileID: 734008857}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -11515,6 +11527,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: AllyUnit Variant (1)
       objectReference: {fileID: 0}
+    - target: {fileID: 4180644918802153279, guid: 0166c2a71dd3b4c47a110fc0b32237c3, type: 3}
+      propertyPath: cameraTransform
+      value: 
+      objectReference: {fileID: 734008857}
     - target: {fileID: 5204849837482731502, guid: 0166c2a71dd3b4c47a110fc0b32237c3, type: 3}
       propertyPath: m_LocalPosition.x
       value: 3
@@ -14039,6 +14055,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: EnemyUnit Variant (1)
       objectReference: {fileID: 0}
+    - target: {fileID: 8143215982652270006, guid: 88c935558177fb84e8cd9d383754aa40, type: 3}
+      propertyPath: cameraTransform
+      value: 
+      objectReference: {fileID: 734008857}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -18715,6 +18735,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: EnemyUnit Variant
       objectReference: {fileID: 0}
+    - target: {fileID: 8143215982652270006, guid: 88c935558177fb84e8cd9d383754aa40, type: 3}
+      propertyPath: cameraTransform
+      value: 
+      objectReference: {fileID: 734008857}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -21211,6 +21235,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: AllyUnit Variant
       objectReference: {fileID: 0}
+    - target: {fileID: 4180644918802153279, guid: 0166c2a71dd3b4c47a110fc0b32237c3, type: 3}
+      propertyPath: cameraTransform
+      value: 
+      objectReference: {fileID: 734008857}
     - target: {fileID: 5204849837482731502, guid: 0166c2a71dd3b4c47a110fc0b32237c3, type: 3}
       propertyPath: m_LocalPosition.x
       value: 3

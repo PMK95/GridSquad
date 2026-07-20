@@ -7,6 +7,7 @@ namespace GridSquad
     {
         [SerializeField] private Canvas canvas;
         [SerializeField] private Image healthFill;
+        [SerializeField] private Image reloadFill;
         [SerializeField] private Text detailText;
         [SerializeField] private GameObject selectionIndicator;
         [SerializeField] private LineRenderer targetLine;
@@ -152,11 +153,10 @@ namespace GridSquad
 
         private void LateUpdate()
         {
-            if (cameraTransform == null)
+            if (cameraTransform == null || canvas == null)
                 return;
-            Vector3 direction = canvas.transform.position - cameraTransform.position;
-            if (direction.sqrMagnitude > 0.001f)
-                canvas.transform.rotation = Quaternion.LookRotation(direction.normalized, Vector3.up);
+
+            canvas.transform.rotation = cameraTransform.rotation;
         }
 
 #if UNITY_EDITOR
