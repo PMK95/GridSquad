@@ -73,6 +73,59 @@ namespace GridSquad
         public bool IsAvailablePeekCell(GridCoordinate coordinate, Combatant requester)
             => IsWalkable(coordinate, requester);
 
+        public bool HasClearCellLine(GridCoordinate originCell, GridCoordinate targetCell)
+        {
+            List<GridCoordinate> crossedCells = GridLineTraversal.GetSupercoverCells(originCell, targetCell);
+            foreach (GridCoordinate cell in crossedCells)
+            {
+                if (cell == originCell || cell == targetCell)
+                    continue;
+                if (!IsInside(cell) || IsBlocked(cell))
+                    return false;
+            }
+            return true;
+        }
+
+        public bool IsBlockedCellOnLineBetween(
+            GridCoordinate originCell,
+            GridCoordinate targetCell,
+            GridCoordinate blockedCell)
+        {
+            if (blockedCell == originCell
+                || blockedCell == targetCell
+                || !IsBlocked(blockedCell))
+            {
+                return false;
+            }
+
+            // Supercover 선이 스치는 셀도 포함해 실제 사격선을 막는 엄폐물인지 확인한다.
+            List<GridCoordinate> crossedCells = GridLineTraversal.GetSupercoverCells(originCell, targetCell);
+            return crossedCells.Contains(blockedCell);
+        }
+
+        public bool IsCoverPosition(GridCoordinate coordinate)
+        {
+            if (!IsInside(coordinate) || IsBlocked(coordinate))
+                return false;
+            foreach (GridCoordinate neighbor in GetCardinalNeighbors(coordinate))
+            {
+                if (IsBlocked(neighbor))
+                    return true;
+            }
+            return false;
+        }
+
+        public IReadOnlyList<GridCoordinate> GetAdjacentBlockedCells(GridCoordinate coordinate)
+        {
+            List<GridCoordinate> blockedNeighbors = new(4);
+            foreach (GridCoordinate neighbor in GetCardinalNeighbors(coordinate))
+            {
+                if (IsBlocked(neighbor))
+                    blockedNeighbors.Add(neighbor);
+            }
+            return blockedNeighbors;
+        }
+
         public IReadOnlyList<GridCoordinate> GetCardinalNeighbors(GridCoordinate coordinate)
         {
             List<GridCoordinate> neighbors = new(4);

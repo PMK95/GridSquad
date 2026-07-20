@@ -83,6 +83,7 @@ namespace GridSquad
             string fireState = selectedCombatant.FireStateRemainingSeconds > 0.01f
                 ? $"{selectedCombatant.FireState}  {selectedCombatant.FireStateRemainingSeconds:0.0}s"
                 : selectedCombatant.FireState.ToString();
+            string coverAngle = shot.CoverAngleDegrees >= 0f ? $"{shot.CoverAngleDegrees:0} deg" : "-";
 
             selectedInfoBodyText.text =
                 $"TEAM  {team}\n" +
@@ -94,7 +95,7 @@ namespace GridSquad
                 $"FIRE    {fireState}\n" +
                 $"HIT     {shot.HitChancePercent:0}%\n" +
                 $"COVER   {shot.CoverEvasionPercent:0}%\n" +
-                $"VISIBLE {shot.VisibleSampleCount}/5\n" +
+                $"COVER ANG {coverAngle}\n" +
                 $"PEEK    {(selectedCombatant.PeekEnabled ? "ON" : "OFF")}\n\n" +
                 weaponInfo;
         }

@@ -16,7 +16,8 @@ MonoBehaviour:
   CharacterRotationSpeed: 720
   PeekVisualLeanAngle: 14
   MaximumCoverEvasionPercent: 60
-  ShootingViewAngle: 120
+  ShootingViewAngle: 360
+  FireAimToleranceDegrees: 3
   MinimumHitChancePercent: 5
   MaximumHitChancePercent: 95
   ShotTracerDuration: 0.09

@@ -57,15 +57,19 @@ namespace GridSquad
         public float MuzzleHeight => muzzle != null ? muzzle.position.y - transform.position.y : 1.25f;
         public Vector3 MuzzlePosition => muzzle != null ? muzzle.position : transform.position + Vector3.up * 1.25f;
         public Vector3 CurrentAimCenter => aimCenter != null ? aimCenter.position : transform.position + Vector3.up * 1.1f;
+        public GridCoordinate CurrentIndicatorShotOriginCell
+            => peekEnabled && currentShotEvaluation.UsesPeekPosition ? currentShotEvaluation.ShotOriginCell : currentCell;
+        public GridCoordinate CurrentExposureCell
+            => peekEnabled && currentShotEvaluation.UsesPeekPosition ? currentShotEvaluation.ShotOriginCell : currentCell;
+        public Vector3 CurrentIndicatorShotOrigin
+            => peekEnabled && currentShotEvaluation.UsesPeekPosition ? currentShotEvaluation.ShotOrigin : MuzzlePosition;
         public Vector3 CurrentExposureCenter
         {
             get
             {
-                if (!peekEnabled || !currentShotEvaluation.UsesPeekPosition)
-                    return CurrentAimCenter;
-                Vector3 virtualCenter = currentShotEvaluation.ShotOrigin;
-                virtualCenter.y = CurrentAimCenter.y;
-                return virtualCenter;
+                Vector3 exposureCenter = gridMap.GridToWorld(CurrentExposureCell);
+                exposureCenter.y = CurrentAimCenter.y;
+                return exposureCenter;
             }
         }
 
@@ -209,7 +213,7 @@ namespace GridSquad
             if (movementIndex < movementPath.Count)
                 lookDirection = gridMap.GridToWorld(movementPath[movementIndex]) - transform.position;
             else if (currentTarget != null && currentTarget.IsAlive)
-                lookDirection = currentTarget.CurrentAimCenter - transform.position;
+                lookDirection = currentTarget.CurrentExposureCenter - transform.position;
 
             lookDirection.y = 0f;
             if (lookDirection.sqrMagnitude < 0.0001f)
@@ -280,6 +284,8 @@ namespace GridSquad
                     }
                     if (Time.time < fireStateEndTime)
                         return;
+                    if (!IsAimAlignedWithCurrentTarget())
+                        return;
                     if (!FireCurrentShot())
                     {
                         ResetFireCycle();
@@ -302,7 +308,7 @@ namespace GridSquad
 
         private bool FireCurrentShot()
         {
-            if (IsMoving || currentTarget == null || !currentTarget.IsAlive)
+            if (IsMoving || currentTarget == null || !currentTarget.IsAlive || !IsAimAlignedWithCurrentTarget())
                 return false;
 
             currentShotEvaluation = shotEvaluator.EvaluateShot(this, currentTarget);
@@ -316,6 +322,18 @@ namespace GridSquad
             if (Random.value * 100f <= currentShotEvaluation.HitChancePercent)
                 currentTarget.ApplyDamage(weapon.Damage);
             return true;
+        }
+
+        private bool IsAimAlignedWithCurrentTarget()
+        {
+            if (currentTarget == null || !currentTarget.IsAlive)
+                return false;
+
+            Vector3 aimDirection = currentTarget.CurrentExposureCenter - transform.position;
+            aimDirection.y = 0f;
+            if (aimDirection.sqrMagnitude <= 0.0001f)
+                return true;
+            return Vector3.Angle(transform.forward, aimDirection) <= tuning.FireAimToleranceDegrees;
         }
 
         private void ResetFireCycle()

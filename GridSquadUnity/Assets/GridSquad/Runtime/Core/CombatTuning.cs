@@ -12,7 +12,8 @@ namespace GridSquad
 
         [Header("사격")]
         [Range(0f, 100f)] public float MaximumCoverEvasionPercent = 60f;
-        [Range(1f, 360f)] public float ShootingViewAngle = 120f;
+        [Range(1f, 360f)] public float ShootingViewAngle = 360f;
+        [Range(0.1f, 30f)] public float FireAimToleranceDegrees = 3f;
         [Range(0f, 100f)] public float MinimumHitChancePercent = 5f;
         [Range(0f, 100f)] public float MaximumHitChancePercent = 95f;
         [Min(0.02f)] public float ShotTracerDuration = 0.09f;

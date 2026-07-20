@@ -10,14 +10,25 @@ namespace GridSquad
             public readonly GridCoordinate Cell;
             public readonly Combatant Target;
             public readonly ShotEvaluation Evaluation;
+            public readonly CoverEvaluation IncomingCover;
+            public readonly bool IsCoveredFiringPosition;
             public readonly float Score;
             public readonly int PathCost;
 
-            public CellChoice(GridCoordinate cell, Combatant target, ShotEvaluation evaluation, float score, int pathCost)
+            public CellChoice(
+                GridCoordinate cell,
+                Combatant target,
+                ShotEvaluation evaluation,
+                CoverEvaluation incomingCover,
+                bool isCoveredFiringPosition,
+                float score,
+                int pathCost)
             {
                 Cell = cell;
                 Target = target;
                 Evaluation = evaluation;
+                IncomingCover = incomingCover;
+                IsCoveredFiringPosition = isCoveredFiringPosition;
                 Score = score;
                 PathCost = pathCost;
             }
@@ -44,24 +55,45 @@ namespace GridSquad
 
         public void ChooseBestCombatCell()
         {
-            List<CellChoice> choices = EvaluateCandidateCells();
-            if (choices.Count == 0)
+            List<CellChoice> allChoices = EvaluateCandidateCells();
+            if (allChoices.Count == 0)
+            {
+                debugChoices.Clear();
+                if (!combatant.IsMoving)
+                {
+                    combatant.SetPriorityTarget(null);
+                    combatant.SetPeekEnabled(false);
+                }
                 return;
+            }
 
-            choices.Sort((left, right) => right.Score.CompareTo(left.Score));
+            allChoices.Sort(CompareChoicesByScore);
+            bool hasCoveredFiringPosition = allChoices.Exists(choice => choice.IsCoveredFiringPosition);
+            List<CellChoice> movementChoices = hasCoveredFiringPosition
+                ? allChoices.FindAll(choice => choice.IsCoveredFiringPosition)
+                : allChoices;
+
             debugChoices.Clear();
-            for (int index = 0; index < Mathf.Min(3, choices.Count); index++)
-                debugChoices.Add(choices[index]);
+            for (int index = 0; index < Mathf.Min(3, movementChoices.Count); index++)
+                debugChoices.Add(movementChoices[index]);
 
-            CellChoice currentChoice = FindCurrentCellChoice(choices);
+            CellChoice? currentMovementChoice = FindBestCurrentCellChoice(movementChoices);
+            CellChoice? currentFiringChoice = FindBestCurrentCellChoice(allChoices);
             bool canMove = !combatant.IsMoving && Time.time >= nextMovementTime;
             if (canMove)
             {
-                foreach (CellChoice choice in choices)
+                bool enteringCoverTier = hasCoveredFiringPosition
+                    && (!currentMovementChoice.HasValue || !currentMovementChoice.Value.IsCoveredFiringPosition);
+                foreach (CellChoice choice in movementChoices)
                 {
-                    if (choice.Cell == combatant.CurrentCell
-                        || choice.Score < currentChoice.Score + tuning.AiMinimumImprovement)
+                    if (choice.Cell == combatant.CurrentCell)
                         continue;
+                    if (!enteringCoverTier
+                        && currentMovementChoice.HasValue
+                        && choice.Score < currentMovementChoice.Value.Score + tuning.AiMinimumImprovement)
+                    {
+                        continue;
+                    }
                     if (!combatant.SetMoveDestination(choice.Cell))
                         continue;
 
@@ -74,8 +106,16 @@ namespace GridSquad
 
             if (!combatant.IsMoving)
             {
-                combatant.SetPriorityTarget(currentChoice.Target);
-                combatant.SetPeekEnabled(currentChoice.Evaluation.UsesPeekPosition);
+                if (currentFiringChoice.HasValue)
+                {
+                    combatant.SetPriorityTarget(currentFiringChoice.Value.Target);
+                    combatant.SetPeekEnabled(currentFiringChoice.Value.Evaluation.UsesPeekPosition);
+                }
+                else
+                {
+                    combatant.SetPriorityTarget(null);
+                    combatant.SetPeekEnabled(false);
+                }
             }
         }
 
@@ -95,52 +135,60 @@ namespace GridSquad
                     if (path == null || path.Count > tuning.AiCandidatePathDistance)
                         continue;
 
-                    CellChoice? bestAtCell = EvaluateBestTargetAtCell(cell, path.Count);
-                    if (bestAtCell.HasValue)
-                        choices.Add(bestAtCell.Value);
+                    AddTargetChoicesAtCell(choices, cell, path.Count);
                 }
             }
             return choices;
         }
 
-        private CellChoice? EvaluateBestTargetAtCell(GridCoordinate cell, int pathCost)
+        private void AddTargetChoicesAtCell(List<CellChoice> choices, GridCoordinate cell, int pathCost)
         {
-            Combatant bestTarget = null;
-            ShotEvaluation bestShot = default;
-            int bestDistance = int.MaxValue;
+            bool isAdjacentToCover = gridMap.IsCoverPosition(cell);
             foreach (Combatant target in director.GetLivingEnemies(combatant.Team))
             {
                 ShotEvaluation shot = shotEvaluator.EvaluateShotFromCell(combatant, target, cell, true);
-                int distance = cell.ManhattanDistance(target.CurrentCell);
-                if (bestTarget == null
-                    || shot.HitChancePercent > bestShot.HitChancePercent
-                    || (Mathf.Approximately(shot.HitChancePercent, bestShot.HitChancePercent) && distance < bestDistance))
-                {
-                    bestTarget = target;
-                    bestShot = shot;
-                    bestDistance = distance;
-                }
-            }
-            if (bestTarget == null)
-                return null;
+                if (!shot.CanShoot)
+                    continue;
 
-            float incomingCover = shotEvaluator.EvaluateIncomingCoverAtCell(bestTarget, cell);
-            float score = (bestShot.CanShoot ? tuning.AiShootableScore : 0f)
-                + bestShot.HitChancePercent
-                + incomingCover
-                - pathCost * tuning.AiPathCostWeight
-                - Mathf.Abs(bestDistance - tuning.AiIdealRangeCells) * tuning.AiRangeDifferenceWeight;
-            return new CellChoice(cell, bestTarget, bestShot, score, pathCost);
+                CoverEvaluation incomingCover = shotEvaluator.EvaluateIncomingCover(target, cell);
+                bool isCoveredFiringPosition = isAdjacentToCover && incomingCover.HasCover;
+                int distance = cell.ManhattanDistance(target.CurrentCell);
+                float score = tuning.AiShootableScore
+                    + shot.HitChancePercent
+                    + incomingCover.EvasionPercent
+                    - pathCost * tuning.AiPathCostWeight
+                    - Mathf.Abs(distance - tuning.AiIdealRangeCells) * tuning.AiRangeDifferenceWeight;
+                choices.Add(new CellChoice(
+                    cell,
+                    target,
+                    shot,
+                    incomingCover,
+                    isCoveredFiringPosition,
+                    score,
+                    pathCost));
+            }
         }
 
-        private CellChoice FindCurrentCellChoice(List<CellChoice> choices)
+        private CellChoice? FindBestCurrentCellChoice(List<CellChoice> choices)
         {
             foreach (CellChoice choice in choices)
             {
                 if (choice.Cell == combatant.CurrentCell)
                     return choice;
             }
-            return new CellChoice(combatant.CurrentCell, null, default, float.NegativeInfinity, 0);
+            return null;
+        }
+
+        private static int CompareChoicesByScore(CellChoice left, CellChoice right)
+        {
+            int scoreComparison = right.Score.CompareTo(left.Score);
+            if (scoreComparison != 0)
+                return scoreComparison;
+            int pathComparison = left.PathCost.CompareTo(right.PathCost);
+            if (pathComparison != 0)
+                return pathComparison;
+            return left.Cell.ManhattanDistance(left.Target.CurrentCell)
+                .CompareTo(right.Cell.ManhattanDistance(right.Target.CurrentCell));
         }
 
         private void OnDrawGizmos()
@@ -155,7 +203,14 @@ namespace GridSquad
                 Vector3 position = gridMap.GridToWorld(choice.Cell) + Vector3.up * (0.1f + index * 0.08f);
                 Gizmos.DrawWireCube(position, new Vector3(gridMap.CellSize * 0.8f, 0.08f, gridMap.CellSize * 0.8f));
 #if UNITY_EDITOR
-                UnityEditor.Handles.Label(position + Vector3.up * 0.25f, $"#{index + 1} {choice.Score:0}");
+                string positionType = choice.IsCoveredFiringPosition ? "COVER" : "EXPOSED";
+                string shotType = choice.Evaluation.UsesPeekPosition ? "PEEK" : "DIRECT";
+                string coverAngle = choice.IncomingCover.AngleDegrees >= 0f
+                    ? $"{choice.IncomingCover.AngleDegrees:0}deg"
+                    : "-";
+                UnityEditor.Handles.Label(
+                    position + Vector3.up * 0.25f,
+                    $"#{index + 1} {positionType} {choice.Target.name} {shotType} ANG {coverAngle} HIT {choice.Evaluation.HitChancePercent:0}% SCORE {choice.Score:0}");
 #endif
             }
         }

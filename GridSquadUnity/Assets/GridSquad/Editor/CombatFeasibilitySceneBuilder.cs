@@ -55,6 +55,8 @@ namespace GridSquadEditor
             Material gridEvenMaterial = CreateOrUpdateMaterial("GridEven", new Color(0.20f, 0.23f, 0.25f));
             Material gridOddMaterial = CreateOrUpdateMaterial("GridOdd", new Color(0.24f, 0.27f, 0.29f));
             Material lineMaterial = CreateOrUpdateMaterial("DebugLine", Color.white, true);
+            Material viewRangeMaterial = CreateOrUpdateMaterial("ViewRangeIndicator", new Color(0.15f, 0.65f, 1f, 0.24f), true);
+            Material shootableCellMaterial = CreateOrUpdateMaterial("ShootableCellIndicator", new Color(0.15f, 1f, 0.35f, 0.5f), true);
 
             GameObject characterUiPrefab = CreateCharacterWorldUiPrefab(lineMaterial);
             GameObject allyPrefab = CreateUnitPrefab(AllyPrefabPath, Team.Ally, allyMaterial, gunMaterial, lineMaterial, characterUiPrefab);
@@ -73,8 +75,15 @@ namespace GridSquadEditor
             CombatDirector director = systems.AddComponent<CombatDirector>();
             TacticalInputController inputController = systems.AddComponent<TacticalInputController>();
             LineRenderer pathLine = CreateLineRenderer("SelectedPath", systems.transform, lineMaterial, 0.08f);
+            GridCombatIndicator gridCombatIndicator = CreateGridCombatIndicator(
+                systems.transform,
+                gridMap,
+                shotEvaluator,
+                tuning,
+                viewRangeMaterial,
+                shootableCellMaterial);
 
-            shotEvaluator.SetEditorReferences(gridMap, tuning, 1 << CoverLayer);
+            shotEvaluator.SetEditorReferences(gridMap, tuning);
             Combatant[] combatants = CreateCombatants(
                 allyPrefab,
                 enemyPrefab,
@@ -92,6 +101,7 @@ namespace GridSquadEditor
                 director,
                 hud,
                 pathLine,
+                gridCombatIndicator,
                 1 << GroundLayer,
                 1 << UnitLayer);
 
@@ -131,6 +141,40 @@ namespace GridSquadEditor
             Debug.Log("RTS 카메라 입력 참조 연결을 완료했습니다.");
         }
 
+        [MenuItem("GridSquad/선택 유닛 그리드 인디케이터 구성")]
+        public static void ConfigureGridCombatIndicator()
+        {
+            EnsureFolders();
+            GridMap gridMap = Object.FindFirstObjectByType<GridMap>();
+            ShotEvaluator shotEvaluator = Object.FindFirstObjectByType<ShotEvaluator>();
+            TacticalInputController inputController = Object.FindFirstObjectByType<TacticalInputController>();
+            CombatTuning tuning = AssetDatabase.LoadAssetAtPath<CombatTuning>(TuningPath);
+            if (gridMap == null || shotEvaluator == null || inputController == null || tuning == null)
+                throw new InvalidOperationException("그리드 인디케이터 연결에 필요한 전투 오브젝트가 없습니다.");
+
+            Material viewRangeMaterial = CreateOrUpdateMaterial(
+                "ViewRangeIndicator",
+                new Color(0.15f, 0.65f, 1f, 0.24f),
+                true);
+            Material shootableCellMaterial = CreateOrUpdateMaterial(
+                "ShootableCellIndicator",
+                new Color(0.15f, 1f, 0.35f, 0.5f),
+                true);
+            GridCombatIndicator indicator = CreateGridCombatIndicator(
+                inputController.transform,
+                gridMap,
+                shotEvaluator,
+                tuning,
+                viewRangeMaterial,
+                shootableCellMaterial);
+            inputController.SetEditorGridCombatIndicator(indicator);
+            EditorUtility.SetDirty(inputController);
+            EditorSceneManager.MarkSceneDirty(SceneManager.GetActiveScene());
+            EditorSceneManager.SaveOpenScenes();
+            AssetDatabase.SaveAssets();
+            Debug.Log("선택 유닛 그리드 시야 및 사격 가능 셀 인디케이터 구성을 완료했습니다.");
+        }
+
         public static void ValidateCombatFeasibilityStructure()
         {
             Scene scene = SceneManager.GetActiveScene();
@@ -145,9 +189,10 @@ namespace GridSquadEditor
             Camera mainCamera = Camera.main;
             CinemachineCamera cinemachineCamera = Object.FindFirstObjectByType<CinemachineCamera>();
             RtsCameraController cameraController = Object.FindFirstObjectByType<RtsCameraController>();
+            GridCombatIndicator gridCombatIndicator = Object.FindFirstObjectByType<GridCombatIndicator>();
             if (gridMap == null || gridMap.Width != 12 || gridMap.Height != 12 || !Mathf.Approximately(gridMap.CellSize, 2f))
                 throw new InvalidOperationException("12×12, 2m 그리드 직렬화가 올바르지 않습니다.");
-            if (director == null || shotEvaluator == null || inputController == null || hud == null)
+            if (director == null || shotEvaluator == null || inputController == null || hud == null || gridCombatIndicator == null)
                 throw new InvalidOperationException("전투 시스템 또는 씬 HUD가 누락되었습니다.");
             if (mainCamera == null || mainCamera.GetComponent<CinemachineBrain>() == null
                 || cinemachineCamera == null
@@ -188,7 +233,8 @@ namespace GridSquadEditor
             if (allyCount != 3 || enemyCount != 4)
                 throw new InvalidOperationException($"유닛 배치 수가 올바르지 않습니다. 아군 {allyCount}, 적군 {enemyCount}");
 
-            RequireReferenceFields(inputController, "inputActions", "sceneCamera", "gridMap", "director", "hud", "selectedPathLine");
+            RequireReferenceFields(inputController, "inputActions", "sceneCamera", "gridMap", "director", "hud", "selectedPathLine", "gridCombatIndicator");
+            RequireReferenceFields(gridCombatIndicator, "gridMap", "shotEvaluator", "tuning", "viewCellMeshFilter", "shootableCellMeshFilter");
             RequireReferenceFields(cameraController, "inputActions", "rigTarget", "outputCamera", "gridMap", "tuning");
             RequireReferenceFields(director, "shotEvaluator", "hud");
             RequireReferenceFields(shotEvaluator, "gridMap", "tuning");
@@ -314,6 +360,17 @@ namespace GridSquadEditor
             }
             material.shader = shader;
             material.color = color;
+            if (material.HasProperty("_BaseColor"))
+                material.SetColor("_BaseColor", color);
+            if (transparent)
+            {
+                material.SetFloat("_Surface", 1f);
+                material.SetFloat("_ZWrite", 0f);
+                material.SetFloat("_SrcBlend", (float)UnityEngine.Rendering.BlendMode.SrcAlpha);
+                material.SetFloat("_DstBlend", (float)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+                material.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+                material.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
+            }
             EditorUtility.SetDirty(material);
             return material;
         }
@@ -780,6 +837,56 @@ namespace GridSquadEditor
             ring.loop = true;
             ring.positionCount = 33;
             return ring;
+        }
+
+        private static GridCombatIndicator CreateGridCombatIndicator(
+            Transform parent,
+            GridMap gridMap,
+            ShotEvaluator shotEvaluator,
+            CombatTuning tuning,
+            Material viewRangeMaterial,
+            Material shootableCellMaterial)
+        {
+            Transform existing = parent.Find("GridCombatIndicator");
+            GameObject root = existing != null ? existing.gameObject : new GameObject("GridCombatIndicator");
+            root.transform.SetParent(parent, false);
+            GridCombatIndicator indicator = root.GetComponent<GridCombatIndicator>();
+            if (indicator == null)
+                indicator = root.AddComponent<GridCombatIndicator>();
+
+            MeshFilter viewCells = EnsureIndicatorMeshObject(
+                "ViewCells",
+                root.transform,
+                viewRangeMaterial,
+                0);
+            MeshFilter shootableCells = EnsureIndicatorMeshObject(
+                "ShootableCells",
+                root.transform,
+                shootableCellMaterial,
+                1);
+            indicator.SetEditorReferences(gridMap, shotEvaluator, tuning, viewCells, shootableCells);
+            EditorUtility.SetDirty(indicator);
+            return indicator;
+        }
+
+        private static MeshFilter EnsureIndicatorMeshObject(
+            string name,
+            Transform parent,
+            Material material,
+            int sortingOrder)
+        {
+            Transform existing = parent.Find(name);
+            GameObject meshObject = existing != null
+                ? existing.gameObject
+                : new GameObject(name, typeof(MeshFilter), typeof(MeshRenderer));
+            meshObject.transform.SetParent(parent, false);
+            MeshFilter meshFilter = meshObject.GetComponent<MeshFilter>();
+            MeshRenderer meshRenderer = meshObject.GetComponent<MeshRenderer>();
+            meshRenderer.sharedMaterial = material;
+            meshRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            meshRenderer.receiveShadows = false;
+            meshRenderer.sortingOrder = sortingOrder;
+            return meshFilter;
         }
 
         private static void ConfigureBuildSettings()

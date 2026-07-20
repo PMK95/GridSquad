@@ -146,7 +146,8 @@ namespace GridSquad
         {
             string targetName = target != null ? target.name : "-";
             string state = evaluation.CanShoot ? $"HIT {evaluation.HitChancePercent:0}%" : "NO SHOT";
-            return $"{owner.name}  HP {owner.CurrentHealth}/{owner.MaximumHealth}  TGT {targetName}\n{state}  COV {evaluation.CoverEvasionPercent:0}%  VIS {evaluation.VisibleSampleCount}/5  PEEK {(owner.PeekEnabled ? "ON" : "OFF")}  FIRE {owner.FireState}";
+            string coverAngle = evaluation.CoverAngleDegrees >= 0f ? $"{evaluation.CoverAngleDegrees:0}deg" : "-";
+            return $"{owner.name}  HP {owner.CurrentHealth}/{owner.MaximumHealth}  TGT {targetName}\n{state}  COV {evaluation.CoverEvasionPercent:0}%  ANG {coverAngle}  PEEK {(owner.PeekEnabled ? "ON" : "OFF")}  FIRE {owner.FireState}";
         }
 
         private void LateUpdate()

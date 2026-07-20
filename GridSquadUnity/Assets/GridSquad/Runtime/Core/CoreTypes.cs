@@ -41,7 +41,6 @@ namespace GridSquad
         NoTarget,
         TargetDead,
         OutOfRange,
-        OutsideViewAngle,
         FullyBlocked,
         NoPeekPosition
     }
@@ -54,24 +53,50 @@ namespace GridSquad
     }
 
     [Serializable]
+    public readonly struct CoverEvaluation
+    {
+        public readonly float AngleDegrees;
+        public readonly float EvasionPercent;
+
+        public bool HasCover => EvasionPercent > 0.01f;
+
+        public CoverEvaluation(float angleDegrees, float evasionPercent)
+        {
+            AngleDegrees = angleDegrees;
+            EvasionPercent = evasionPercent;
+        }
+
+        public static CoverEvaluation None => new(-1f, 0f);
+    }
+
+    [Serializable]
     public struct ShotEvaluation
     {
         public bool CanShoot;
         public bool UsesPeekPosition;
-        public int VisibleSampleCount;
+        public GridCoordinate ShotOriginCell;
+        public GridCoordinate TargetExposureCell;
+        public float CoverAngleDegrees;
         public float CoverEvasionPercent;
         public float HitChancePercent;
         public Vector3 ShotOrigin;
         public Vector3 TargetCenter;
         public ShotFailureReason FailureReason;
 
-        public static ShotEvaluation CannotShoot(ShotFailureReason reason, Vector3 origin, Vector3 targetCenter)
+        public static ShotEvaluation CannotShoot(
+            ShotFailureReason reason,
+            GridCoordinate originCell,
+            GridCoordinate targetExposureCell,
+            Vector3 origin,
+            Vector3 targetCenter)
         {
             return new ShotEvaluation
             {
                 CanShoot = false,
                 UsesPeekPosition = false,
-                VisibleSampleCount = 0,
+                ShotOriginCell = originCell,
+                TargetExposureCell = targetExposureCell,
+                CoverAngleDegrees = -1f,
                 CoverEvasionPercent = 0f,
                 HitChancePercent = 0f,
                 ShotOrigin = origin,

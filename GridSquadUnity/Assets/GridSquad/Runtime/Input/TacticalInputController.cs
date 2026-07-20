@@ -13,6 +13,7 @@ namespace GridSquad
         [SerializeField] private CombatDirector director;
         [SerializeField] private CombatHudController hud;
         [SerializeField] private LineRenderer selectedPathLine;
+        [SerializeField] private GridCombatIndicator gridCombatIndicator;
         [SerializeField] private LayerMask groundLayerMask;
         [SerializeField] private LayerMask unitLayerMask;
 
@@ -30,6 +31,7 @@ namespace GridSquad
             hud.SetTargetingState(false);
             hud.SetDebugState(false);
             hud.SetSelectedCombatant(null);
+            gridCombatIndicator.SetSelectedCombatant(null);
         }
 
         private void OnEnable() => tacticalMap?.Enable();
@@ -134,6 +136,7 @@ namespace GridSquad
             selectedCombatant = combatant;
             selectedCombatant?.SetSelected(true);
             hud.SetSelectedCombatant(selectedCombatant);
+            gridCombatIndicator.SetSelectedCombatant(selectedCombatant);
             SetTargetingMode(false);
         }
 
@@ -179,6 +182,7 @@ namespace GridSquad
             CombatDirector newDirector,
             CombatHudController newHud,
             LineRenderer newSelectedPathLine,
+            GridCombatIndicator newGridCombatIndicator,
             LayerMask newGroundLayerMask,
             LayerMask newUnitLayerMask)
         {
@@ -188,8 +192,14 @@ namespace GridSquad
             director = newDirector;
             hud = newHud;
             selectedPathLine = newSelectedPathLine;
+            gridCombatIndicator = newGridCombatIndicator;
             groundLayerMask = newGroundLayerMask;
             unitLayerMask = newUnitLayerMask;
+        }
+
+        public void SetEditorGridCombatIndicator(GridCombatIndicator newGridCombatIndicator)
+        {
+            gridCombatIndicator = newGridCombatIndicator;
         }
 #endif
     }
