@@ -11,12 +11,19 @@ namespace GridSquad
 
         private bool debugVisible;
         private bool battleFinished;
+        private bool allyFullAutoEnabled;
 
         public IReadOnlyList<Combatant> Combatants => combatants;
         public bool DebugVisible => debugVisible;
         public bool BattleFinished => battleFinished;
+        public bool AllyFullAutoEnabled => allyFullAutoEnabled;
 
-        public Combatant FindClosestShootableEnemy(Combatant requester)
+        private void Start()
+        {
+            SetAllyFullAutoEnabled(false);
+        }
+
+        public Combatant FindClosestShootableEnemy(Combatant requester, bool allowPeek)
         {
             Combatant best = null;
             float bestDistance = float.PositiveInfinity;
@@ -24,7 +31,6 @@ namespace GridSquad
             {
                 if (candidate == null || !candidate.IsAlive || candidate.Team == requester.Team)
                     continue;
-                bool allowPeek = requester.Team == Team.Ally || requester.PeekEnabled;
                 ShotEvaluation evaluation = shotEvaluator.EvaluateShotFromCell(
                     requester,
                     candidate,
@@ -40,6 +46,26 @@ namespace GridSquad
                 }
             }
             return best;
+        }
+
+        public void ToggleAllyFullAuto()
+        {
+            SetAllyFullAutoEnabled(!allyFullAutoEnabled);
+        }
+
+        public void SetAllyFullAutoEnabled(bool enabled)
+        {
+            allyFullAutoEnabled = enabled;
+            foreach (Combatant combatant in combatants)
+            {
+                if (combatant == null || combatant.Team != Team.Ally)
+                    continue;
+                UnitTacticalBehaviorController controller =
+                    combatant.GetComponent<UnitTacticalBehaviorController>();
+                if (controller != null)
+                    controller.SetAutonomousMovementAllowed(enabled);
+            }
+            hud.SetAllyFullAutoState(enabled);
         }
 
         public IEnumerable<Combatant> GetLivingEnemies(Team team)
@@ -80,6 +106,7 @@ namespace GridSquad
                 return;
             battleFinished = true;
             Time.timeScale = 0f;
+            hud.SetAllyFullAutoInteractable(false);
             hud.ShowResult(alliesAlive ? "VICTORY" : "DEFEAT");
         }
 

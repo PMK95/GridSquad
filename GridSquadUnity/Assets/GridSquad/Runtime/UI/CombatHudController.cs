@@ -13,8 +13,29 @@ namespace GridSquad
         [SerializeField] private GameObject selectedInfoPanel;
         [SerializeField] private Text selectedInfoTitleText;
         [SerializeField] private Text selectedInfoBodyText;
+        [SerializeField] private Button allyFullAutoButton;
+        [SerializeField] private Text allyFullAutoButtonText;
+        [SerializeField] private CombatDirector director;
 
         private Combatant selectedCombatant;
+        private UnitTacticalBehaviorController selectedBehaviorController;
+
+        private static readonly Color CommandButtonColor =
+            new(0.24f, 0.28f, 0.34f, 0.96f);
+        private static readonly Color FullAutoButtonColor =
+            new(0.12f, 0.55f, 0.3f, 0.96f);
+
+        private void Awake()
+        {
+            if (allyFullAutoButton != null)
+                allyFullAutoButton.onClick.AddListener(HandleAllyFullAutoClicked);
+        }
+
+        private void OnDestroy()
+        {
+            if (allyFullAutoButton != null)
+                allyFullAutoButton.onClick.RemoveListener(HandleAllyFullAutoClicked);
+        }
 
         private void Update()
         {
@@ -42,7 +63,29 @@ namespace GridSquad
         public void SetSelectedCombatant(Combatant combatant)
         {
             selectedCombatant = combatant;
+            selectedBehaviorController = combatant != null
+                ? combatant.GetComponent<UnitTacticalBehaviorController>()
+                : null;
             RefreshSelectedCombatantInfo();
+        }
+
+        public void SetAllyFullAutoState(bool enabled)
+        {
+            if (allyFullAutoButtonText != null)
+                allyFullAutoButtonText.text =
+                    enabled ? "ALLY AI: FULL AUTO" : "ALLY AI: COMMAND";
+            if (allyFullAutoButton != null
+                && allyFullAutoButton.targetGraphic is Image buttonImage)
+            {
+                buttonImage.color =
+                    enabled ? FullAutoButtonColor : CommandButtonColor;
+            }
+        }
+
+        public void SetAllyFullAutoInteractable(bool interactable)
+        {
+            if (allyFullAutoButton != null)
+                allyFullAutoButton.interactable = interactable;
         }
 
         public void ShowResult(string result)
@@ -84,9 +127,20 @@ namespace GridSquad
                 ? $"{selectedCombatant.FireState}  {selectedCombatant.FireStateRemainingSeconds:0.0}s"
                 : selectedCombatant.FireState.ToString();
             string coverAngle = shot.CoverAngleDegrees >= 0f ? $"{shot.CoverAngleDegrees:0} deg" : "-";
+            string controlMode = selectedCombatant.Team == Team.Enemy
+                ? "FULL AUTO"
+                : selectedBehaviorController != null
+                    && selectedBehaviorController.AutonomousMovementAllowed
+                    ? "FULL AUTO"
+                    : "COMMAND";
+            string automaticPeek = selectedBehaviorController != null
+                && selectedBehaviorController.AutomaticPeekAllowed
+                    ? "ON"
+                    : "OFF";
 
             selectedInfoBodyText.text =
                 $"TEAM  {team}\n" +
+                $"CONTROL {controlMode}\n" +
                 $"HP    {selectedCombatant.CurrentHealth} / {selectedCombatant.MaximumHealth}\n" +
                 $"CELL  {selectedCombatant.CurrentCell}\n" +
                 $"STATE {movement}\n\n" +
@@ -96,8 +150,13 @@ namespace GridSquad
                 $"HIT     {shot.HitChancePercent:0}%\n" +
                 $"COVER   {shot.CoverEvasionPercent:0}%\n" +
                 $"COVER ANG {coverAngle}\n" +
-                $"PEEK    {(selectedCombatant.PeekEnabled ? "ON" : "OFF")}\n\n" +
+                $"PEEK    {(selectedCombatant.PeekEnabled ? "ON" : "OFF")}  AUTO {automaticPeek}\n\n" +
                 weaponInfo;
+        }
+
+        private void HandleAllyFullAutoClicked()
+        {
+            director?.ToggleAllyFullAuto();
         }
 
 #if UNITY_EDITOR
@@ -109,7 +168,10 @@ namespace GridSquad
             Text newResultText,
             GameObject newSelectedInfoPanel,
             Text newSelectedInfoTitleText,
-            Text newSelectedInfoBodyText)
+            Text newSelectedInfoBodyText,
+            Button newAllyFullAutoButton,
+            Text newAllyFullAutoButtonText,
+            CombatDirector newDirector)
         {
             stateText = newStateText;
             modeText = newModeText;
@@ -119,6 +181,9 @@ namespace GridSquad
             selectedInfoPanel = newSelectedInfoPanel;
             selectedInfoTitleText = newSelectedInfoTitleText;
             selectedInfoBodyText = newSelectedInfoBodyText;
+            allyFullAutoButton = newAllyFullAutoButton;
+            allyFullAutoButtonText = newAllyFullAutoButtonText;
+            director = newDirector;
         }
 #endif
     }

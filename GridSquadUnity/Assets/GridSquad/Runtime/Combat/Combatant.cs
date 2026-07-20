@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -29,10 +30,8 @@ namespace GridSquad
         private int movementIndex;
         private int currentHealth;
         private GridCoordinate currentCell;
-        private Combatant priorityTarget;
         private Combatant currentTarget;
         private ShotEvaluation currentShotEvaluation;
-        private float nextEvaluationTime;
         private FireCycleState fireCycleState;
         private float fireStateEndTime;
         private Combatant aimingTarget;
@@ -40,6 +39,8 @@ namespace GridSquad
         private bool selected;
         private bool debugVisible;
         private Vector3 activePeekOffset;
+
+        public event Action<Combatant> Died;
 
         public Team Team => team;
         public bool IsAlive => currentHealth > 0;
@@ -99,12 +100,6 @@ namespace GridSquad
 
             MoveAlongPath();
             RotateTowardMovementOrTarget();
-            if (Time.time >= nextEvaluationTime)
-            {
-                nextEvaluationTime = Time.time + tuning.EvaluationRefreshInterval;
-                RefreshTargetAndShotEvaluation();
-            }
-            UpdateAutomaticFireCycle();
             worldUi.Refresh(currentTarget, currentShotEvaluation, selected, debugVisible);
         }
 
@@ -139,15 +134,15 @@ namespace GridSquad
             return true;
         }
 
-        public void SetPriorityTarget(Combatant target)
+        public void SetBehaviorTarget(Combatant target)
         {
             Combatant newTarget = target != null && target.Team != team && target.IsAlive ? target : null;
-            if (priorityTarget != newTarget)
+            if (currentTarget != newTarget)
                 ResetFireCycle();
-            priorityTarget = newTarget;
-            currentTarget = priorityTarget;
-            nextEvaluationTime = 0f;
+            currentTarget = newTarget;
         }
+
+        public void SetPriorityTarget(Combatant target) => SetBehaviorTarget(target);
 
         public void SetPeekEnabled(bool enabled)
         {
@@ -157,7 +152,14 @@ namespace GridSquad
             if (!enabled)
                 SetActivePeekOffset(Vector3.zero);
             ResetFireCycle();
-            nextEvaluationTime = 0f;
+        }
+
+        public void StopMovementAtCurrentCell()
+        {
+            movementPath.Clear();
+            movementIndex = 0;
+            gridMap.ReleaseReservation(this);
+            ResetFireCycle();
         }
 
         public void ApplyDamage(int damage)
@@ -228,17 +230,10 @@ namespace GridSquad
             ApplyPeekVisualLean();
         }
 
-        private void RefreshTargetAndShotEvaluation()
+        public void RefreshShotEvaluationForCurrentTarget()
         {
-            if (priorityTarget != null && !priorityTarget.IsAlive)
-                priorityTarget = null;
-
-            currentTarget = priorityTarget;
-            if (currentTarget == null)
-                currentTarget = director.FindClosestShootableEnemy(this);
-
-            if (team == Team.Ally && !IsMoving && currentTarget != null)
-                UpdateAutomaticAllyPeek(currentTarget);
+            if (currentTarget != null && !currentTarget.IsAlive)
+                SetBehaviorTarget(null);
             currentShotEvaluation = shotEvaluator.EvaluateShot(this, currentTarget);
             Vector3 unshiftedMuzzlePosition = transform.position + Vector3.up * MuzzleHeight;
             Vector3 desiredOffset = currentShotEvaluation.UsesPeekPosition
@@ -247,10 +242,24 @@ namespace GridSquad
             SetActivePeekOffset(desiredOffset);
         }
 
-        private void UpdateAutomaticAllyPeek(Combatant target)
+        public void UpdateAutomaticPeekForCurrentTarget(bool allowed)
         {
-            ShotEvaluation direct = shotEvaluator.EvaluateShotFromCell(this, target, currentCell, false);
-            ShotEvaluation bestWithPeek = shotEvaluator.EvaluateShotFromCell(this, target, currentCell, true);
+            if (!allowed || IsMoving || currentTarget == null || !currentTarget.IsAlive)
+            {
+                SetPeekEnabled(false);
+                return;
+            }
+
+            ShotEvaluation direct = shotEvaluator.EvaluateShotFromCell(
+                this,
+                currentTarget,
+                currentCell,
+                false);
+            ShotEvaluation bestWithPeek = shotEvaluator.EvaluateShotFromCell(
+                this,
+                currentTarget,
+                currentCell,
+                true);
             bool shouldPeek = bestWithPeek.CanShoot
                 && bestWithPeek.UsesPeekPosition
                 && (!direct.CanShoot || bestWithPeek.HitChancePercent > direct.HitChancePercent);
@@ -260,7 +269,7 @@ namespace GridSquad
             ResetFireCycle();
         }
 
-        private void UpdateAutomaticFireCycle()
+        public void TickAutomaticFireCycleFromBehavior()
         {
             if (IsMoving || currentTarget == null || !currentTarget.IsAlive || !currentShotEvaluation.CanShoot)
             {
@@ -319,7 +328,7 @@ namespace GridSquad
                 muzzleFlash.Play(true);
             StartCoroutine(ShowShotTracer(currentShotEvaluation.ShotOrigin, currentShotEvaluation.TargetCenter));
 
-            if (Random.value * 100f <= currentShotEvaluation.HitChancePercent)
+            if (UnityEngine.Random.value * 100f <= currentShotEvaluation.HitChancePercent)
                 currentTarget.ApplyDamage(weapon.Damage);
             return true;
         }
@@ -335,6 +344,8 @@ namespace GridSquad
                 return true;
             return Vector3.Angle(transform.forward, aimDirection) <= tuning.FireAimToleranceDegrees;
         }
+
+        public void ResetBehaviorFireCycle() => ResetFireCycle();
 
         private void ResetFireCycle()
         {
@@ -384,6 +395,7 @@ namespace GridSquad
             if (selectionCollider != null)
                 selectionCollider.enabled = false;
             worldUi.SetDead();
+            Died?.Invoke(this);
             director.NotifyCombatantDied(this);
         }
 

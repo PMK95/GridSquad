@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
 
@@ -56,7 +57,13 @@ namespace GridSquad
             if (ActionPressed("TargetCommand"))
                 SetTargetingMode(!targetingMode);
             if (ActionPressed("TogglePeek") && selectedCombatant != null && selectedCombatant.Team == Team.Ally)
-                selectedCombatant.SetPeekEnabled(!selectedCombatant.PeekEnabled);
+            {
+                UnitTacticalBehaviorController behaviorController =
+                    selectedCombatant.GetComponent<UnitTacticalBehaviorController>();
+                if (behaviorController != null)
+                    behaviorController.SetAutomaticPeekAllowed(
+                        !behaviorController.AutomaticPeekAllowed);
+            }
             if (ActionPressed("TogglePause"))
                 TogglePause();
             if (ActionPressed("Speed1"))
@@ -86,6 +93,9 @@ namespace GridSquad
 
         private void HandleLeftClick()
         {
+            if (IsPointerOverHud())
+                return;
+
             if (!TryRaycastUnit(out Combatant clicked))
             {
                 if (!targetingMode)
@@ -97,7 +107,9 @@ namespace GridSquad
             {
                 if (selectedCombatant != null && clicked.Team != selectedCombatant.Team)
                 {
-                    selectedCombatant.SetPriorityTarget(clicked);
+                    UnitTacticalBehaviorController behaviorController =
+                        selectedCombatant.GetComponent<UnitTacticalBehaviorController>();
+                    behaviorController?.SetPriorityTargetCommand(clicked);
                     SetTargetingMode(false);
                 }
                 return;
@@ -110,12 +122,19 @@ namespace GridSquad
         {
             if (selectedCombatant == null || selectedCombatant.Team != Team.Ally || targetingMode)
                 return;
+            if (IsPointerOverHud())
+                return;
             Vector2 pointer = tacticalMap.FindAction("PointerPosition", true).ReadValue<Vector2>();
             Ray ray = sceneCamera.ScreenPointToRay(pointer);
             if (!Physics.Raycast(ray, out RaycastHit hit, 500f, groundLayerMask, QueryTriggerInteraction.Ignore))
                 return;
-            selectedCombatant.SetMoveDestination(gridMap.WorldToGrid(hit.point));
+            UnitTacticalBehaviorController behaviorController =
+                selectedCombatant.GetComponent<UnitTacticalBehaviorController>();
+            behaviorController?.QueueMoveCommand(gridMap.WorldToGrid(hit.point));
         }
+
+        private static bool IsPointerOverHud()
+            => EventSystem.current != null && EventSystem.current.IsPointerOverGameObject();
 
         private bool TryRaycastUnit(out Combatant combatant)
         {
