@@ -46,7 +46,9 @@
     "com.unity.modules.wind": "1.0.0",
     "com.unity.modules.xr": "1.0.0",
     "com.ivanmurzak.unity.mcp": "0.84.1",
-    "com.ivanmurzak.unity.mcp.cinemachine": "1.0.13"
+    "com.ivanmurzak.unity.mcp.cinemachine": "1.0.13",
+    "com.ivanmurzak.unity.mcp.inputsystem": "1.0.13",
+    "com.ivanmurzak.unity.mcp.particlesystem": "1.2.27"
   },
   "scopedRegistries": [
     {
