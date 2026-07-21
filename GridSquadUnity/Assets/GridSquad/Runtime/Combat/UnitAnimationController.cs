@@ -19,6 +19,9 @@ namespace GridSquad
         [SerializeField] private AnimationClip reloadClip;
         [SerializeField] private AnimationClip hitClip;
         [SerializeField] private AnimationClip deathClip;
+        [SerializeField] private AnimationClip throwClip;
+        [SerializeField] private AnimationClip useItemClip;
+        [SerializeField] private AnimationClip dashClip;
 
         [Header("전환")]
         [SerializeField, Min(0f)] private float crossFadeDuration = 0.12f;
@@ -29,6 +32,7 @@ namespace GridSquad
         private float aimEnterDuration = 0.6f;
         private float shotAnimationEndTime;
         private float hitAnimationEndTime;
+        private float actionAnimationEndTime;
         private bool moving;
         private bool aiming;
         private bool reloading;
@@ -67,7 +71,11 @@ namespace GridSquad
         private void Update()
         {
             UpdateAimIkWeight();
-            if (dead || reloading || Time.time < hitAnimationEndTime || Time.time < shotAnimationEndTime)
+            if (dead
+                || reloading
+                || Time.time < hitAnimationEndTime
+                || Time.time < shotAnimationEndTime
+                || Time.time < actionAnimationEndTime)
                 return;
 
             PlayLoop(aiming ? aimingClip : moving ? walkingClip : idleClip);
@@ -162,6 +170,26 @@ namespace GridSquad
             state.Speed = 1f;
             currentClip = deathClip;
             return deathClip.length;
+        }
+
+        public float PlayThrowAction() => PlayActionClip(throwClip);
+
+        public float PlayUseItemAction() => PlayActionClip(useItemClip);
+
+        public float PlayDashAction() => PlayActionClip(dashClip);
+
+        private float PlayActionClip(AnimationClip clip)
+        {
+            if (dead || clip == null || animancer == null)
+                return 0f;
+
+            aiming = false;
+            reloading = false;
+            AnimancerState state = animancer.Play(clip, crossFadeDuration, FadeMode.FromStart);
+            state.Speed = 1f;
+            actionAnimationEndTime = Time.time + clip.length;
+            currentClip = clip;
+            return clip.length;
         }
 
         private void UpdateAimIkWeight()

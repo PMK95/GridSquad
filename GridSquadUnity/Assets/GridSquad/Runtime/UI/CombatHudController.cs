@@ -24,7 +24,9 @@ namespace GridSquad
         private Combatant selectedCombatant;
         private UnitTacticalBehaviorController selectedBehaviorController;
         private bool automaticModeInitialized;
-        private bool previousAutomaticMode;
+        private CombatControlMode previousControlMode;
+        private string actionMessage;
+        private float actionMessageEndTime;
 
         private static readonly Color CommandButtonColor =
             new(0.24f, 0.28f, 0.34f, 0.96f);
@@ -60,6 +62,20 @@ namespace GridSquad
                 modeText.text = value ? "TARGET MODE: ON" : "TARGET MODE: OFF";
         }
 
+        public void SetActionTargetingState(CombatActionKind kind)
+        {
+            if (modeText != null)
+                modeText.text = kind == CombatActionKind.Grenade
+                    ? "GRENADE: SELECT CELL"
+                    : "DASH: SELECT CELL";
+        }
+
+        public void SetActionMessage(string message)
+        {
+            actionMessage = message;
+            actionMessageEndTime = Time.unscaledTime + 2f;
+        }
+
         public void SetDebugState(bool value)
         {
             if (debugText != null)
@@ -80,19 +96,27 @@ namespace GridSquad
 
         public void SetAllyFullAutoState(bool enabled)
         {
+            SetAllyControlMode(enabled
+                ? CombatControlMode.FullAutomatic
+                : CombatControlMode.PlayerMovementAutomaticActions);
+        }
+
+        public void SetAllyControlMode(CombatControlMode mode)
+        {
             if (allyFullAutoButtonText != null)
-                allyFullAutoButtonText.text =
-                    enabled ? "ALLY AI: FULL AUTO" : "ALLY AI: COMMAND";
+                allyFullAutoButtonText.text = $"ALLY AI: {GetControlModeLabel(mode)}";
             if (allyFullAutoButton != null
                 && allyFullAutoButton.targetGraphic is Image buttonImage)
             {
                 buttonImage.color =
-                    enabled ? FullAutoButtonColor : CommandButtonColor;
+                    mode == CombatControlMode.FullAutomatic
+                        ? FullAutoButtonColor
+                        : CommandButtonColor;
             }
 
-            if (automaticModeInitialized && previousAutomaticMode != enabled)
+            if (automaticModeInitialized && previousControlMode != mode)
                 automaticModeChangedFeedbacks?.PlayFeedbacks();
-            previousAutomaticMode = enabled;
+            previousControlMode = mode;
             automaticModeInitialized = true;
         }
 
@@ -151,13 +175,27 @@ namespace GridSquad
             string controlMode = selectedCombatant.Team == Team.Enemy
                 ? "FULL AUTO"
                 : selectedBehaviorController != null
-                    && selectedBehaviorController.AutonomousMovementAllowed
-                    ? "FULL AUTO"
-                    : "COMMAND";
+                    ? GetControlModeLabel(selectedBehaviorController.ControlMode)
+                    : "-";
             string automaticPeek = selectedBehaviorController != null
                 && selectedBehaviorController.AutomaticPeekAllowed
                     ? "ON"
                     : "OFF";
+
+            CombatActionController actionController = selectedBehaviorController != null
+                ? selectedBehaviorController.ActionController
+                : null;
+            string actionInfo = actionController != null
+                ? $"G GRENADE  {actionController.GetActionStatusText(CombatActionKind.Grenade)}\n" +
+                  $"V STIM     {actionController.GetActionStatusText(CombatActionKind.Stim)}\n" +
+                  $"X DASH     {actionController.GetActionStatusText(CombatActionKind.Dash)}"
+                : "ACTIONS -";
+            string message = Time.unscaledTime < actionMessageEndTime
+                ? $"\n\n{actionMessage}"
+                : string.Empty;
+            string utilityDebug = director != null && director.DebugVisible && actionController != null
+                ? $"\n\n{actionController.BuildUtilityDebugText()}"
+                : string.Empty;
 
             selectedInfoBodyText.text =
                 $"TEAM  {team}\n" +
@@ -172,13 +210,21 @@ namespace GridSquad
                 $"COVER   {shot.CoverEvasionPercent:0}%\n" +
                 $"COVER ANG {coverAngle}\n" +
                 $"PEEK    {(selectedCombatant.PeekEnabled ? "ON" : "OFF")}  AUTO {automaticPeek}\n\n" +
-                weaponInfo;
+                weaponInfo + "\n\n" + actionInfo + message + utilityDebug;
         }
 
         private void HandleAllyFullAutoClicked()
         {
-            director?.ToggleAllyFullAuto();
+            director?.CycleAllyControlMode();
         }
+
+        private static string GetControlModeLabel(CombatControlMode mode)
+            => mode switch
+            {
+                CombatControlMode.FullAutomatic => "FULL AUTO",
+                CombatControlMode.PlayerMovementAutomaticActions => "MOVE MANUAL / ACTION AUTO",
+                _ => "FULL MANUAL"
+            };
 
 #if UNITY_EDITOR
         public void SetEditorReferences(

@@ -14,12 +14,13 @@ namespace GridSquad
 
         private bool debugVisible;
         private bool battleFinished;
-        private bool allyFullAutoEnabled;
+        private CombatControlMode allyControlMode = CombatControlMode.PlayerMovementAutomaticActions;
 
         public IReadOnlyList<Combatant> Combatants => combatants;
         public bool DebugVisible => debugVisible;
         public bool BattleFinished => battleFinished;
-        public bool AllyFullAutoEnabled => allyFullAutoEnabled;
+        public CombatControlMode AllyControlMode => allyControlMode;
+        public bool AllyFullAutoEnabled => allyControlMode == CombatControlMode.FullAutomatic;
 
         private void Awake()
         {
@@ -29,7 +30,7 @@ namespace GridSquad
 
         private void Start()
         {
-            SetAllyFullAutoEnabled(false);
+            SetAllyControlMode(CombatControlMode.PlayerMovementAutomaticActions);
         }
 
         public Combatant FindClosestShootableEnemy(Combatant requester, bool allowPeek)
@@ -59,12 +60,30 @@ namespace GridSquad
 
         public void ToggleAllyFullAuto()
         {
-            SetAllyFullAutoEnabled(!allyFullAutoEnabled);
+            CycleAllyControlMode();
         }
 
         public void SetAllyFullAutoEnabled(bool enabled)
         {
-            allyFullAutoEnabled = enabled;
+            SetAllyControlMode(enabled
+                ? CombatControlMode.FullAutomatic
+                : CombatControlMode.PlayerMovementAutomaticActions);
+        }
+
+        public void CycleAllyControlMode()
+        {
+            CombatControlMode nextMode = allyControlMode switch
+            {
+                CombatControlMode.FullAutomatic => CombatControlMode.PlayerMovementAutomaticActions,
+                CombatControlMode.PlayerMovementAutomaticActions => CombatControlMode.PlayerMovementPlayerActions,
+                _ => CombatControlMode.FullAutomatic
+            };
+            SetAllyControlMode(nextMode);
+        }
+
+        public void SetAllyControlMode(CombatControlMode mode)
+        {
+            allyControlMode = mode;
             foreach (Combatant combatant in combatants)
             {
                 if (combatant == null || combatant.Team != Team.Ally)
@@ -72,10 +91,15 @@ namespace GridSquad
                 UnitTacticalBehaviorController controller =
                     combatant.GetComponent<UnitTacticalBehaviorController>();
                 if (controller != null)
-                    controller.SetAutonomousMovementAllowed(enabled);
+                    controller.SetControlMode(mode);
             }
-            hud.SetAllyFullAutoState(enabled);
+            hud.SetAllyControlMode(mode);
         }
+
+        public CombatControlMode GetControlModeFor(Combatant combatant)
+            => combatant != null && combatant.Team == Team.Enemy
+                ? CombatControlMode.FullAutomatic
+                : allyControlMode;
 
         public IEnumerable<Combatant> GetLivingEnemies(Team team)
         {

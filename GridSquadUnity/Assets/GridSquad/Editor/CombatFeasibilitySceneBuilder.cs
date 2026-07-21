@@ -30,6 +30,9 @@ namespace GridSquadEditor
         private const string WeaponPath = RootPath + "/Settings/WeaponDefinition.asset";
         private const string BehaviorGraphPath = RootPath + "/Behavior/UnitCombatBehavior.asset";
         private const string InputActionsPath = "Assets/InputSystem_Actions.inputactions";
+        private const string GrenadeActionPath = RootPath + "/Settings/GrenadeAction.asset";
+        private const string StimActionPath = RootPath + "/Settings/StimAction.asset";
+        private const string DashActionPath = RootPath + "/Settings/DashAction.asset";
 
         private const int GroundLayer = 8;
         private const int UnitLayer = 9;
@@ -53,9 +56,12 @@ namespace GridSquadEditor
 
             CombatTuning tuning = LoadOrCreateAsset<CombatTuning>(TuningPath);
             WeaponDefinition weapon = LoadOrCreateAsset<WeaponDefinition>(WeaponPath);
+            CombatActionDefinition[] actionDefinitions = CreateOrUpdateCombatActionDefinitions();
+            ConfigureUnitBaseCombatActions(actionDefinitions);
             InputActionAsset inputActions = AssetDatabase.LoadAssetAtPath<InputActionAsset>(InputActionsPath);
             if (inputActions == null)
                 throw new InvalidOperationException("전술 입력 에셋을 찾지 못했습니다.");
+            EnsureCombatInputActions(inputActions);
 
             Material allyMaterial = CreateOrUpdateMaterial("Ally", new Color(0.15f, 0.55f, 1f));
             Material enemyMaterial = CreateOrUpdateMaterial("Enemy", new Color(1f, 0.22f, 0.18f));
@@ -279,6 +285,10 @@ namespace GridSquadEditor
                 if (behaviorAgent == null || behaviorController == null
                     || behaviorAgent.Graph != expectedBehaviorGraph)
                     throw new InvalidOperationException($"{combatant.name}의 전술 AI가 누락되었습니다.");
+                CombatActionLoadout loadout = combatant.GetComponent<CombatActionLoadout>();
+                CombatActionController actionController = combatant.GetComponent<CombatActionController>();
+                if (loadout == null || actionController == null || loadout.Definitions.Count != 3)
+                    throw new InvalidOperationException($"{combatant.name}의 전투 액션 로드아웃이 누락되었습니다.");
             }
             if (allyCount != 3 || enemyCount != 4)
                 throw new InvalidOperationException($"유닛 배치 수가 올바르지 않습니다. 아군 {allyCount}, 적군 {enemyCount}");
@@ -316,7 +326,8 @@ namespace GridSquadEditor
             {
                 "CameraMove", "PointerPosition", "PointerDelta", "CameraOrbit", "CameraZoom",
                 "Select", "MoveCommand", "TargetCommand", "TogglePeek", "TogglePause",
-                "Speed1", "Speed2", "Speed3", "Speed4", "Cancel", "ToggleDebug", "Restart"
+                "Speed1", "Speed2", "Speed3", "Speed4", "Cancel", "ToggleDebug", "Restart",
+                "CycleControlMode", "Grenade", "Stim", "Dash"
             };
             if (tacticalMap == null)
                 throw new InvalidOperationException("Tactical 입력 맵이 누락되었습니다.");
@@ -409,6 +420,102 @@ namespace GridSquadEditor
             asset = ScriptableObject.CreateInstance<T>();
             AssetDatabase.CreateAsset(asset, path);
             return asset;
+        }
+
+        private static CombatActionDefinition[] CreateOrUpdateCombatActionDefinitions()
+        {
+            CombatActionDefinition grenade = LoadOrCreateAsset<CombatActionDefinition>(GrenadeActionPath);
+            grenade.SetEditorConfiguration(
+                CombatActionKind.Grenade,
+                "수류탄",
+                CombatActionTargetType.GridCell,
+                true,
+                true,
+                1,
+                0f,
+                0.5f);
+            grenade.SetEditorGrenadeConfiguration(5, 1, 40, 0.4f);
+
+            CombatActionDefinition stim = LoadOrCreateAsset<CombatActionDefinition>(StimActionPath);
+            stim.SetEditorConfiguration(
+                CombatActionKind.Stim,
+                "자극제",
+                CombatActionTargetType.Self,
+                true,
+                true,
+                1,
+                0f,
+                0.5f);
+            stim.SetEditorStimConfiguration(8f, 1.35f, 0.75f);
+
+            CombatActionDefinition dash = LoadOrCreateAsset<CombatActionDefinition>(DashActionPath);
+            dash.SetEditorConfiguration(
+                CombatActionKind.Dash,
+                "돌진",
+                CombatActionTargetType.GridCell,
+                true,
+                false,
+                -1,
+                6f,
+                0f);
+            dash.SetEditorDashConfiguration(3, 3f, 15f);
+
+            EditorUtility.SetDirty(grenade);
+            EditorUtility.SetDirty(stim);
+            EditorUtility.SetDirty(dash);
+            return new[] { grenade, stim, dash };
+        }
+
+        private static void ConfigureUnitBaseCombatActions(
+            CombatActionDefinition[] actionDefinitions)
+        {
+            GameObject root = PrefabUtility.LoadPrefabContents(UnitBasePrefabPath);
+            try
+            {
+                CombatActionLoadout loadout = root.GetComponent<CombatActionLoadout>();
+                if (loadout == null)
+                    loadout = root.AddComponent<CombatActionLoadout>();
+                if (root.GetComponent<CombatActionController>() == null)
+                    root.AddComponent<CombatActionController>();
+                loadout.SetEditorDefinitions(actionDefinitions);
+                EditorUtility.SetDirty(loadout);
+                PrefabUtility.SaveAsPrefabAsset(root, UnitBasePrefabPath);
+            }
+            finally
+            {
+                PrefabUtility.UnloadPrefabContents(root);
+            }
+        }
+
+        private static void EnsureCombatInputActions(InputActionAsset inputActions)
+        {
+            InputActionMap tacticalMap = inputActions.FindActionMap("Tactical", true);
+            EnsureButtonAction(tacticalMap, "CycleControlMode", "<Keyboard>/tab");
+            EnsureButtonAction(tacticalMap, "Grenade", "<Keyboard>/g");
+            EnsureButtonAction(tacticalMap, "Stim", "<Keyboard>/v");
+            EnsureButtonAction(tacticalMap, "Dash", "<Keyboard>/x");
+            EditorUtility.SetDirty(inputActions);
+        }
+
+        private static void EnsureButtonAction(
+            InputActionMap actionMap,
+            string actionName,
+            string bindingPath)
+        {
+            InputAction action = actionMap.FindAction(actionName, false);
+            if (action == null)
+                action = actionMap.AddAction(actionName, InputActionType.Button);
+            bool hasBinding = false;
+            foreach (InputBinding binding in action.bindings)
+            {
+                if (binding.path == bindingPath)
+                {
+                    hasBinding = true;
+                    break;
+                }
+            }
+            if (!hasBinding)
+                action.AddBinding(bindingPath, groups: "Keyboard&Mouse");
         }
 
         private static GameObject LoadRequiredPrefab(string path)
@@ -985,7 +1092,7 @@ namespace GridSquadEditor
                 new Vector2(320f, 46f),
                 new Vector2(0f, 1f));
             Text controls = CreateText("Controls", canvasObject.transform, 18, TextAnchor.LowerLeft);
-            controls.text = "LMB Select/Target | RMB Move | T Target | Q Peek | Space Pause | 1/2/3 Speed | F1 Debug | R Restart";
+            controls.text = "LMB Select/Use | RMB Move | T Target | Tab Mode | G Grenade | V Stim | X Dash | Esc Cancel | Space Pause | 1/2/3/4 Speed | F1 Debug | R Restart";
             SetHudRect(controls.rectTransform, new Vector2(20f, 20f), new Vector2(1200f, 36f), new Vector2(0f, 0f));
 
             Image selectedInfoPanel = CreateImage("SelectedInfoPanel", canvasObject.transform, new Color(0.035f, 0.045f, 0.06f, 0.92f));

@@ -5029,7 +5029,7 @@ MonoBehaviour:
   DebugActive: 0
   InScriptDrivenPause: 0
   FeedbacksList:
-  - rid: 5381438089376563677
+  - rid: 5381438107160674646
   KeepPlayModeChanges: 0
   PerformanceMode: 0
   RestoreInitialValuesOnDisable: 0
@@ -5041,13 +5041,13 @@ MonoBehaviour:
   references:
     version: 2
     RefIds:
-    - rid: 5381438089376563677
+    - rid: 5381438107160674646
       type: {class: MMF_FloatingText, ns: MoreMountains.Feedbacks, asm: MoreMountains.Tools}
       data:
         Active: 1
-        UniqueID: 826648473
+        UniqueID: 1296511199
         Label: "\uBE57\uB098\uAC10 MISS"
-        OriginalLabel: Floating Text
+        OriginalLabel: 
         ChannelMode: 1
         Channel: 0
         MMChannelDefinition: {fileID: 11400000, guid: 2173622216c0f8c40ad382175ec3ff60, type: 2}
@@ -5201,6 +5201,8 @@ GameObject:
   - component: {fileID: 448263477535009713}
   - component: {fileID: 6969898791186006547}
   - component: {fileID: 3874138156721311992}
+  - component: {fileID: 4553203973316939489}
+  - component: {fileID: 1171881880182107069}
   m_Layer: 9
   m_Name: UnitBase
   m_TagString: Untagged
@@ -5264,7 +5266,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GridSquad.Combatant
   team: 0
-  maximumHealth: 1111
+  maximumHealth: 200
   weapon: {fileID: 11400000, guid: fe826854c04049d46a2e0c277a5603f4, type: 2}
   tuning: {fileID: 11400000, guid: 750f35e9934c51e41aa779aa3c765d69, type: 2}
   gridMap: {fileID: 0}
@@ -5289,10 +5291,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f0038c16c34866b4f9e25c9c0dc0f7e6, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Behavior::Unity.Behavior.BehaviorGraphAgent
-  m_Graph: {fileID: 7888038700063192343, guid: d6a06066f66114a489860ef69d1165c4, type: 2}
+  m_Graph: {fileID: 4890128353374215816, guid: d6a06066f66114a489860ef69d1165c4, type: 2}
   m_BlackboardVariableOverridesList:
   - rid: 5381438083667853395
-  m_OriginalGraph: {fileID: 7888038700063192343, guid: d6a06066f66114a489860ef69d1165c4, type: 2}
+  m_OriginalGraph: {fileID: 0}
   m_IsInitialised: 0
   m_IsStarted: 0
   references:
@@ -5327,6 +5329,7 @@ MonoBehaviour:
   behaviorAgent: {fileID: 448263477535009713}
   autonomousMovementDefault: 0
   automaticPeekDefault: 1
+  actionController: {fileID: 0}
 --- !u!114 &3874138156721311992
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -5348,6 +5351,41 @@ MonoBehaviour:
   deathVisualFeedbacks: {fileID: 264136300913456254}
   deathShakeFeedbacks: {fileID: 7401976493407408834}
   defeatShakeFeedbacks: {fileID: 6956646357863628200}
+--- !u!114 &4553203973316939489
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2985916207501052990}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 163c80dba2e59ed428510adb32688337, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::GridSquad.CombatActionLoadout
+  definitions:
+  - {fileID: 11400000, guid: 85d322d0da956394bab29cc2da1f36f9, type: 2}
+  - {fileID: 11400000, guid: 915388927c7ed434da7dec59aa43bc93, type: 2}
+  - {fileID: 11400000, guid: aea859656eaa37d469f683122a99dada, type: 2}
+--- !u!114 &1171881880182107069
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2985916207501052990}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0b55327d541c9da4fa2d4e5861207a61, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::GridSquad.CombatActionController
+  combatant: {fileID: 0}
+  gridMap: {fileID: 0}
+  shotEvaluator: {fileID: 0}
+  director: {fileID: 0}
+  positionEvaluator: {fileID: 0}
+  tuning: {fileID: 0}
+  loadout: {fileID: 0}
 --- !u!1 &3846169453653415163
 GameObject:
   m_ObjectHideFlags: 0
@@ -5522,7 +5560,7 @@ MonoBehaviour:
   DebugActive: 0
   InScriptDrivenPause: 0
   FeedbacksList:
-  - rid: 5381438089376563681
+  - rid: 5381438107160674650
   KeepPlayModeChanges: 0
   PerformanceMode: 0
   RestoreInitialValuesOnDisable: 0
@@ -5534,11 +5572,11 @@ MonoBehaviour:
   references:
     version: 2
     RefIds:
-    - rid: 5381438089376563681
+    - rid: 5381438107160674650
       type: {class: MMF_CameraShake, ns: MoreMountains.Feedbacks, asm: MoreMountains.Tools}
       data:
         Active: 1
-        UniqueID: -334855497
+        UniqueID: -2144645994
         Label: "\uAC8C\uC784 \uD328\uBC30 \uC170\uC774\uD06C"
         OriginalLabel: 
         ChannelMode: 1
@@ -5751,7 +5789,7 @@ MonoBehaviour:
   DebugActive: 0
   InScriptDrivenPause: 0
   FeedbacksList:
-  - rid: 5381438089376563680
+  - rid: 5381438107160674649
   KeepPlayModeChanges: 0
   PerformanceMode: 0
   RestoreInitialValuesOnDisable: 0
@@ -5763,11 +5801,11 @@ MonoBehaviour:
   references:
     version: 2
     RefIds:
-    - rid: 5381438089376563680
+    - rid: 5381438107160674649
       type: {class: MMF_CameraShake, ns: MoreMountains.Feedbacks, asm: MoreMountains.Tools}
       data:
         Active: 1
-        UniqueID: -1267160636
+        UniqueID: -1140047392
         Label: "\uC720\uB2DB \uC0AC\uB9DD \uC170\uC774\uD06C"
         OriginalLabel: 
         ChannelMode: 1
@@ -11025,7 +11063,7 @@ MonoBehaviour:
   DebugActive: 0
   InScriptDrivenPause: 0
   FeedbacksList:
-  - rid: 5381438089376563676
+  - rid: 5381438107160674645
   KeepPlayModeChanges: 0
   PerformanceMode: 0
   RestoreInitialValuesOnDisable: 0
@@ -11037,11 +11075,11 @@ MonoBehaviour:
   references:
     version: 2
     RefIds:
-    - rid: 5381438089376563676
+    - rid: 5381438107160674645
       type: {class: MMF_FloatingText, ns: MoreMountains.Feedbacks, asm: MoreMountains.Tools}
       data:
         Active: 1
-        UniqueID: 508913667
+        UniqueID: -1798517689
         Label: "\uC2E4\uC81C \uAC10\uC18C \uB370\uBBF8\uC9C0"
         OriginalLabel: 
         ChannelMode: 1
@@ -11287,8 +11325,8 @@ MonoBehaviour:
   DebugActive: 0
   InScriptDrivenPause: 0
   FeedbacksList:
-  - rid: 5381438089376563674
-  - rid: 5381438089376563675
+  - rid: 5381438107160674643
+  - rid: 5381438107160674644
   KeepPlayModeChanges: 0
   PerformanceMode: 0
   RestoreInitialValuesOnDisable: 0
@@ -11300,13 +11338,13 @@ MonoBehaviour:
   references:
     version: 2
     RefIds:
-    - rid: 5381438089376563674
+    - rid: 5381438107160674643
       type: {class: MMF_Flicker, ns: MoreMountains.Feedbacks, asm: MoreMountains.Tools}
       data:
         Active: 1
-        UniqueID: -529112769
+        UniqueID: 1382616677
         Label: "URP \uBC1C\uAD11 \uD53C\uACA9 \uD50C\uB9AC\uCEE4"
-        OriginalLabel: Flicker
+        OriginalLabel: 
         ChannelMode: 0
         Channel: 0
         MMChannelDefinition: {fileID: 0}
@@ -11394,13 +11432,13 @@ MonoBehaviour:
         MaterialIndexes: 00000000
         UseMaterialPropertyBlocks: 1
         SpriteRendererTextureProperty: _MainTex
-    - rid: 5381438089376563675
+    - rid: 5381438107160674644
       type: {class: MMF_Particles, ns: MoreMountains.Feedbacks, asm: MoreMountains.Tools}
       data:
         Active: 1
-        UniqueID: 1035120681
+        UniqueID: -1434576393
         Label: "\uD53C\uACA9 \uD30C\uD2F0\uD074"
-        OriginalLabel: Particles Play
+        OriginalLabel: 
         ChannelMode: 0
         Channel: 0
         MMChannelDefinition: {fileID: 0}
@@ -11648,8 +11686,8 @@ MonoBehaviour:
   DebugActive: 0
   InScriptDrivenPause: 0
   FeedbacksList:
-  - rid: 5381438089376563678
-  - rid: 5381438089376563679
+  - rid: 5381438107160674647
+  - rid: 5381438107160674648
   KeepPlayModeChanges: 0
   PerformanceMode: 0
   RestoreInitialValuesOnDisable: 0
@@ -11661,11 +11699,11 @@ MonoBehaviour:
   references:
     version: 2
     RefIds:
-    - rid: 5381438089376563678
+    - rid: 5381438107160674647
       type: {class: MMF_Particles, ns: MoreMountains.Feedbacks, asm: MoreMountains.Tools}
       data:
         Active: 1
-        UniqueID: 1864502941
+        UniqueID: -1381348641
         Label: "\uAC15\uD55C \uC0AC\uB9DD \uD30C\uD2F0\uD074"
         OriginalLabel: 
         ChannelMode: 0
@@ -11747,11 +11785,11 @@ MonoBehaviour:
         DeclaredDuration: 0
         ForceSimulationSpeed: 0
         ForcedSimulationSpeed: {x: 0.1, y: 1}
-    - rid: 5381438089376563679
+    - rid: 5381438107160674648
       type: {class: MMF_FreezeFrame, ns: MoreMountains.Feedbacks, asm: MoreMountains.Tools}
       data:
         Active: 1
-        UniqueID: 2118740103
+        UniqueID: 1051183548
         Label: "\uC0AC\uB9DD \uD788\uD2B8\uC2A4\uD1B1"
         OriginalLabel: 
         ChannelMode: 0
@@ -11958,10 +11996,10 @@ MonoBehaviour:
   DebugActive: 0
   InScriptDrivenPause: 0
   FeedbacksList:
-  - rid: 5381438089376563686
-  - rid: 5381438089376563687
-  - rid: 5381438089376563688
-  - rid: 5381438089376563689
+  - rid: 5381438107160674639
+  - rid: 5381438107160674640
+  - rid: 5381438107160674641
+  - rid: 5381438107160674642
   KeepPlayModeChanges: 0
   PerformanceMode: 0
   RestoreInitialValuesOnDisable: 0
@@ -11973,13 +12011,13 @@ MonoBehaviour:
   references:
     version: 2
     RefIds:
-    - rid: 5381438089376563686
+    - rid: 5381438107160674639
       type: {class: MMF_Particles, ns: MoreMountains.Feedbacks, asm: MoreMountains.Tools}
       data:
         Active: 1
-        UniqueID: -1883145259
+        UniqueID: -933317582
         Label: "\uCD1D\uAD6C \uD30C\uD2F0\uD074"
-        OriginalLabel: Particles Play
+        OriginalLabel: 
         ChannelMode: 0
         Channel: 0
         MMChannelDefinition: {fileID: 0}
@@ -11994,7 +12032,7 @@ MonoBehaviour:
           NumberOfRepeats: 0
           RepeatForever: 0
           DelayBetweenRepeats: 1
-          PlayCount: 30
+          PlayCount: 0
           LimitPlayCount: 0
           MaxPlayCount: 3
           SetPlayCountToZeroOnReset: 0
@@ -12059,13 +12097,13 @@ MonoBehaviour:
         DeclaredDuration: 0
         ForceSimulationSpeed: 0
         ForcedSimulationSpeed: {x: 0.1, y: 1}
-    - rid: 5381438089376563687
+    - rid: 5381438107160674640
       type: {class: MMF_SetActive, ns: MoreMountains.Feedbacks, asm: MoreMountains.Tools}
       data:
         Active: 1
-        UniqueID: -773274746
+        UniqueID: -779742071
         Label: "\uD2B8\uB808\uC774\uC11C \uD45C\uC2DC"
-        OriginalLabel: Set Active
+        OriginalLabel: 
         ChannelMode: 0
         Channel: 0
         MMChannelDefinition: {fileID: 0}
@@ -12080,7 +12118,7 @@ MonoBehaviour:
           NumberOfRepeats: 0
           RepeatForever: 0
           DelayBetweenRepeats: 1
-          PlayCount: 30
+          PlayCount: 0
           LimitPlayCount: 0
           MaxPlayCount: 3
           SetPlayCountToZeroOnReset: 0
@@ -12148,13 +12186,13 @@ MonoBehaviour:
         StateOnSkip: 1
         SetStateOnPlayerComplete: 0
         StateOnPlayerComplete: 1
-    - rid: 5381438089376563688
+    - rid: 5381438107160674641
       type: {class: MMF_LineRenderer, ns: MoreMountains.Feedbacks, asm: MoreMountains.Tools}
       data:
         Active: 1
-        UniqueID: 1772505241
+        UniqueID: 390505165
         Label: "\uD2B8\uB808\uC774\uC11C \uD3ED\xB7\uC0C9\uC0C1 \uD398\uC774\uB4DC"
-        OriginalLabel: Line Renderer
+        OriginalLabel: 
         ChannelMode: 0
         Channel: 0
         MMChannelDefinition: {fileID: 0}
@@ -12169,7 +12207,7 @@ MonoBehaviour:
           NumberOfRepeats: 0
           RepeatForever: 0
           DelayBetweenRepeats: 1
-          PlayCount: 33
+          PlayCount: 0
           LimitPlayCount: 0
           MaxPlayCount: 3
           SetPlayCountToZeroOnReset: 0
@@ -12266,7 +12304,7 @@ MonoBehaviour:
           ConditionPropertyName: 
           EnumConditionPropertyName: 
           EnumConditions: 0000000000000000000000000000000000000000000000000000000000000000
-        ModifyWidth: 0
+        ModifyWidth: 1
         NewWidth:
           serializedVersion: 2
           m_Curve:
@@ -12275,16 +12313,16 @@ MonoBehaviour:
             value: 1
             inSlope: 0
             outSlope: 0
-            tangentMode: 34
+            tangentMode: 0
             weightedMode: 0
             inWeight: 0
             outWeight: 0
           - serializedVersion: 3
             time: 1
-            value: 1
+            value: 0
             inSlope: 0
             outSlope: 0
-            tangentMode: 34
+            tangentMode: 0
             weightedMode: 0
             inWeight: 0
             outWeight: 0
@@ -12322,13 +12360,13 @@ MonoBehaviour:
           m_ColorSpace: -1
           m_NumColorKeys: 2
           m_NumAlphaKeys: 2
-    - rid: 5381438089376563689
+    - rid: 5381438107160674642
       type: {class: MMF_SetActive, ns: MoreMountains.Feedbacks, asm: MoreMountains.Tools}
       data:
         Active: 1
-        UniqueID: 512533892
+        UniqueID: 1694596609
         Label: "\uD2B8\uB808\uC774\uC11C \uC228\uAE40"
-        OriginalLabel: Set Active
+        OriginalLabel: 
         ChannelMode: 0
         Channel: 0
         MMChannelDefinition: {fileID: 0}
@@ -12343,7 +12381,7 @@ MonoBehaviour:
           NumberOfRepeats: 0
           RepeatForever: 0
           DelayBetweenRepeats: 1
-          PlayCount: 30
+          PlayCount: 0
           LimitPlayCount: 0
           MaxPlayCount: 3
           SetPlayCountToZeroOnReset: 0

@@ -12,6 +12,7 @@ namespace GridSquad
         public readonly bool IsCoveredFiringPosition;
         public readonly float Score;
         public readonly int PathCost;
+        public readonly float MovementExposurePenalty;
 
         public TacticalCellChoice(
             GridCoordinate cell,
@@ -20,7 +21,8 @@ namespace GridSquad
             CoverEvaluation incomingCover,
             bool isCoveredFiringPosition,
             float score,
-            int pathCost)
+            int pathCost,
+            float movementExposurePenalty)
         {
             Cell = cell;
             Target = target;
@@ -29,6 +31,7 @@ namespace GridSquad
             IsCoveredFiringPosition = isCoveredFiringPosition;
             Score = score;
             PathCost = pathCost;
+            MovementExposurePenalty = movementExposurePenalty;
         }
     }
 
@@ -63,6 +66,7 @@ namespace GridSquad
                         requester,
                         cell,
                         path.Count,
+                        CalculateMovementExposurePenalty(requester, path),
                         allowPeek,
                         requiredTarget);
                 }
@@ -82,6 +86,7 @@ namespace GridSquad
                 requester,
                 requester.CurrentCell,
                 0,
+                0f,
                 allowPeek,
                 requiredTarget);
             choices.Sort(CompareChoicesByScore);
@@ -93,6 +98,7 @@ namespace GridSquad
             Combatant requester,
             GridCoordinate cell,
             int pathCost,
+            float movementExposurePenalty,
             bool allowPeek,
             Combatant requiredTarget)
         {
@@ -117,6 +123,7 @@ namespace GridSquad
                     + shot.HitChancePercent
                     + incomingCover.EvasionPercent
                     - pathCost * tuning.AiPathCostWeight
+                    - movementExposurePenalty
                     - Mathf.Abs(distance - tuning.AiIdealRangeCells) * tuning.AiRangeDifferenceWeight;
                 choices.Add(new TacticalCellChoice(
                     cell,
@@ -125,8 +132,35 @@ namespace GridSquad
                     incomingCover,
                     isCoveredFiringPosition,
                     score,
-                    pathCost));
+                    pathCost,
+                    movementExposurePenalty));
             }
+        }
+
+        private float CalculateMovementExposurePenalty(
+            Combatant requester,
+            IReadOnlyList<GridCoordinate> path)
+        {
+            float penalty = 0f;
+            foreach (GridCoordinate pathCell in path)
+            {
+                float highestIncomingHitChance = 0f;
+                foreach (Combatant enemy in director.GetLivingEnemies(requester.Team))
+                {
+                    ShotEvaluation incomingShot = shotEvaluator.EvaluateShotAtCell(
+                        enemy,
+                        pathCell,
+                        enemy.CurrentIndicatorShotOriginCell);
+                    if (incomingShot.CanShoot)
+                    {
+                        highestIncomingHitChance = Mathf.Max(
+                            highestIncomingHitChance,
+                            incomingShot.HitChancePercent);
+                    }
+                }
+                penalty += highestIncomingHitChance * 0.08f;
+            }
+            return penalty;
         }
 
         public static int CompareChoicesByScore(TacticalCellChoice left, TacticalCellChoice right)

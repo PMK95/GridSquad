@@ -22,6 +22,7 @@ namespace GridSquad
         [SerializeField] private BehaviorGraphAgent behaviorAgent;
         [SerializeField] private bool autonomousMovementDefault;
         [SerializeField] private bool automaticPeekDefault = true;
+        [SerializeField] private CombatActionController actionController;
 
         private readonly List<TacticalCellChoice> debugChoices = new();
         private MovementIntent movementIntent;
@@ -33,6 +34,7 @@ namespace GridSquad
         private float nextTacticalEvaluationTime;
         private float nextMovementTime;
         private float nextShotEvaluationTime;
+        private CombatControlMode controlMode;
 
         public bool AutonomousMovementAllowed => autonomousMovementAllowed;
         public bool AutomaticPeekAllowed => automaticPeekAllowed;
@@ -41,6 +43,23 @@ namespace GridSquad
         public Combatant PriorityTarget => priorityTarget;
         public Combatant CurrentTarget => combatant != null ? combatant.CurrentTarget : null;
         public BehaviorGraphAgent BehaviorAgent => behaviorAgent;
+        public CombatActionController ActionController => actionController;
+        public CombatControlMode ControlMode => controlMode;
+
+        private void Awake()
+        {
+            if (actionController == null)
+                actionController = GetComponent<CombatActionController>();
+            if (actionController == null)
+                actionController = gameObject.AddComponent<CombatActionController>();
+            actionController.ConfigureRuntime(
+                combatant,
+                gridMap,
+                shotEvaluator,
+                director,
+                positionEvaluator,
+                tuning);
+        }
 
         private void OnEnable()
         {
@@ -50,7 +69,11 @@ namespace GridSquad
 
         private void Start()
         {
-            SetAutonomousMovementAllowed(autonomousMovementDefault);
+            SetControlMode(director != null
+                ? director.GetControlModeFor(combatant)
+                : autonomousMovementDefault
+                    ? CombatControlMode.FullAutomatic
+                    : CombatControlMode.PlayerMovementAutomaticActions);
             SetAutomaticPeekAllowed(automaticPeekDefault);
             WriteBlackboardValue("MoveCommandPending", false);
             WriteBlackboardValue<GameObject>("PriorityTarget", null);
@@ -94,10 +117,25 @@ namespace GridSquad
 
         public void SetAutonomousMovementAllowed(bool allowed)
         {
-            autonomousMovementAllowed = allowed;
-            WriteBlackboardValue("AutonomousMovementAllowed", allowed);
-            if (!allowed)
+            SetControlMode(allowed
+                ? CombatControlMode.FullAutomatic
+                : CombatControlMode.PlayerMovementAutomaticActions);
+        }
+
+        public void SetControlMode(CombatControlMode mode)
+        {
+            CombatControlMode previousMode = controlMode;
+            controlMode = combatant != null && combatant.Team == Team.Enemy
+                ? CombatControlMode.FullAutomatic
+                : mode;
+            autonomousMovementAllowed = controlMode == CombatControlMode.FullAutomatic;
+            WriteBlackboardValue("AutonomousMovementAllowed", autonomousMovementAllowed);
+            if (previousMode == CombatControlMode.FullAutomatic
+                && controlMode != CombatControlMode.FullAutomatic)
+            {
+                actionController?.RequestAutomaticMovementStopAfterCellArrival();
                 CancelAutonomousMovement();
+            }
             nextTacticalEvaluationTime = 0f;
         }
 
@@ -107,7 +145,11 @@ namespace GridSquad
                 return;
 
             if (combatant.IsMoving)
-                combatant.StopMovementAtCurrentCell();
+            {
+                actionController?.RequestAutomaticMovementStopAfterCellArrival();
+                combatant.RequestStopMovementAfterCurrentCell();
+                return;
+            }
             movementIntent = MovementIntent.None;
         }
 
@@ -129,7 +171,7 @@ namespace GridSquad
             if (combatant == null || !combatant.IsAlive || director == null || director.BattleFinished)
                 return;
 
-            autonomousMovementAllowed = requestedAutonomousMovement;
+            autonomousMovementAllowed = controlMode == CombatControlMode.FullAutomatic;
             automaticPeekAllowed = requestedAutomaticPeek;
             moveCommandPending |= requestedMovePending;
             if (requestedMovePending)
@@ -162,6 +204,7 @@ namespace GridSquad
             if (combatant.IsMoving
                 || combatant.IsReloading
                 || combatant.IsHitReacting
+                || actionController.IsPerformingExclusiveAction
                 || Time.time < nextTacticalEvaluationTime)
                 return;
 
@@ -170,10 +213,7 @@ namespace GridSquad
                     ? tuning.AiEvaluationInterval
                     : tuning.EvaluationRefreshInterval);
 
-            if (autonomousMovementAllowed)
-                ChooseAutonomousCombatIntent();
-            else
-                RefreshCommandModeCombatIntent();
+            SelectCombatIntentForCurrentMode();
         }
 
         public void TickCombatExecutionFromBehavior(GameObject requestedCurrentTarget)
@@ -200,13 +240,13 @@ namespace GridSquad
                 nextShotEvaluationTime = Time.time + tuning.EvaluationRefreshInterval;
                 combatant.RefreshShotEvaluationForCurrentTarget();
             }
-            combatant.TickAutomaticFireCycleFromBehavior();
+            actionController.TickActionExecutionFromBehavior();
         }
 
         private void ProcessPendingMoveCommand()
         {
             GridCoordinate destination = gridMap.WorldToGrid(moveDestinationWorld);
-            if (combatant.SetMoveDestination(destination))
+            if (actionController.TryStartPlayerReposition(destination, out _))
             {
                 movementIntent = MovementIntent.PlayerCommand;
                 combatant.SetPeekEnabled(false);
@@ -215,6 +255,25 @@ namespace GridSquad
             moveCommandPending = false;
             WriteBlackboardValue("MoveCommandPending", false);
             nextTacticalEvaluationTime = 0f;
+        }
+
+        private void SelectCombatIntentForCurrentMode()
+        {
+            if (controlMode == CombatControlMode.PlayerMovementPlayerActions)
+            {
+                actionController.EnsureManualBasicAttackTarget(
+                    priorityTarget,
+                    automaticPeekAllowed);
+            }
+            else
+            {
+                actionController.SelectAndStartAutomaticAction(
+                    controlMode,
+                    priorityTarget,
+                    automaticPeekAllowed);
+            }
+
+            WriteCurrentTargetToBlackboard();
         }
 
         private void RefreshCommandModeCombatIntent()

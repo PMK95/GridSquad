@@ -47,6 +47,11 @@ namespace GridSquad
         private bool selected;
         private bool debugVisible;
         private Vector3 activePeekOffset;
+        private bool stopMovementAfterCellArrival;
+        private float temporaryMovementSpeedMultiplier = 1f;
+        private float stimMovementSpeedMultiplier = 1f;
+        private float stimFireIntervalMultiplier = 1f;
+        private float stimRemainingSeconds;
 
         public event Action<Combatant> Died;
 
@@ -85,6 +90,8 @@ namespace GridSquad
         public bool IsReloading => fireCycleState == FireCycleState.Reloading;
         public bool IsOutOfAmmo => fireCycleState == FireCycleState.OutOfAmmo;
         public bool IsHitReacting => hitReactionRemainingSeconds > 0f;
+        public bool IsStimActive => stimRemainingSeconds > 0f;
+        public float StimRemainingSeconds => Mathf.Max(0f, stimRemainingSeconds);
         public float MuzzleHeight => muzzle != null ? muzzle.position.y - transform.position.y : 1.25f;
         public Vector3 MuzzlePosition => muzzle != null ? muzzle.position : transform.position + Vector3.up * 1.25f;
         public Vector3 CurrentAimCenter => aimCenter != null ? aimCenter.position : transform.position + Vector3.up * 1.1f;
@@ -134,6 +141,7 @@ namespace GridSquad
                 return;
 
             UpdateHitReaction();
+            UpdateStimEffect();
             bool movedThisFrame = MoveAlongPath();
             RotateTowardMovementOrTarget();
             animationController?.SetMovementState(movedThisFrame && !IsReloading && !IsHitReacting);
@@ -173,6 +181,7 @@ namespace GridSquad
             movementDestination = destination;
             hasMovementDestination = true;
             hasTransitReservation = false;
+            stopMovementAfterCellArrival = false;
             blockedMovementSeconds = 0f;
             peekEnabled = false;
             SetActivePeekOffset(Vector3.zero);
@@ -209,8 +218,52 @@ namespace GridSquad
             hasMovementDestination = false;
             hasTransitReservation = false;
             blockedMovementSeconds = 0f;
+            stopMovementAfterCellArrival = false;
             ResetFireCycle();
         }
+
+        public void RequestStopMovementAfterCurrentCell()
+        {
+            if (!IsMoving)
+            {
+                StopMovementAtCurrentCell();
+                return;
+            }
+
+            stopMovementAfterCellArrival = true;
+        }
+
+        public void PrepareForExclusiveCombatAction()
+        {
+            ResetFireCycle(true);
+        }
+
+        public void ApplyStim(
+            float durationSeconds,
+            float movementSpeedMultiplier,
+            float fireIntervalMultiplier)
+        {
+            if (IsStimActive)
+                return;
+
+            stimRemainingSeconds = Mathf.Max(0f, durationSeconds);
+            stimMovementSpeedMultiplier = Mathf.Max(1f, movementSpeedMultiplier);
+            stimFireIntervalMultiplier = Mathf.Clamp(fireIntervalMultiplier, 0.1f, 1f);
+        }
+
+        public void SetTemporaryMovementSpeedMultiplier(float multiplier)
+        {
+            temporaryMovementSpeedMultiplier = Mathf.Max(0.01f, multiplier);
+        }
+
+        public float PlayThrowAnimation()
+            => animationController != null ? animationController.PlayThrowAction() : 0f;
+
+        public float PlayUseItemAnimation()
+            => animationController != null ? animationController.PlayUseItemAction() : 0f;
+
+        public float PlayDashAnimation()
+            => animationController != null ? animationController.PlayDashAction() : 0f;
 
         public void ApplyDamage(int damage)
         {
@@ -275,7 +328,13 @@ namespace GridSquad
                 hasTransitReservation = true;
             }
             Vector3 destination = gridMap.GridToWorld(nextCell);
-            transform.position = Vector3.MoveTowards(transform.position, destination, tuning.MovementSpeed * Time.deltaTime);
+            float movementSpeed = tuning.MovementSpeed
+                * temporaryMovementSpeedMultiplier
+                * stimMovementSpeedMultiplier;
+            transform.position = Vector3.MoveTowards(
+                transform.position,
+                destination,
+                movementSpeed * Time.deltaTime);
             if ((transform.position - destination).sqrMagnitude > 0.0001f)
                 return true;
 
@@ -285,6 +344,17 @@ namespace GridSquad
             hasTransitReservation = false;
             blockedMovementSeconds = 0f;
             movementIndex++;
+            if (stopMovementAfterCellArrival)
+            {
+                movementPath.Clear();
+                movementIndex = 0;
+                gridMap.ReleaseReservation(this);
+                gridMap.ReleaseTransitReservation(this);
+                hasMovementDestination = false;
+                hasTransitReservation = false;
+                stopMovementAfterCellArrival = false;
+                return true;
+            }
             if (movementIndex >= movementPath.Count)
             {
                 movementPath.Clear();
@@ -411,10 +481,11 @@ namespace GridSquad
                     }
                     aimingTarget = currentTarget;
                     fireCycleState = FireCycleState.Aiming;
-                    fireStateRemainingSeconds = weapon.AimEnterDuration;
+                    float aimEnterDuration = weapon.AimEnterDuration * stimFireIntervalMultiplier;
+                    fireStateRemainingSeconds = aimEnterDuration;
                     animationController?.BeginAimingAt(
                         currentTarget.AimCenterTransform,
-                        weapon.AimEnterDuration);
+                        aimEnterDuration);
                     return;
 
                 case FireCycleState.Aiming:
@@ -438,7 +509,7 @@ namespace GridSquad
                         return;
                     }
                     fireCycleState = FireCycleState.AimedFiring;
-                    fireStateRemainingSeconds = weapon.AimedShotInterval;
+                    fireStateRemainingSeconds = weapon.AimedShotInterval * stimFireIntervalMultiplier;
                     if (currentMagazineAmmo <= 0)
                         BeginReload(CalculatePostShotReloadDelay());
                     return;
@@ -458,7 +529,7 @@ namespace GridSquad
                         ResetFireCycle();
                         return;
                     }
-                    fireStateRemainingSeconds = weapon.AimedShotInterval;
+                    fireStateRemainingSeconds = weapon.AimedShotInterval * stimFireIntervalMultiplier;
                     if (currentMagazineAmmo <= 0)
                         BeginReload(CalculatePostShotReloadDelay());
                     return;
@@ -616,6 +687,19 @@ namespace GridSquad
             }
         }
 
+        private void UpdateStimEffect()
+        {
+            if (!IsStimActive)
+                return;
+
+            stimRemainingSeconds = Mathf.Max(0f, stimRemainingSeconds - Time.deltaTime);
+            if (stimRemainingSeconds > 0f)
+                return;
+
+            stimMovementSpeedMultiplier = 1f;
+            stimFireIntervalMultiplier = 1f;
+        }
+
         public void PlayMissFeedback()
         {
             if (IsAlive)
@@ -649,10 +733,17 @@ namespace GridSquad
             hitReactionRemainingSeconds = 0f;
             ResetFireCycle(true);
             gridMap.UnregisterOccupant(this, currentCell);
+            gridMap.ReleaseReservation(this);
+            gridMap.ReleaseTransitReservation(this);
             movementPath.Clear();
             hasMovementDestination = false;
             hasTransitReservation = false;
             blockedMovementSeconds = 0f;
+            stopMovementAfterCellArrival = false;
+            temporaryMovementSpeedMultiplier = 1f;
+            stimMovementSpeedMultiplier = 1f;
+            stimFireIntervalMultiplier = 1f;
+            stimRemainingSeconds = 0f;
             SetActivePeekOffset(Vector3.zero);
             if (selectionCollider != null)
                 selectionCollider.enabled = false;
@@ -679,6 +770,8 @@ namespace GridSquad
             hasMovementDestination = false;
             hasTransitReservation = false;
             blockedMovementSeconds = 0f;
+            stopMovementAfterCellArrival = false;
+            temporaryMovementSpeedMultiplier = 1f;
             SetBehaviorTarget(null);
             ResetFireCycle(true);
             hitReactionRemainingSeconds = 0f;

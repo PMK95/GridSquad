@@ -1,0 +1,32 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8902b82866e050b47b51d1dab1451d0a, type: 3}
+  m_Name: StimAction
+  m_EditorClassIdentifier: Assembly-CSharp::GridSquad.CombatActionDefinition
+  kind: 3
+  displayName: "\uC790\uADF9\uC81C"
+  targetType: 1
+  automaticInFullAuto: 1
+  automaticInSemiAuto: 1
+  startingCharges: 1
+  cooldownSeconds: 0
+  windupSeconds: 0.5
+  grenadeRangeCells: 5
+  grenadeRadiusCells: 1
+  grenadeDamage: 40
+  grenadeTravelSeconds: 0.4
+  stimDurationSeconds: 8
+  stimMovementSpeedMultiplier: 1.35
+  stimFireIntervalMultiplier: 0.75
+  dashMaximumCells: 3
+  dashMovementSpeedMultiplier: 3
+  dashMinimumPositionImprovement: 15

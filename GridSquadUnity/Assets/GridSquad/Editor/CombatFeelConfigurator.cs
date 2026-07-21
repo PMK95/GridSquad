@@ -38,6 +38,8 @@ namespace GridSquadEditor
         private const string FeelSoundMixerPath = "Assets/Plugins/Feel/MMTools/Core/MMAudio/MMSoundManager/Settings/MMSoundManagerAudioMixer.mixer";
         private const string DebugRootPath = RootPath + "/Debug";
         private const string DebugMenuDataPath = DebugRootPath + "/CombatDebugMenuData.asset";
+        private const string GeneralAnimationPath = RootPath + "/Art/KayKit_Character_Animations_1.1/Animations/fbx/Rig_Medium/Rig_Medium_General.fbx";
+        private const string MovementAdvancedAnimationPath = RootPath + "/Art/KayKit_Character_Animations_1.1/Animations/fbx/Rig_Medium/Rig_Medium_MovementAdvanced.fbx";
         private const string FeelDebugMenuRoot = "Assets/Plugins/Feel/MMTools/Accessories/MMDebugMenu/Prefabs";
         private const string FeelDebugMenuPrefabPath = FeelDebugMenuRoot + "/MMDebugMenu.prefab";
 
@@ -70,6 +72,7 @@ namespace GridSquadEditor
             EnsureFeedbackAssets();
             EnsureConvenienceAssets();
             RemoveMissingPresentationScriptsFromCharacterModel();
+            ConfigureCharacterActionAnimations();
             ConfigureWorldUiPrefab();
             ConfigureUnitBasePrefab();
             AssetDatabase.SaveAssets();
@@ -557,6 +560,45 @@ namespace GridSquadEditor
             {
                 PrefabUtility.UnloadPrefabContents(root);
             }
+        }
+
+        private static void ConfigureCharacterActionAnimations()
+        {
+            GameObject root = PrefabUtility.LoadPrefabContents(CharacterModelPath);
+            try
+            {
+                UnitAnimationController animationController =
+                    root.GetComponentInChildren<UnitAnimationController>(true);
+                if (animationController == null)
+                    throw new InvalidOperationException("CharacterModel에서 UnitAnimationController를 찾지 못했습니다.");
+                SetObjectReference(
+                    animationController,
+                    "throwClip",
+                    LoadAnimationClip(GeneralAnimationPath, "Throw"));
+                SetObjectReference(
+                    animationController,
+                    "useItemClip",
+                    LoadAnimationClip(GeneralAnimationPath, "Use_Item"));
+                SetObjectReference(
+                    animationController,
+                    "dashClip",
+                    LoadAnimationClip(MovementAdvancedAnimationPath, "Dodge_Forward"));
+                PrefabUtility.SaveAsPrefabAsset(root, CharacterModelPath);
+            }
+            finally
+            {
+                PrefabUtility.UnloadPrefabContents(root);
+            }
+        }
+
+        private static AnimationClip LoadAnimationClip(string assetPath, string clipName)
+        {
+            AnimationClip clip = AssetDatabase.LoadAllAssetsAtPath(assetPath)
+                .OfType<AnimationClip>()
+                .FirstOrDefault(candidate => candidate.name == clipName);
+            if (clip == null)
+                throw new InvalidOperationException($"{assetPath}에서 {clipName} 애니메이션을 찾지 못했습니다.");
+            return clip;
         }
 
         private static void AddShotFeedbacks(
