@@ -5266,7 +5266,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GridSquad.Combatant
   team: 0
-  maximumHealth: 200
+  maximumHealth: 500
   weapon: {fileID: 11400000, guid: fe826854c04049d46a2e0c277a5603f4, type: 2}
   tuning: {fileID: 11400000, guid: 750f35e9934c51e41aa779aa3c765d69, type: 2}
   gridMap: {fileID: 0}

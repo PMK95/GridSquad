@@ -21,6 +21,7 @@ namespace GridSquad
         private CombatActionIntent currentIntent;
         private CombatActionCandidate lastSelectedCandidate;
         private bool hasLastSelectedCandidate;
+        private int lastExecutionFrame = -1;
 
         public CombatActionKind CurrentActionKind => currentAction?.Kind ?? CombatActionKind.BasicAttack;
         public bool IsPerformingExclusiveAction => currentAction != null;
@@ -68,6 +69,11 @@ namespace GridSquad
             if (combatant != null)
                 combatant.Died -= HandleCombatantDied;
             CancelAllActions();
+        }
+
+        private void Update()
+        {
+            TickActionExecutionFromBehavior();
         }
 
         public bool SelectAndStartAutomaticAction(
@@ -142,6 +148,10 @@ namespace GridSquad
 
         public void TickActionExecutionFromBehavior()
         {
+            if (lastExecutionFrame == Time.frameCount)
+                return;
+            lastExecutionFrame = Time.frameCount;
+
             float deltaTime = Time.deltaTime;
             foreach (ICombatAction action in actions)
             {
@@ -695,12 +705,17 @@ namespace GridSquad
                 GrenadeProjectile grenade = projectile.AddComponent<GrenadeProjectile>();
                 grenade.Initialize(
                     Owner.director,
+                    Owner.gridMap,
                     Owner.combatant.MuzzlePosition,
                     Owner.gridMap.GridToWorld(targetCell),
                     targetCell,
                     Definition.GrenadeTravelSeconds,
+                    Definition.GrenadeFuseSeconds,
                     Definition.GrenadeRadiusCells,
-                    Definition.GrenadeDamage);
+                    Definition.GrenadeDamage,
+                    Definition.GrenadeCameraShakeDuration,
+                    Definition.GrenadeCameraShakeAmplitude,
+                    Definition.GrenadeCameraShakeFrequency);
             }
 
             private void CountGrenadeTargets(

@@ -434,7 +434,7 @@ namespace GridSquadEditor
                 1,
                 0f,
                 0.5f);
-            grenade.SetEditorGrenadeConfiguration(5, 1, 40, 0.4f);
+            grenade.SetEditorGrenadeConfiguration(5, 1, 40, 0.4f, 1.5f, 0.28f, 1.4f, 24f);
 
             CombatActionDefinition stim = LoadOrCreateAsset<CombatActionDefinition>(StimActionPath);
             stim.SetEditorConfiguration(

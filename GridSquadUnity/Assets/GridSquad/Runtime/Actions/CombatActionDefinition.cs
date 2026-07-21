@@ -59,6 +59,10 @@ namespace GridSquad
         [SerializeField, Min(0)] private int grenadeRadiusCells = 1;
         [SerializeField, Min(1)] private int grenadeDamage = 40;
         [SerializeField, Min(0.05f)] private float grenadeTravelSeconds = 0.4f;
+        [SerializeField, Min(0.1f)] private float grenadeFuseSeconds = 1.5f;
+        [SerializeField, Min(0.01f)] private float grenadeCameraShakeDuration = 0.28f;
+        [SerializeField, Min(0f)] private float grenadeCameraShakeAmplitude = 1.4f;
+        [SerializeField, Min(0f)] private float grenadeCameraShakeFrequency = 24f;
 
         [Header("자극제")]
         [SerializeField, Min(0.1f)] private float stimDurationSeconds = 8f;
@@ -82,6 +86,10 @@ namespace GridSquad
         public int GrenadeRadiusCells => grenadeRadiusCells;
         public int GrenadeDamage => grenadeDamage;
         public float GrenadeTravelSeconds => grenadeTravelSeconds;
+        public float GrenadeFuseSeconds => grenadeFuseSeconds;
+        public float GrenadeCameraShakeDuration => grenadeCameraShakeDuration;
+        public float GrenadeCameraShakeAmplitude => grenadeCameraShakeAmplitude;
+        public float GrenadeCameraShakeFrequency => grenadeCameraShakeFrequency;
         public float StimDurationSeconds => stimDurationSeconds;
         public float StimMovementSpeedMultiplier => stimMovementSpeedMultiplier;
         public float StimFireIntervalMultiplier => stimFireIntervalMultiplier;
@@ -139,12 +147,20 @@ namespace GridSquad
             int rangeCells,
             int radiusCells,
             int damage,
-            float travelSeconds)
+            float travelSeconds,
+            float fuseSeconds,
+            float cameraShakeDuration,
+            float cameraShakeAmplitude,
+            float cameraShakeFrequency)
         {
             grenadeRangeCells = rangeCells;
             grenadeRadiusCells = radiusCells;
             grenadeDamage = damage;
             grenadeTravelSeconds = travelSeconds;
+            grenadeFuseSeconds = fuseSeconds;
+            grenadeCameraShakeDuration = cameraShakeDuration;
+            grenadeCameraShakeAmplitude = cameraShakeAmplitude;
+            grenadeCameraShakeFrequency = cameraShakeFrequency;
         }
 
         public void SetEditorStimConfiguration(
