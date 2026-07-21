@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using MoreMountains.Feedbacks;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
@@ -15,6 +16,7 @@ namespace GridSquad
         [SerializeField] private CombatHudController hud;
         [SerializeField] private LineRenderer selectedPathLine;
         [SerializeField] private GridCombatIndicator gridCombatIndicator;
+        [SerializeField] private MMTimeManager timeManager;
         [SerializeField] private LayerMask groundLayerMask;
         [SerializeField] private LayerMask unitLayerMask;
 
@@ -27,6 +29,8 @@ namespace GridSquad
 
         private void Awake()
         {
+            if (timeManager == null)
+                timeManager = FindFirstObjectByType<MMTimeManager>();
             tacticalMap = inputActions.FindActionMap("Tactical", true);
             hud.SetTimeScaleDisplay(activeTimeScale, false);
             hud.SetTargetingState(false);
@@ -85,9 +89,17 @@ namespace GridSquad
         private bool ActionPressed(string actionName)
             => tacticalMap.FindAction(actionName, true).WasPressedThisFrame();
 
-        private static void RestartScene()
+        private void RestartScene()
         {
-            Time.timeScale = 1f;
+            if (timeManager != null)
+            {
+                timeManager.NormalTimeScale = 1f;
+                timeManager.ResetTimeScale();
+            }
+            else
+            {
+                Time.timeScale = 1f;
+            }
             SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
         }
 
@@ -168,7 +180,17 @@ namespace GridSquad
         private void TogglePause()
         {
             paused = !paused;
-            Time.timeScale = paused ? 0f : activeTimeScale;
+            if (timeManager != null)
+            {
+                if (paused)
+                    timeManager.SetTimeScaleTo(0f);
+                else
+                    timeManager.ResetTimeScale();
+            }
+            else
+            {
+                Time.timeScale = paused ? 0f : activeTimeScale;
+            }
             hud.SetTimeScaleDisplay(activeTimeScale, paused);
         }
 
@@ -176,7 +198,15 @@ namespace GridSquad
         {
             activeTimeScale = speed;
             paused = false;
-            Time.timeScale = activeTimeScale;
+            if (timeManager != null)
+            {
+                timeManager.NormalTimeScale = activeTimeScale;
+                timeManager.ResetTimeScale();
+            }
+            else
+            {
+                Time.timeScale = activeTimeScale;
+            }
             hud.SetTimeScaleDisplay(activeTimeScale, false);
         }
 
@@ -202,6 +232,7 @@ namespace GridSquad
             CombatHudController newHud,
             LineRenderer newSelectedPathLine,
             GridCombatIndicator newGridCombatIndicator,
+            MMTimeManager newTimeManager,
             LayerMask newGroundLayerMask,
             LayerMask newUnitLayerMask)
         {
@@ -212,6 +243,7 @@ namespace GridSquad
             hud = newHud;
             selectedPathLine = newSelectedPathLine;
             gridCombatIndicator = newGridCombatIndicator;
+            timeManager = newTimeManager;
             groundLayerMask = newGroundLayerMask;
             unitLayerMask = newUnitLayerMask;
         }

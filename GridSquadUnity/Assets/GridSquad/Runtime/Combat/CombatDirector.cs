@@ -1,4 +1,6 @@
+using System.Collections;
 using System.Collections.Generic;
+using MoreMountains.Feedbacks;
 using UnityEngine;
 
 namespace GridSquad
@@ -8,6 +10,7 @@ namespace GridSquad
         [SerializeField] private Combatant[] combatants;
         [SerializeField] private ShotEvaluator shotEvaluator;
         [SerializeField] private CombatHudController hud;
+        [SerializeField] private MMTimeManager timeManager;
 
         private bool debugVisible;
         private bool battleFinished;
@@ -17,6 +20,12 @@ namespace GridSquad
         public bool DebugVisible => debugVisible;
         public bool BattleFinished => battleFinished;
         public bool AllyFullAutoEnabled => allyFullAutoEnabled;
+
+        private void Awake()
+        {
+            if (timeManager == null)
+                timeManager = FindFirstObjectByType<MMTimeManager>();
+        }
 
         private void Start()
         {
@@ -85,10 +94,12 @@ namespace GridSquad
             hud.SetDebugState(value);
         }
 
-        public void NotifyCombatantDied(Combatant deadCombatant)
+        public BattleResult NotifyCombatantDied(
+            Combatant deadCombatant,
+            float deathAnimationDuration)
         {
             if (battleFinished)
-                return;
+                return BattleResult.None;
 
             bool alliesAlive = false;
             bool enemiesAlive = false;
@@ -103,19 +114,51 @@ namespace GridSquad
             }
 
             if (alliesAlive && enemiesAlive)
-                return;
+                return BattleResult.None;
+
             battleFinished = true;
-            Time.timeScale = 0f;
+            BattleResult result = alliesAlive
+                ? BattleResult.Victory
+                : BattleResult.Defeat;
+            StopCombatBeforeResultPresentation();
             hud.SetAllyFullAutoInteractable(false);
-            hud.ShowResult(alliesAlive ? "VICTORY" : "DEFEAT");
+            StartCoroutine(ShowBattleResultAfterDeath(
+                result,
+                Mathf.Max(0f, deathAnimationDuration)));
+            return result;
+        }
+
+        private void StopCombatBeforeResultPresentation()
+        {
+            foreach (Combatant combatant in combatants)
+                combatant?.PrepareForBattleResult();
+        }
+
+        private IEnumerator ShowBattleResultAfterDeath(
+            BattleResult result,
+            float deathAnimationDuration)
+        {
+            if (deathAnimationDuration > 0f)
+                yield return new WaitForSeconds(deathAnimationDuration);
+
+            hud.ShowResult(result == BattleResult.Victory ? "VICTORY" : "DEFEAT");
+            if (timeManager != null)
+                timeManager.SetTimeScaleTo(0f);
+            else
+                Time.timeScale = 0f;
         }
 
 #if UNITY_EDITOR
-        public void SetEditorReferences(Combatant[] newCombatants, ShotEvaluator newShotEvaluator, CombatHudController newHud)
+        public void SetEditorReferences(
+            Combatant[] newCombatants,
+            ShotEvaluator newShotEvaluator,
+            CombatHudController newHud,
+            MMTimeManager newTimeManager)
         {
             combatants = newCombatants;
             shotEvaluator = newShotEvaluator;
             hud = newHud;
+            timeManager = newTimeManager;
         }
 #endif
     }

@@ -1,3 +1,4 @@
+using MoreMountains.Tools;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -6,7 +7,7 @@ namespace GridSquad
     public sealed class CharacterWorldUiPresenter : MonoBehaviour
     {
         [SerializeField] private Canvas canvas;
-        [SerializeField] private Image healthFill;
+        [SerializeField] private MMHealthBar healthBar;
         [SerializeField] private Image reloadFill;
         [SerializeField] private Text detailText;
         [SerializeField] private GameObject selectionIndicator;
@@ -21,8 +22,6 @@ namespace GridSquad
         public void Initialize(Combatant newOwner)
         {
             owner = newOwner;
-            if (healthFill != null)
-                healthFill.rectTransform.pivot = new Vector2(0f, 0.5f);
             RefreshHealth();
             RefreshMagazine();
         }
@@ -94,13 +93,9 @@ namespace GridSquad
 
         public void RefreshHealth()
         {
-            if (owner == null || healthFill == null)
+            if (owner == null || healthBar == null)
                 return;
-            float healthRatio = owner.MaximumHealth > 0
-                ? Mathf.Clamp01(owner.CurrentHealth / (float)owner.MaximumHealth)
-                : 0f;
-            healthFill.fillAmount = healthRatio;
-            healthFill.rectTransform.localScale = new Vector3(healthRatio, 1f, 1f);
+            healthBar.UpdateBar(owner.CurrentHealth, 0f, owner.MaximumHealth, true);
         }
 
         public void RefreshMagazine()
@@ -178,7 +173,7 @@ namespace GridSquad
 
         public void SetEditorReferences(
             Canvas newCanvas,
-            Image newHealthFill,
+            MMHealthBar newHealthBar,
             Text newDetailText,
             GameObject newSelectionIndicator,
             LineRenderer newTargetLine,
@@ -188,7 +183,7 @@ namespace GridSquad
             Transform newCameraTransform)
         {
             canvas = newCanvas;
-            healthFill = newHealthFill;
+            healthBar = newHealthBar;
             detailText = newDetailText;
             selectionIndicator = newSelectionIndicator;
             targetLine = newTargetLine;

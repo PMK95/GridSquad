@@ -20,7 +20,6 @@ MonoBehaviour:
   FireAimToleranceDegrees: 3
   MinimumHitChancePercent: 5
   MaximumHitChancePercent: 95
-  ShotTracerDuration: 0.09
   EvaluationRefreshInterval: 0.1
   HitReactionInterruptChancePercent: 10.1
   AiEvaluationInterval: 0.5

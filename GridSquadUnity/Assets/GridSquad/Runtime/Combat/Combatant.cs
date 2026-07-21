@@ -1,5 +1,4 @@
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -21,11 +20,9 @@ namespace GridSquad
         [SerializeField] private Transform muzzle;
         [SerializeField] private Transform aimCenter;
         [SerializeField] private Collider selectionCollider;
-        [SerializeField] private ParticleSystem muzzleFlash;
-        [SerializeField] private LineRenderer shotTracer;
         [SerializeField] private CharacterWorldUiPresenter worldUi;
         [SerializeField] private UnitAnimationController animationController;
-        [SerializeField] private Flicker damageFlicker;
+        [SerializeField] private CombatantFeedbackPresenter feedbackPresenter;
 
         private readonly List<GridCoordinate> movementPath = new();
         private int movementIndex;
@@ -120,13 +117,11 @@ namespace GridSquad
             gridMap.RegisterOccupant(this, currentCell);
             if (animationController == null)
                 animationController = GetComponentInChildren<UnitAnimationController>(true);
-            if (damageFlicker == null)
-                damageFlicker = GetComponentInChildren<Flicker>(true);
+            if (feedbackPresenter == null)
+                feedbackPresenter = GetComponentInChildren<CombatantFeedbackPresenter>(true);
             animationController?.Initialize();
             worldUi.Initialize(this);
             worldUi.SetSelected(false);
-            if (shotTracer != null)
-                shotTracer.enabled = false;
         }
 
         private void Update()
@@ -204,9 +199,14 @@ namespace GridSquad
         {
             if (!IsAlive)
                 return;
+            int previousHealth = currentHealth;
             currentHealth = Mathf.Max(0, currentHealth - Mathf.Max(0, damage));
-            damageFlicker?.Play();
+            int appliedDamage = previousHealth - currentHealth;
+            if (appliedDamage <= 0)
+                return;
+
             worldUi.RefreshHealth();
+            feedbackPresenter?.PlayDamageFeedback(appliedDamage, CurrentAimCenter);
             if (currentHealth == 0)
             {
                 EnterDeadState();
@@ -422,12 +422,14 @@ namespace GridSquad
             if (!currentShotEvaluation.CanShoot)
                 return false;
 
-            if (muzzleFlash != null)
-                muzzleFlash.Play(true);
-            StartCoroutine(ShowShotTracer(currentShotEvaluation.ShotOrigin, currentShotEvaluation.TargetCenter));
+            feedbackPresenter?.PlayShotFeedback(
+                currentShotEvaluation.ShotOrigin,
+                currentShotEvaluation.TargetCenter);
 
             if (UnityEngine.Random.value * 100f <= currentShotEvaluation.HitChancePercent)
                 currentTarget.ApplyDamage(weapon.Damage);
+            else
+                currentTarget.PlayMissFeedback();
             currentMagazineAmmo = Mathf.Max(0, currentMagazineAmmo - 1);
             animationController?.PlayShot();
             return true;
@@ -559,15 +561,10 @@ namespace GridSquad
             }
         }
 
-        private IEnumerator ShowShotTracer(Vector3 start, Vector3 end)
+        public void PlayMissFeedback()
         {
-            if (shotTracer == null)
-                yield break;
-            shotTracer.SetPosition(0, start);
-            shotTracer.SetPosition(1, end);
-            shotTracer.enabled = true;
-            yield return new WaitForSecondsRealtime(tuning.ShotTracerDuration);
-            shotTracer.enabled = false;
+            if (IsAlive)
+                feedbackPresenter?.PlayMissFeedback(CurrentAimCenter);
         }
 
         private void SetActivePeekOffset(Vector3 worldOffset)
@@ -601,10 +598,28 @@ namespace GridSquad
             SetActivePeekOffset(Vector3.zero);
             if (selectionCollider != null)
                 selectionCollider.enabled = false;
-            animationController?.PlayDeath();
+            float deathAnimationDuration = animationController != null
+                ? animationController.PlayDeath()
+                : 0f;
             worldUi.SetDead();
             Died?.Invoke(this);
-            director.NotifyCombatantDied(this);
+            BattleResult battleResult = director.NotifyCombatantDied(
+                this,
+                deathAnimationDuration);
+            feedbackPresenter?.PlayDeathFeedback(battleResult, CurrentAimCenter);
+        }
+
+        public void PrepareForBattleResult()
+        {
+            if (!IsAlive)
+                return;
+
+            movementPath.Clear();
+            movementIndex = 0;
+            gridMap.ReleaseReservation(this);
+            SetBehaviorTarget(null);
+            ResetFireCycle(true);
+            hitReactionRemainingSeconds = 0f;
         }
 
 #if UNITY_EDITOR
@@ -620,9 +635,8 @@ namespace GridSquad
             Transform newMuzzle,
             Transform newAimCenter,
             Collider newSelectionCollider,
-            ParticleSystem newMuzzleFlash,
-            LineRenderer newShotTracer,
-            CharacterWorldUiPresenter newWorldUi)
+            CharacterWorldUiPresenter newWorldUi,
+            CombatantFeedbackPresenter newFeedbackPresenter)
         {
             team = newTeam;
             maximumHealth = newMaximumHealth;
@@ -635,9 +649,8 @@ namespace GridSquad
             muzzle = newMuzzle;
             aimCenter = newAimCenter;
             selectionCollider = newSelectionCollider;
-            muzzleFlash = newMuzzleFlash;
-            shotTracer = newShotTracer;
             worldUi = newWorldUi;
+            feedbackPresenter = newFeedbackPresenter;
         }
 #endif
     }

@@ -145,7 +145,7 @@ namespace GridSquad
             return hitClip.length;
         }
 
-        public void PlayDeath()
+        public float PlayDeath()
         {
             dead = true;
             aiming = false;
@@ -157,10 +157,11 @@ namespace GridSquad
             }
 
             if (deathClip == null || animancer == null)
-                return;
+                return 0f;
             AnimancerState state = animancer.Play(deathClip, crossFadeDuration, FadeMode.FromStart);
             state.Speed = 1f;
             currentClip = deathClip;
+            return deathClip.length;
         }
 
         private void UpdateAimIkWeight()

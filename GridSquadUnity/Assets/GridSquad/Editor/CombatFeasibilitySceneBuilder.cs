@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using GridSquad;
+using MoreMountains.Feedbacks;
+using MoreMountains.Tools;
 using Unity.Behavior;
 using Unity.Behavior.GraphFramework;
 using Unity.Cinemachine;
@@ -21,6 +23,7 @@ namespace GridSquadEditor
         private const string RootPath = "Assets/GridSquad";
         private const string ScenePath = RootPath + "/Scenes/CombatFeasibility.unity";
         private const string CharacterUiPath = RootPath + "/Prefabs/CharacterWorldUI.prefab";
+        private const string UnitBasePrefabPath = RootPath + "/Prefabs/UnitBase.prefab";
         private const string AllyPrefabPath = RootPath + "/Prefabs/AllyUnit.prefab";
         private const string EnemyPrefabPath = RootPath + "/Prefabs/EnemyUnit.prefab";
         private const string TuningPath = RootPath + "/Settings/CombatTuning.asset";
@@ -46,6 +49,7 @@ namespace GridSquadEditor
             EnsureLayer(GroundLayer, "Ground");
             EnsureLayer(UnitLayer, "Unit");
             EnsureLayer(CoverLayer, "Cover");
+            CombatFeelConfigurator.ConfigurePrefabAssets();
 
             CombatTuning tuning = LoadOrCreateAsset<CombatTuning>(TuningPath);
             WeaponDefinition weapon = LoadOrCreateAsset<WeaponDefinition>(WeaponPath);
@@ -64,9 +68,10 @@ namespace GridSquadEditor
             Material shootableCellMaterial = CreateOrUpdateMaterial("ShootableCellIndicator", new Color(0.15f, 1f, 0.35f, 0.5f), true);
             BehaviorGraph unitCombatBehavior = CreateOrUpdateUnitCombatBehaviorGraph();
 
-            GameObject characterUiPrefab = CreateCharacterWorldUiPrefab(lineMaterial);
-            GameObject allyPrefab = CreateUnitPrefab(AllyPrefabPath, Team.Ally, allyMaterial, gunMaterial, lineMaterial, characterUiPrefab, unitCombatBehavior);
-            GameObject enemyPrefab = CreateUnitPrefab(EnemyPrefabPath, Team.Enemy, enemyMaterial, gunMaterial, lineMaterial, characterUiPrefab, unitCombatBehavior);
+            GameObject characterUiPrefab = LoadRequiredPrefab(CharacterUiPath);
+            LoadRequiredPrefab(UnitBasePrefabPath);
+            GameObject allyPrefab = LoadRequiredPrefab(AllyPrefabPath);
+            GameObject enemyPrefab = LoadRequiredPrefab(EnemyPrefabPath);
 
             Scene scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
             CreateLighting();
@@ -80,6 +85,7 @@ namespace GridSquadEditor
             CombatDirector director = systems.AddComponent<CombatDirector>();
             TacticalPositionEvaluator positionEvaluator = systems.AddComponent<TacticalPositionEvaluator>();
             TacticalInputController inputController = systems.AddComponent<TacticalInputController>();
+            MMTimeManager timeManager = systems.AddComponent<MMTimeManager>();
             CombatHudController hud = CreateSceneHud(director);
             CreateEventSystem();
             LineRenderer pathLine = CreateLineRenderer("SelectedPath", systems.transform, lineMaterial, 0.08f);
@@ -103,7 +109,7 @@ namespace GridSquadEditor
                 tuning,
                 weapon,
                 sceneCamera.transform);
-            director.SetEditorReferences(combatants, shotEvaluator, hud);
+            director.SetEditorReferences(combatants, shotEvaluator, hud, timeManager);
             inputController.SetEditorReferences(
                 inputActions,
                 sceneCamera,
@@ -112,8 +118,10 @@ namespace GridSquadEditor
                 hud,
                 pathLine,
                 gridCombatIndicator,
+                timeManager,
                 1 << GroundLayer,
                 1 << UnitLayer);
+            CombatFeelConfigurator.ConfigureActiveScene();
 
             Selection.activeGameObject = systems;
             EditorSceneManager.SaveScene(scene, ScenePath);
@@ -241,10 +249,9 @@ namespace GridSquadEditor
                     "muzzle",
                     "aimCenter",
                     "selectionCollider",
-                    "muzzleFlash",
-                    "shotTracer",
-                    "worldUi");
-                if (combatant.GetComponentInChildren<Flicker>(true) == null)
+                    "worldUi",
+                    "feedbackPresenter");
+                if (combatant.GetComponentInChildren<CombatantFeedbackPresenter>(true) == null)
                     throw new InvalidOperationException($"{combatant.name}의 피격 플리커가 누락되었습니다.");
                 BehaviorGraphAgent behaviorAgent = combatant.GetComponent<BehaviorGraphAgent>();
                 UnitTacticalBehaviorController behaviorController = combatant.GetComponent<UnitTacticalBehaviorController>();
@@ -277,10 +284,10 @@ namespace GridSquadEditor
             if (allyCount != 3 || enemyCount != 4)
                 throw new InvalidOperationException($"유닛 배치 수가 올바르지 않습니다. 아군 {allyCount}, 적군 {enemyCount}");
 
-            RequireReferenceFields(inputController, "inputActions", "sceneCamera", "gridMap", "director", "hud", "selectedPathLine", "gridCombatIndicator");
+            RequireReferenceFields(inputController, "inputActions", "sceneCamera", "gridMap", "director", "hud", "selectedPathLine", "gridCombatIndicator", "timeManager");
             RequireReferenceFields(gridCombatIndicator, "gridMap", "shotEvaluator", "tuning", "viewCellMeshFilter", "shootableCellMeshFilter");
             RequireReferenceFields(cameraController, "inputActions", "rigTarget", "outputCamera", "gridMap", "tuning");
-            RequireReferenceFields(director, "shotEvaluator", "hud");
+            RequireReferenceFields(director, "shotEvaluator", "hud", "timeManager");
             RequireReferenceFields(shotEvaluator, "gridMap", "tuning");
             RequireReferenceFields(positionEvaluator, "gridMap", "shotEvaluator", "director", "tuning");
             RequireReferenceFields(
@@ -295,7 +302,10 @@ namespace GridSquadEditor
                 "resultText",
                 "selectedInfoPanel",
                 "selectedInfoTitleText",
-                "selectedInfoBodyText");
+                "selectedInfoBodyText",
+                "selectionChangedFeedbacks",
+                "automaticModeChangedFeedbacks",
+                "resultPanelFeedbacks");
             if (hud.transform.Find("SelectedInfoPanel") == null)
                 throw new InvalidOperationException("선택 캐릭터 정보 패널이 씬 HUD에 없습니다.");
             if (hud.transform.Find("AllyFullAutoButton") == null)
@@ -320,6 +330,7 @@ namespace GridSquadEditor
 
             ValidateNestedCharacterUiPrefab(AllyPrefabPath);
             ValidateNestedCharacterUiPrefab(EnemyPrefabPath);
+            CombatFeelConfigurator.ValidateFeelPresentation();
             Debug.Log("전투 피저빌리티 씬·프리팹·입력·카메라 직렬화 구조 검사를 완료했습니다.");
         }
 
@@ -344,7 +355,7 @@ namespace GridSquadEditor
             RequireReferenceFields(
                 presenter,
                 "canvas",
-                "healthFill",
+                "healthBar",
                 "detailText",
                 "selectionIndicator",
                 "targetLine",
@@ -356,7 +367,7 @@ namespace GridSquadEditor
                 throw new InvalidOperationException($"{unitPrefabPath}의 CharacterWorldUI가 별도 프리팹으로 중첩되지 않았습니다.");
             if (prefab.GetComponentInChildren<ParticleSystem>(true) == null)
                 throw new InvalidOperationException($"{unitPrefabPath}의 총구 파티클 시스템이 누락되었습니다.");
-            if (prefab.GetComponentInChildren<Flicker>(true) == null)
+            if (prefab.GetComponentInChildren<CombatantFeedbackPresenter>(true) == null)
                 throw new InvalidOperationException($"{unitPrefabPath}의 피격 플리커가 누락되었습니다.");
         }
 
@@ -399,6 +410,14 @@ namespace GridSquadEditor
             asset = ScriptableObject.CreateInstance<T>();
             AssetDatabase.CreateAsset(asset, path);
             return asset;
+        }
+
+        private static GameObject LoadRequiredPrefab(string path)
+        {
+            GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(path);
+            if (prefab == null)
+                throw new InvalidOperationException($"필수 프리팹을 찾을 수 없습니다: {path}");
+            return prefab;
         }
 
         private static BehaviorGraph CreateOrUpdateUnitCombatBehaviorGraph()
@@ -604,6 +623,13 @@ namespace GridSquadEditor
             healthFill.rectTransform.pivot = new Vector2(0f, 0.5f);
             healthFill.type = Image.Type.Filled;
             healthFill.fillMethod = Image.FillMethod.Horizontal;
+            MMProgressBar progressBar = healthBackground.gameObject.AddComponent<MMProgressBar>();
+            progressBar.ForegroundBar = healthFill.transform;
+            progressBar.FillMode = MMProgressBar.FillModes.FillAmount;
+            MMHealthBar healthBar = healthBackground.gameObject.AddComponent<MMHealthBar>();
+            healthBar.HealthBarType = MMHealthBar.HealthBarTypes.Existing;
+            healthBar.TargetProgressBar = progressBar;
+            healthBar.AlwaysVisible = true;
 
             Text detailText = CreateText("DebugText", canvasRect, 14, TextAnchor.UpperCenter);
             SetRect(detailText.rectTransform, new Vector2(0f, -8f), new Vector2(260f, 44f));
@@ -628,7 +654,7 @@ namespace GridSquadEditor
             peekRing.enabled = false;
             presenter.SetEditorReferences(
                 canvas,
-                healthFill,
+                healthBar,
                 detailText,
                 selection,
                 targetLine,
@@ -681,7 +707,6 @@ namespace GridSquadEditor
             gun.transform.localScale = new Vector3(0.18f, 0.18f, 0.9f);
             Object.DestroyImmediate(gun.GetComponent<Collider>());
             gun.GetComponent<Renderer>().sharedMaterial = gunMaterial;
-            visualRoot.AddComponent<Flicker>();
 
             Transform muzzle = new GameObject("Muzzle").transform;
             muzzle.SetParent(visualRoot.transform, false);
@@ -710,9 +735,8 @@ namespace GridSquadEditor
                 muzzle,
                 aimCenter,
                 collider,
-                muzzleFlash,
-                shotTracer,
-                worldUi);
+                worldUi,
+                root.AddComponent<CombatantFeedbackPresenter>());
             behaviorController.SetEditorReferences(
                 combatant,
                 null,
@@ -891,13 +915,11 @@ namespace GridSquadEditor
                 Transform visualRoot = instance.transform.Find("VisualRoot");
                 Transform muzzle = visualRoot.Find("Muzzle");
                 Transform aimCenter = visualRoot.Find("AimCenter");
-                ParticleSystem muzzleFlash = muzzle.GetComponentInChildren<ParticleSystem>(true);
-                LineRenderer shotTracer = instance.transform.Find("ShotTracer").GetComponent<LineRenderer>();
                 CharacterWorldUiPresenter worldUi = instance.GetComponentInChildren<CharacterWorldUiPresenter>(true);
                 worldUi.SetEditorCameraTransform(cameraTransform);
                 combatant.SetEditorConfiguration(
                     team,
-                    100,
+                    combatant.MaximumHealth,
                     weapon,
                     tuning,
                     gridMap,
@@ -907,9 +929,8 @@ namespace GridSquadEditor
                     muzzle,
                     aimCenter,
                     instance.GetComponent<Collider>(),
-                    muzzleFlash,
-                    shotTracer,
-                    worldUi);
+                    worldUi,
+                    instance.GetComponentInChildren<CombatantFeedbackPresenter>(true));
 
                 BehaviorGraphAgent behaviorAgent = instance.GetComponent<BehaviorGraphAgent>();
                 UnitTacticalBehaviorController behaviorController =
@@ -986,7 +1007,10 @@ namespace GridSquadEditor
                 selectedInfoBody,
                 allyFullAutoButton,
                 allyFullAutoButtonText,
-                director);
+                director,
+                null,
+                null,
+                null);
             return hud;
         }
 

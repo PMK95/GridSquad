@@ -9,6 +9,13 @@ namespace GridSquad
         Enemy
     }
 
+    public enum BattleResult
+    {
+        None,
+        Victory,
+        Defeat
+    }
+
     [Serializable]
     public readonly struct GridCoordinate : IEquatable<GridCoordinate>
     {

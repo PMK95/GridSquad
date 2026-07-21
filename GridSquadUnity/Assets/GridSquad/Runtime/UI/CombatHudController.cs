@@ -1,3 +1,4 @@
+using MoreMountains.Feedbacks;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -16,9 +17,14 @@ namespace GridSquad
         [SerializeField] private Button allyFullAutoButton;
         [SerializeField] private Text allyFullAutoButtonText;
         [SerializeField] private CombatDirector director;
+        [SerializeField] private MMF_Player selectionChangedFeedbacks;
+        [SerializeField] private MMF_Player automaticModeChangedFeedbacks;
+        [SerializeField] private MMF_Player resultPanelFeedbacks;
 
         private Combatant selectedCombatant;
         private UnitTacticalBehaviorController selectedBehaviorController;
+        private bool automaticModeInitialized;
+        private bool previousAutomaticMode;
 
         private static readonly Color CommandButtonColor =
             new(0.24f, 0.28f, 0.34f, 0.96f);
@@ -62,11 +68,14 @@ namespace GridSquad
 
         public void SetSelectedCombatant(Combatant combatant)
         {
+            bool selectionChanged = selectedCombatant != combatant;
             selectedCombatant = combatant;
             selectedBehaviorController = combatant != null
                 ? combatant.GetComponent<UnitTacticalBehaviorController>()
                 : null;
             RefreshSelectedCombatantInfo();
+            if (selectionChanged && combatant != null)
+                selectionChangedFeedbacks?.PlayFeedbacks();
         }
 
         public void SetAllyFullAutoState(bool enabled)
@@ -80,6 +89,11 @@ namespace GridSquad
                 buttonImage.color =
                     enabled ? FullAutoButtonColor : CommandButtonColor;
             }
+
+            if (automaticModeInitialized && previousAutomaticMode != enabled)
+                automaticModeChangedFeedbacks?.PlayFeedbacks();
+            previousAutomaticMode = enabled;
+            automaticModeInitialized = true;
         }
 
         public void SetAllyFullAutoInteractable(bool interactable)
@@ -91,9 +105,16 @@ namespace GridSquad
         public void ShowResult(string result)
         {
             if (resultPanel != null)
+            {
                 resultPanel.SetActive(true);
+                CanvasGroup canvasGroup = resultPanel.GetComponent<CanvasGroup>();
+                if (canvasGroup != null)
+                    canvasGroup.alpha = 0f;
+                resultPanel.transform.localScale = Vector3.one * 0.85f;
+            }
             if (resultText != null)
                 resultText.text = $"{result}\nPress R to Restart";
+            resultPanelFeedbacks?.PlayFeedbacks();
         }
 
         private void RefreshSelectedCombatantInfo()
@@ -171,7 +192,10 @@ namespace GridSquad
             Text newSelectedInfoBodyText,
             Button newAllyFullAutoButton,
             Text newAllyFullAutoButtonText,
-            CombatDirector newDirector)
+            CombatDirector newDirector,
+            MMF_Player newSelectionChangedFeedbacks,
+            MMF_Player newAutomaticModeChangedFeedbacks,
+            MMF_Player newResultPanelFeedbacks)
         {
             stateText = newStateText;
             modeText = newModeText;
@@ -184,6 +208,9 @@ namespace GridSquad
             allyFullAutoButton = newAllyFullAutoButton;
             allyFullAutoButtonText = newAllyFullAutoButtonText;
             director = newDirector;
+            selectionChangedFeedbacks = newSelectionChangedFeedbacks;
+            automaticModeChangedFeedbacks = newAutomaticModeChangedFeedbacks;
+            resultPanelFeedbacks = newResultPanelFeedbacks;
         }
 #endif
     }

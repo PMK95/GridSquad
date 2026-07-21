@@ -16,7 +16,6 @@ namespace GridSquad
         [Range(0.1f, 30f)] public float FireAimToleranceDegrees = 3f;
         [Range(0f, 100f)] public float MinimumHitChancePercent = 5f;
         [Range(0f, 100f)] public float MaximumHitChancePercent = 95f;
-        [Min(0.02f)] public float ShotTracerDuration = 0.09f;
         [Min(0.02f)] public float EvaluationRefreshInterval = 0.1f;
 
         [Header("피격")]
