@@ -9,6 +9,8 @@ using Unity.Cinemachine;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.Audio;
+using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 using Object = UnityEngine.Object;
@@ -30,6 +32,14 @@ namespace GridSquadEditor
         private const string CameraNoisePath = FeedbackRootPath + "/Camera/GridSquadCombatNoise.asset";
         private const string FeelFloatingTextPath = "Assets/Plugins/Feel/MMFeedbacks/MMFeedbacksForThirdParty/TextMeshPro/MMFloatingText/Prefabs/MMFloatingTextMeshPro.prefab";
         private const string FeelNoisePath = "Assets/Plugins/Feel/MMFeedbacks/MMFeedbacksForThirdParty/Cinemachine/Resources/MM_6D_Shake.asset";
+        private const string AudioRootPath = RootPath + "/Audio";
+        private const string SoundMixerPath = AudioRootPath + "/GridSquadAudioMixer.mixer";
+        private const string SoundSettingsPath = AudioRootPath + "/GridSquadSoundSettings.asset";
+        private const string FeelSoundMixerPath = "Assets/Plugins/Feel/MMTools/Core/MMAudio/MMSoundManager/Settings/MMSoundManagerAudioMixer.mixer";
+        private const string DebugRootPath = RootPath + "/Debug";
+        private const string DebugMenuDataPath = DebugRootPath + "/CombatDebugMenuData.asset";
+        private const string FeelDebugMenuRoot = "Assets/Plugins/Feel/MMTools/Accessories/MMDebugMenu/Prefabs";
+        private const string FeelDebugMenuPrefabPath = FeelDebugMenuRoot + "/MMDebugMenu.prefab";
 
         [MenuItem("GridSquad/Feel 전투 연출 구성")]
         public static void ConfigureFeelPresentation()
@@ -41,9 +51,24 @@ namespace GridSquadEditor
             Debug.Log("Feel 기반 전투·화면 연출 구성이 완료되었습니다.");
         }
 
+        [MenuItem("GridSquad/Feel 편의 기능 구성")]
+        public static void ConfigureFeelConveniences()
+        {
+            EnsureConvenienceAssets();
+            ConfigureWorldUiPrefab();
+            ConfigureSoundManager();
+            ConfigureDebugTools();
+            EditorSceneManager.MarkSceneDirty(SceneManager.GetActiveScene());
+            EditorSceneManager.SaveOpenScenes();
+            ValidateFeelPresentation();
+            AssetDatabase.SaveAssets();
+            Debug.Log("Feel 편의 기능 구성을 완료했습니다.");
+        }
+
         public static void ConfigurePrefabAssets()
         {
             EnsureFeedbackAssets();
+            EnsureConvenienceAssets();
             RemoveMissingPresentationScriptsFromCharacterModel();
             ConfigureWorldUiPrefab();
             ConfigureUnitBasePrefab();
@@ -58,6 +83,7 @@ namespace GridSquadEditor
             ConfigureCinemachine(cameraChannel);
             ConfigureHudFeedbacks();
             ConfigureSceneRuntimeReferences();
+            ConfigureDebugTools();
             EditorSceneManager.MarkSceneDirty(SceneManager.GetActiveScene());
             EditorSceneManager.SaveOpenScenes();
         }
@@ -89,6 +115,7 @@ namespace GridSquadEditor
             GameObject worldUi = LoadRequiredAsset<GameObject>(WorldUiPath);
             if (worldUi.GetComponentInChildren<MMHealthBar>(true) == null
                 || worldUi.GetComponentInChildren<MMProgressBar>(true) == null
+                || worldUi.GetComponentInChildren<MMBillboard>(true) == null
                 || FindDescendant(worldUi.transform, "OutOfAmmoText")?.GetComponent<Text>() == null)
                 throw new InvalidOperationException("CharacterWorldUI의 Feel HP 바 구성이 누락되었습니다.");
 
@@ -97,6 +124,23 @@ namespace GridSquadEditor
                 throw new InvalidOperationException("플로팅 텍스트 Spawner의 32개 확장 풀이 구성되지 않았습니다.");
             if (Object.FindFirstObjectByType<MMTimeManager>() == null)
                 throw new InvalidOperationException("씬에 MMTimeManager가 없습니다.");
+
+            MMSoundManager soundManager = Object.FindFirstObjectByType<MMSoundManager>();
+            if (soundManager == null
+                || soundManager.settingsSo != LoadRequiredAsset<MMSoundManagerSettingsSO>(SoundSettingsPath)
+                || soundManager.GetComponent<FeelConvenienceRuntimeBootstrap>() == null)
+            {
+                throw new InvalidOperationException("MMSoundManager JSON 설정이 누락되었습니다.");
+            }
+            MMDebugMenu debugMenu = Object.FindFirstObjectByType<MMDebugMenu>();
+            if (debugMenu == null
+                || debugMenu.Data != LoadRequiredAsset<MMDebugMenuData>(DebugMenuDataPath)
+                || debugMenu.GetComponent<CombatDebugMenuBridge>() == null)
+            {
+                throw new InvalidOperationException("전투 디버그 메뉴 구성이 누락되었습니다.");
+            }
+            if (Object.FindFirstObjectByType<MMFPSCounter>() == null)
+                throw new InvalidOperationException("FPS 카운터가 구성되지 않았습니다.");
 
             CinemachineCamera camera = Object.FindFirstObjectByType<CinemachineCamera>();
             if (camera == null
@@ -119,6 +163,187 @@ namespace GridSquadEditor
             CopyAssetIfMissing(FeelNoisePath, CameraNoisePath);
             CreateChannelIfMissing(DamageChannelPath);
             CreateChannelIfMissing(CameraChannelPath);
+        }
+
+        private static void EnsureConvenienceAssets()
+        {
+            EnsureFolder(RootPath, "Audio");
+            EnsureFolder(RootPath, "Debug");
+            CopyAssetIfMissing(FeelSoundMixerPath, SoundMixerPath);
+            ConfigureSoundSettingsAsset();
+            ConfigureDebugMenuDataAsset();
+        }
+
+        private static void ConfigureSoundSettingsAsset()
+        {
+            MMSoundManagerSettingsSO settings =
+                AssetDatabase.LoadAssetAtPath<MMSoundManagerSettingsSO>(SoundSettingsPath);
+            if (settings == null)
+            {
+                settings = ScriptableObject.CreateInstance<MMSoundManagerSettingsSO>();
+                settings.name = "GridSquadSoundSettings";
+                AssetDatabase.CreateAsset(settings, SoundSettingsPath);
+            }
+
+            AudioMixer mixer = LoadRequiredAsset<AudioMixer>(SoundMixerPath);
+            settings.TargetAudioMixer = mixer;
+            settings.MasterAudioMixerGroup = FindRequiredMixerGroup(mixer, "Master");
+            settings.MusicAudioMixerGroup = FindRequiredMixerGroup(mixer, "Music");
+            settings.SfxAudioMixerGroup = FindRequiredMixerGroup(mixer, "Sfx");
+            settings.UIAudioMixerGroup = FindRequiredMixerGroup(mixer, "UI");
+            settings.Settings ??= new MMSoundManagerSettings();
+            settings.Settings.OverrideMixerSettings = true;
+            settings.Settings.MasterVolumeParameter = "MasterVolume";
+            settings.Settings.MusicVolumeParameter = "MusicVolume";
+            settings.Settings.SfxVolumeParameter = "SfxVolume";
+            settings.Settings.UIVolumeParameter = "UiVolume";
+            settings.Settings.AutoLoad = true;
+            settings.Settings.AutoSave = true;
+            EditorUtility.SetDirty(settings);
+        }
+
+        private static AudioMixerGroup FindRequiredMixerGroup(AudioMixer mixer, string groupName)
+        {
+            AudioMixerGroup group = mixer.FindMatchingGroups(string.Empty)
+                .FirstOrDefault(candidate => candidate.name == groupName);
+            if (group == null)
+                throw new InvalidOperationException($"오디오 믹서에서 {groupName} 그룹을 찾을 수 없습니다.");
+            return group;
+        }
+
+        private static void ConfigureDebugMenuDataAsset()
+        {
+            MMDebugMenuData data = AssetDatabase.LoadAssetAtPath<MMDebugMenuData>(DebugMenuDataPath);
+            if (data == null)
+            {
+                data = ScriptableObject.CreateInstance<MMDebugMenuData>();
+                data.name = "CombatDebugMenuData";
+                AssetDatabase.CreateAsset(data, DebugMenuDataPath);
+            }
+
+            data.TitlePrefab = LoadRequiredPrefabComponent<MMDebugMenuItemTitle>("MMDebugMenuTitle.prefab");
+            data.ButtonPrefab = LoadRequiredPrefabComponent<MMDebugMenuItemButton>("MMDebugMenuButton.prefab");
+            data.ButtonBorderPrefab = LoadRequiredPrefabComponent<MMDebugMenuItemButton>("MMDebugMenuButtonBorder.prefab");
+            data.CheckboxPrefab = LoadRequiredPrefabComponent<MMDebugMenuItemCheckbox>("MMDebugMenuCheckbox.prefab");
+            data.SliderPrefab = LoadRequiredPrefabComponent<MMDebugMenuItemSlider>("MMDebugMenuSlider.prefab");
+            data.SpacerSmallPrefab = LoadRequiredAsset<GameObject>(FeelDebugMenuRoot + "/MMDebugMenuSpacerSmall.prefab");
+            data.SpacerBigPrefab = LoadRequiredAsset<GameObject>(FeelDebugMenuRoot + "/MMDebugMenuSpacerBig.prefab");
+            data.TextTinyPrefab = LoadRequiredPrefabComponent<MMDebugMenuItemText>("MMDebugMenuTextTiny.prefab");
+            data.TextSmallPrefab = LoadRequiredPrefabComponent<MMDebugMenuItemText>("MMDebugMenuTextSmall.prefab");
+            data.TextLongPrefab = LoadRequiredPrefabComponent<MMDebugMenuItemText>("MMDebugMenuTextLong.prefab");
+            data.ValuePrefab = LoadRequiredPrefabComponent<MMDebugMenuItemValue>("MMDebugMenuValue.prefab");
+            data.TwoChoicesPrefab = LoadRequiredPrefabComponent<MMDebugMenuItemChoices>("MMDebugMenuChoicesTwo.prefab");
+            data.ThreeChoicesPrefab = LoadRequiredPrefabComponent<MMDebugMenuItemChoices>("MMDebugMenuChoicesThree.prefab");
+            data.TabPrefab = LoadRequiredPrefabComponent<MMDebugMenuTab>("MMDebugMenuTab.prefab");
+            data.TabContentsPrefab = LoadRequiredPrefabComponent<MMDebugMenuTabContents>("MMDebugMenuTabContents.prefab");
+            data.TabSpacerPrefab = LoadRequiredAsset<GameObject>(FeelDebugMenuRoot + "/MMDebugMenuTabSpacer.prefab")
+                .GetComponent<RectTransform>();
+            data.DebugTabPrefab = LoadRequiredPrefabComponent<MMDebugMenuDebugTab>("MMDebugMenuDebugPanel.prefab");
+            data.RegularFont = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            data.BoldFont = data.RegularFont;
+            data.BackgroundColor = new Color(0.025f, 0.035f, 0.055f, 0.97f);
+            data.AccentColor = new Color(0.2f, 0.9f, 0.58f, 1f);
+            data.TextColor = Color.white;
+            data.DebugTabName = "로그";
+            data.DisplayDebugTab = true;
+            data.MaxTabs = 5;
+            data.InitialActiveTabIndex = 0;
+            data.ToggleDirection = MMDebugMenu.ToggleDirections.RightToLeft;
+            data.ToggleDuration = 0.18f;
+            data.ToggleKey = Key.Backquote;
+            data.Tabs = new List<MMDebugMenuTabData>
+            {
+                new()
+                {
+                    Name = "전투",
+                    Active = true,
+                    MenuItems = CreateCombatDebugMenuItems()
+                }
+            };
+            EditorUtility.SetDirty(data);
+        }
+
+        private static MMDebugMenuItemList CreateCombatDebugMenuItems()
+        {
+            MMDebugMenuItemList items = new();
+            items.Add(new MMDebugMenuItem
+            {
+                Name = "CombatControlTitle",
+                Type = MMDebugMenuItem.MMDebugMenuItemTypes.Title,
+                TitleText = "전투 제어"
+            });
+            items.Add(CreateDebugCheckbox(
+                "DebugVisible",
+                "전체 전술 정보 표시",
+                CombatDebugMenuBridge.DebugVisibleEvent,
+                false));
+            items.Add(CreateDebugCheckbox(
+                "FullAuto",
+                "아군 완전 자동 전투",
+                CombatDebugMenuBridge.FullAutoEvent,
+                false));
+            items.Add(CreateDebugCheckbox(
+                "AutomaticPeek",
+                "전체 유닛 자동 피킹",
+                CombatDebugMenuBridge.AutomaticPeekEvent,
+                true));
+            items.Add(CreateDebugCheckbox(
+                "Pause",
+                "전투 일시정지",
+                CombatDebugMenuBridge.PauseEvent,
+                false));
+            items.Add(new MMDebugMenuItem
+            {
+                Name = "GameSpeed",
+                Type = MMDebugMenuItem.MMDebugMenuItemTypes.Slider,
+                SliderMode = MMDebugMenuItemSlider.Modes.Float,
+                SliderText = "게임 배속",
+                SliderRemapZero = 0.25f,
+                SliderRemapOne = 4f,
+                SliderInitialValue = 1f,
+                SliderEventName = CombatDebugMenuBridge.GameSpeedEvent
+            });
+            items.Add(new MMDebugMenuItem
+            {
+                Name = "Restart",
+                Type = MMDebugMenuItem.MMDebugMenuItemTypes.Button,
+                ButtonText = "현재 전투 다시 시작",
+                ButtonType = MMDebugMenuItem.MMDebugMenuItemButtonTypes.Full,
+                ButtonEventName = CombatDebugMenuBridge.RestartEvent
+            });
+            items.Add(new MMDebugMenuItem
+            {
+                Name = "ShortcutHelp",
+                Type = MMDebugMenuItem.MMDebugMenuItemTypes.Text,
+                TextType = MMDebugMenuItem.MMDebugMenuItemTextTypes.Small,
+                TextContents = "백쿼트(`) 키로 이 메뉴를 열고 닫습니다."
+            });
+            return items;
+        }
+
+        private static MMDebugMenuItem CreateDebugCheckbox(
+            string name,
+            string label,
+            string eventName,
+            bool initialState)
+        {
+            return new MMDebugMenuItem
+            {
+                Name = name,
+                Type = MMDebugMenuItem.MMDebugMenuItemTypes.Checkbox,
+                CheckboxText = label,
+                CheckboxEventName = eventName,
+                CheckboxInitialState = initialState
+            };
+        }
+
+        private static T LoadRequiredPrefabComponent<T>(string prefabName) where T : Component
+        {
+            GameObject prefab = LoadRequiredAsset<GameObject>(FeelDebugMenuRoot + "/" + prefabName);
+            T component = prefab.GetComponent<T>();
+            if (component == null)
+                throw new InvalidOperationException($"{prefabName}에서 {typeof(T).Name} 컴포넌트를 찾을 수 없습니다.");
+            return component;
         }
 
         private static void RemoveMissingPresentationScriptsFromCharacterModel()
@@ -146,6 +371,7 @@ namespace GridSquadEditor
                 Image foreground = FindRequiredDescendant(root.transform, "HPFill").GetComponent<Image>();
                 Image delayed = EnsureDelayedHealthImage(backgroundTransform, foreground);
                 Text outOfAmmoText = EnsureOutOfAmmoText(root.transform);
+                Transform worldCanvas = FindRequiredDescendant(root.transform, "WorldCanvas");
 
                 foreground.type = Image.Type.Filled;
                 foreground.fillMethod = Image.FillMethod.Horizontal;
@@ -177,6 +403,12 @@ namespace GridSquadEditor
                 healthBar.AlwaysVisible = true;
                 healthBar.HideBarAtZero = false;
                 healthBar.BumpScaleOnChange = false;
+
+                MMBillboard billboard = GetOrAddComponent<MMBillboard>(worldCanvas.gameObject);
+                billboard.GrabMainCameraOnStart = true;
+                billboard.NestObject = false;
+                billboard.OffsetDirection = Vector3.forward;
+                billboard.Up = Vector3.up;
 
                 SetObjectReference(presenter, "healthBar", healthBar);
                 SetObjectReference(presenter, "outOfAmmoText", outOfAmmoText);
@@ -526,6 +758,8 @@ namespace GridSquadEditor
                 timeManager = systems.AddComponent<MMTimeManager>();
             timeManager.NormalTimeScale = 1f;
 
+            ConfigureSoundManager();
+
             Transform rig = systems.transform.Find("CombatFeedbackRig");
             if (rig == null)
                 rig = new GameObject("CombatFeedbackRig").transform;
@@ -677,6 +911,86 @@ namespace GridSquadEditor
                     throw new InvalidOperationException($"{combatant.name}에 Feel Presenter가 상속되지 않았습니다.");
                 SetObjectReference(combatant, "feedbackPresenter", presenter);
             }
+        }
+
+        private static void ConfigureSoundManager()
+        {
+            GameObject soundRoot = GameObject.Find("MMSoundManager");
+            if (soundRoot == null)
+                soundRoot = new GameObject("MMSoundManager");
+            soundRoot.transform.SetParent(null);
+
+            GetOrAddComponent<FeelConvenienceRuntimeBootstrap>(soundRoot);
+            MMSoundManager soundManager = GetOrAddComponent<MMSoundManager>(soundRoot);
+            soundManager.settingsSo = LoadRequiredAsset<MMSoundManagerSettingsSO>(SoundSettingsPath);
+            soundManager.AudioSourcePoolSize = 24;
+            soundManager.PoolCanExpand = true;
+            EditorUtility.SetDirty(soundRoot);
+        }
+
+        private static void ConfigureDebugTools()
+        {
+            CombatDirector director = Object.FindFirstObjectByType<CombatDirector>();
+            TacticalInputController input = Object.FindFirstObjectByType<TacticalInputController>();
+            CombatHudController hud = Object.FindFirstObjectByType<CombatHudController>();
+            if (director == null || input == null || hud == null)
+                throw new InvalidOperationException("디버그 메뉴 연결 대상이 누락되었습니다.");
+
+            MMDebugMenu debugMenu = Object.FindFirstObjectByType<MMDebugMenu>();
+            if (debugMenu == null)
+            {
+                GameObject prefab = LoadRequiredAsset<GameObject>(FeelDebugMenuPrefabPath);
+                GameObject instance = (GameObject)PrefabUtility.InstantiatePrefab(prefab);
+                instance.name = "CombatDebugMenu";
+                instance.transform.localScale = Vector3.one;
+                debugMenu = instance.GetComponent<MMDebugMenu>();
+            }
+
+            debugMenu.Data = LoadRequiredAsset<MMDebugMenuData>(DebugMenuDataPath);
+            CombatDebugMenuBridge bridge = GetOrAddComponent<CombatDebugMenuBridge>(debugMenu.gameObject);
+            bridge.SetEditorReferences(director, input);
+            ConfigureFpsCounter(hud.transform);
+            EditorUtility.SetDirty(debugMenu);
+            EditorUtility.SetDirty(bridge);
+        }
+
+        private static void ConfigureFpsCounter(Transform hudRoot)
+        {
+            Transform existing = FindDescendant(hudRoot, "FPSCounter");
+            GameObject counterObject = existing != null
+                ? existing.gameObject
+                : new GameObject(
+                    "FPSCounter",
+                    typeof(RectTransform),
+                    typeof(CanvasRenderer),
+                    typeof(Text),
+                    typeof(Outline));
+            counterObject.transform.SetParent(hudRoot, false);
+            counterObject.layer = 5;
+
+            RectTransform rect = counterObject.GetComponent<RectTransform>();
+            rect.anchorMin = Vector2.one;
+            rect.anchorMax = Vector2.one;
+            rect.pivot = Vector2.one;
+            rect.anchoredPosition = new Vector2(-18f, -18f);
+            rect.sizeDelta = new Vector2(180f, 32f);
+
+            Text text = counterObject.GetComponent<Text>();
+            text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            text.fontSize = 18;
+            text.fontStyle = FontStyle.Bold;
+            text.alignment = TextAnchor.UpperRight;
+            text.color = new Color(0.65f, 1f, 0.78f, 1f);
+            text.raycastTarget = false;
+            text.text = "FPS";
+
+            Outline outline = counterObject.GetComponent<Outline>();
+            outline.effectColor = new Color(0f, 0f, 0f, 0.85f);
+            outline.effectDistance = new Vector2(1f, -1f);
+
+            MMFPSCounter counter = GetOrAddComponent<MMFPSCounter>(counterObject);
+            counter.UpdateInterval = 0.35f;
+            counter.Mode = MMFPSCounter.Modes.InstantAndMovingAverage;
         }
 
         private static MMF_Player ConfigurePlayer(

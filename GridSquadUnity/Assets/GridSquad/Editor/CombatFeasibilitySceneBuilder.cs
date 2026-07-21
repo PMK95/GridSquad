@@ -107,8 +107,7 @@ namespace GridSquadEditor
                 director,
                 positionEvaluator,
                 tuning,
-                weapon,
-                sceneCamera.transform);
+                weapon);
             director.SetEditorReferences(combatants, shotEvaluator, hud, timeManager);
             inputController.SetEditorReferences(
                 inputActions,
@@ -673,8 +672,7 @@ namespace GridSquadEditor
                 targetLine,
                 targetRing,
                 peekLine,
-                peekRing,
-                null);
+                peekRing);
 
             GameObject prefab = PrefabUtility.SaveAsPrefabAsset(root, CharacterUiPath);
             Object.DestroyImmediate(root);
@@ -893,14 +891,13 @@ namespace GridSquadEditor
             CombatDirector director,
             TacticalPositionEvaluator positionEvaluator,
             CombatTuning tuning,
-            WeaponDefinition weapon,
-            Transform cameraTransform)
+            WeaponDefinition weapon)
         {
             Vector2Int[] allyCells = { new(1, 2), new(1, 5), new(2, 9) };
             Vector2Int[] enemyCells = { new(10, 1), new(10, 4), new(10, 7), new(10, 10) };
             List<Combatant> combatants = new();
-            CreateTeamInstances(allyPrefab, Team.Ally, allyCells, combatants, gridMap, shotEvaluator, director, positionEvaluator, tuning, weapon, cameraTransform);
-            CreateTeamInstances(enemyPrefab, Team.Enemy, enemyCells, combatants, gridMap, shotEvaluator, director, positionEvaluator, tuning, weapon, cameraTransform);
+            CreateTeamInstances(allyPrefab, Team.Ally, allyCells, combatants, gridMap, shotEvaluator, director, positionEvaluator, tuning, weapon);
+            CreateTeamInstances(enemyPrefab, Team.Enemy, enemyCells, combatants, gridMap, shotEvaluator, director, positionEvaluator, tuning, weapon);
             return combatants.ToArray();
         }
 
@@ -914,8 +911,7 @@ namespace GridSquadEditor
             CombatDirector director,
             TacticalPositionEvaluator positionEvaluator,
             CombatTuning tuning,
-            WeaponDefinition weapon,
-            Transform cameraTransform)
+            WeaponDefinition weapon)
         {
             for (int index = 0; index < cells.Length; index++)
             {
@@ -929,7 +925,6 @@ namespace GridSquadEditor
                 Transform muzzle = visualRoot.Find("Muzzle");
                 Transform aimCenter = visualRoot.Find("AimCenter");
                 CharacterWorldUiPresenter worldUi = instance.GetComponentInChildren<CharacterWorldUiPresenter>(true);
-                worldUi.SetEditorCameraTransform(cameraTransform);
                 combatant.SetEditorConfiguration(
                     team,
                     combatant.MaximumHealth,

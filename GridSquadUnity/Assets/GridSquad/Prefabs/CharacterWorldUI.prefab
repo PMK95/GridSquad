@@ -179,7 +179,7 @@ MonoBehaviour:
   SetInitialFillValueOnStart: 0
   InitialFillValue: 0
   BarDirection: 0
-  FillMode: 1
+  FillMode: 0
   TimeScale: 0
   BarFillMode: 1
   LerpForegroundBar: 1
@@ -761,7 +761,6 @@ MonoBehaviour:
   targetRing: {fileID: 1255423084342934386}
   peekLine: {fileID: 930686979096268540}
   peekRing: {fileID: 5168795592271864967}
-  cameraTransform: {fileID: 0}
 --- !u!1 &2849273115037480987
 GameObject:
   m_ObjectHideFlags: 0
@@ -1647,7 +1646,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 5f7201a12d95ffc409449d95f23cf332, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Text
   m_Material: {fileID: 0}
   m_Color: {r: 1, g: 0.25, b: 0.12, a: 1}
@@ -1681,7 +1680,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: e19747de3f5aca642ab2be37e372fb86, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Outline
   m_EffectColor: {r: 0.05, g: 0.01, b: 0.01, a: 0.95}
   m_EffectDistance: {x: 1.5, y: -1.5}

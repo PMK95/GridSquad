@@ -1,0 +1,314 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b950a5ce764708a4ca0425a952fce75f, type: 3}
+  m_Name: CombatDebugMenuData
+  m_EditorClassIdentifier: MoreMountains.Tools::MoreMountains.Tools.MMDebugMenuData
+  TitlePrefab: {fileID: 2112759074905327847, guid: 80be1ec3d14da9c489fbefa63b82915f, type: 3}
+  ButtonPrefab: {fileID: 7110842687765492728, guid: dbb3e138861cf2040b20217e62a5edf2, type: 3}
+  ButtonBorderPrefab: {fileID: 1985568128000399461, guid: f2be8011322fbf943a44edc64dedbf2c, type: 3}
+  CheckboxPrefab: {fileID: 2731002163667230428, guid: e48b9501c5356cf4e9c390d40d81438c, type: 3}
+  SliderPrefab: {fileID: 8595552693496322647, guid: addcaa6f7df18984691dc300b3be4f7b, type: 3}
+  SpacerSmallPrefab: {fileID: 3952073977153845988, guid: 1a4b9ae95443d5a489bd918c848e2390, type: 3}
+  SpacerBigPrefab: {fileID: 8096383012134595547, guid: f72e7b8c96262ed4d976576afafd53b0, type: 3}
+  TextTinyPrefab: {fileID: 7812354180902260709, guid: 57336066c3d7ff5418ae88b7880aafed, type: 3}
+  TextSmallPrefab: {fileID: 6550416838355534067, guid: 6689802a48b01104ebd8e101f5cce555, type: 3}
+  TextLongPrefab: {fileID: 7073910567540320170, guid: 4332ad3ebf8592c41bc275ff77d24b29, type: 3}
+  ValuePrefab: {fileID: 3610448643810830552, guid: 855a2d614e531f44caecc17a8c3bd51c, type: 3}
+  TwoChoicesPrefab: {fileID: 5258430688713385724, guid: 90a0e72c11dfcbe4f88bccc465c6a0cd, type: 3}
+  ThreeChoicesPrefab: {fileID: 207464785538935126, guid: 804c003da46ec914e80badaf93e6d2da, type: 3}
+  TabPrefab: {fileID: 3232960445196542265, guid: a8296d633c27f554a99bbbf94958722e, type: 3}
+  TabContentsPrefab: {fileID: 2838565908494160927, guid: f2f0b25301bf93e43ac5ecc33208a420, type: 3}
+  TabSpacerPrefab: {fileID: 2188017814106785258, guid: 57633cde530d56a48995d0733efa9450, type: 3}
+  DebugTabPrefab: {fileID: 521718878734460126, guid: 94cfa935aa4cff74a9451b22cb7627a6, type: 3}
+  DebugTabName: "\uB85C\uADF8"
+  Tabs:
+  - Name: "\uC804\uD22C"
+    Active: 1
+    MenuItems:
+      array:
+      - Name: CombatControlTitle
+        Active: 1
+        Type: 0
+        TitleText: "\uC804\uD22C \uC81C\uC5B4"
+        TextType: 0
+        TextContents: Lorem ipsum dolor sit amet
+        ChoicesType: 0
+        ChoiceOneText: 
+        ChoiceOneEventName: ChoiceOneEvent
+        ChoiceTwoText: 
+        ChoiceTwoEventName: ChoiceTwoEvent
+        ChoiceThreeText: 
+        ChoiceThreeEventName: ChoiceThreeEvent
+        SelectedChoice: 0
+        ValueLabel: Value Label
+        ValueInitialValue: 255
+        ValueMMRadioReceiverChannel: 0
+        ButtonText: Button text
+        ButtonType: 0
+        ButtonEventName: Button
+        SpacerType: 0
+        CheckboxText: 
+        CheckboxInitialState: 0
+        CheckboxEventName: CheckboxEventName
+        SliderMode: 0
+        SliderText: 
+        SliderRemapZero: 0
+        SliderRemapOne: 1
+        SliderInitialValue: 0
+        SliderEventName: Slider
+        TargetSlider: {fileID: 0}
+        TargetButton: {fileID: 0}
+        TargetCheckbox: {fileID: 0}
+      - Name: DebugVisible
+        Active: 1
+        Type: 3
+        TitleText: Title text
+        TextType: 0
+        TextContents: Lorem ipsum dolor sit amet
+        ChoicesType: 0
+        ChoiceOneText: 
+        ChoiceOneEventName: ChoiceOneEvent
+        ChoiceTwoText: 
+        ChoiceTwoEventName: ChoiceTwoEvent
+        ChoiceThreeText: 
+        ChoiceThreeEventName: ChoiceThreeEvent
+        SelectedChoice: 0
+        ValueLabel: Value Label
+        ValueInitialValue: 255
+        ValueMMRadioReceiverChannel: 0
+        ButtonText: Button text
+        ButtonType: 0
+        ButtonEventName: Button
+        SpacerType: 0
+        CheckboxText: "\uC804\uCCB4 \uC804\uC220 \uC815\uBCF4 \uD45C\uC2DC"
+        CheckboxInitialState: 0
+        CheckboxEventName: Combat.DebugVisible
+        SliderMode: 0
+        SliderText: 
+        SliderRemapZero: 0
+        SliderRemapOne: 1
+        SliderInitialValue: 0
+        SliderEventName: Slider
+        TargetSlider: {fileID: 0}
+        TargetButton: {fileID: 0}
+        TargetCheckbox: {fileID: 0}
+      - Name: FullAuto
+        Active: 1
+        Type: 3
+        TitleText: Title text
+        TextType: 0
+        TextContents: Lorem ipsum dolor sit amet
+        ChoicesType: 0
+        ChoiceOneText: 
+        ChoiceOneEventName: ChoiceOneEvent
+        ChoiceTwoText: 
+        ChoiceTwoEventName: ChoiceTwoEvent
+        ChoiceThreeText: 
+        ChoiceThreeEventName: ChoiceThreeEvent
+        SelectedChoice: 0
+        ValueLabel: Value Label
+        ValueInitialValue: 255
+        ValueMMRadioReceiverChannel: 0
+        ButtonText: Button text
+        ButtonType: 0
+        ButtonEventName: Button
+        SpacerType: 0
+        CheckboxText: "\uC544\uAD70 \uC644\uC804 \uC790\uB3D9 \uC804\uD22C"
+        CheckboxInitialState: 0
+        CheckboxEventName: Combat.FullAuto
+        SliderMode: 0
+        SliderText: 
+        SliderRemapZero: 0
+        SliderRemapOne: 1
+        SliderInitialValue: 0
+        SliderEventName: Slider
+        TargetSlider: {fileID: 0}
+        TargetButton: {fileID: 0}
+        TargetCheckbox: {fileID: 0}
+      - Name: AutomaticPeek
+        Active: 1
+        Type: 3
+        TitleText: Title text
+        TextType: 0
+        TextContents: Lorem ipsum dolor sit amet
+        ChoicesType: 0
+        ChoiceOneText: 
+        ChoiceOneEventName: ChoiceOneEvent
+        ChoiceTwoText: 
+        ChoiceTwoEventName: ChoiceTwoEvent
+        ChoiceThreeText: 
+        ChoiceThreeEventName: ChoiceThreeEvent
+        SelectedChoice: 0
+        ValueLabel: Value Label
+        ValueInitialValue: 255
+        ValueMMRadioReceiverChannel: 0
+        ButtonText: Button text
+        ButtonType: 0
+        ButtonEventName: Button
+        SpacerType: 0
+        CheckboxText: "\uC804\uCCB4 \uC720\uB2DB \uC790\uB3D9 \uD53C\uD0B9"
+        CheckboxInitialState: 1
+        CheckboxEventName: Combat.AutomaticPeek
+        SliderMode: 0
+        SliderText: 
+        SliderRemapZero: 0
+        SliderRemapOne: 1
+        SliderInitialValue: 0
+        SliderEventName: Slider
+        TargetSlider: {fileID: 0}
+        TargetButton: {fileID: 0}
+        TargetCheckbox: {fileID: 0}
+      - Name: Pause
+        Active: 1
+        Type: 3
+        TitleText: Title text
+        TextType: 0
+        TextContents: Lorem ipsum dolor sit amet
+        ChoicesType: 0
+        ChoiceOneText: 
+        ChoiceOneEventName: ChoiceOneEvent
+        ChoiceTwoText: 
+        ChoiceTwoEventName: ChoiceTwoEvent
+        ChoiceThreeText: 
+        ChoiceThreeEventName: ChoiceThreeEvent
+        SelectedChoice: 0
+        ValueLabel: Value Label
+        ValueInitialValue: 255
+        ValueMMRadioReceiverChannel: 0
+        ButtonText: Button text
+        ButtonType: 0
+        ButtonEventName: Button
+        SpacerType: 0
+        CheckboxText: "\uC804\uD22C \uC77C\uC2DC\uC815\uC9C0"
+        CheckboxInitialState: 0
+        CheckboxEventName: Combat.Pause
+        SliderMode: 0
+        SliderText: 
+        SliderRemapZero: 0
+        SliderRemapOne: 1
+        SliderInitialValue: 0
+        SliderEventName: Slider
+        TargetSlider: {fileID: 0}
+        TargetButton: {fileID: 0}
+        TargetCheckbox: {fileID: 0}
+      - Name: GameSpeed
+        Active: 1
+        Type: 4
+        TitleText: Title text
+        TextType: 0
+        TextContents: Lorem ipsum dolor sit amet
+        ChoicesType: 0
+        ChoiceOneText: 
+        ChoiceOneEventName: ChoiceOneEvent
+        ChoiceTwoText: 
+        ChoiceTwoEventName: ChoiceTwoEvent
+        ChoiceThreeText: 
+        ChoiceThreeEventName: ChoiceThreeEvent
+        SelectedChoice: 0
+        ValueLabel: Value Label
+        ValueInitialValue: 255
+        ValueMMRadioReceiverChannel: 0
+        ButtonText: Button text
+        ButtonType: 0
+        ButtonEventName: Button
+        SpacerType: 0
+        CheckboxText: 
+        CheckboxInitialState: 0
+        CheckboxEventName: CheckboxEventName
+        SliderMode: 0
+        SliderText: "\uAC8C\uC784 \uBC30\uC18D"
+        SliderRemapZero: 0.25
+        SliderRemapOne: 4
+        SliderInitialValue: 1
+        SliderEventName: Combat.GameSpeed
+        TargetSlider: {fileID: 0}
+        TargetButton: {fileID: 0}
+        TargetCheckbox: {fileID: 0}
+      - Name: Restart
+        Active: 1
+        Type: 2
+        TitleText: Title text
+        TextType: 0
+        TextContents: Lorem ipsum dolor sit amet
+        ChoicesType: 0
+        ChoiceOneText: 
+        ChoiceOneEventName: ChoiceOneEvent
+        ChoiceTwoText: 
+        ChoiceTwoEventName: ChoiceTwoEvent
+        ChoiceThreeText: 
+        ChoiceThreeEventName: ChoiceThreeEvent
+        SelectedChoice: 0
+        ValueLabel: Value Label
+        ValueInitialValue: 255
+        ValueMMRadioReceiverChannel: 0
+        ButtonText: "\uD604\uC7AC \uC804\uD22C \uB2E4\uC2DC \uC2DC\uC791"
+        ButtonType: 1
+        ButtonEventName: Combat.Restart
+        SpacerType: 0
+        CheckboxText: 
+        CheckboxInitialState: 0
+        CheckboxEventName: CheckboxEventName
+        SliderMode: 0
+        SliderText: 
+        SliderRemapZero: 0
+        SliderRemapOne: 1
+        SliderInitialValue: 0
+        SliderEventName: Slider
+        TargetSlider: {fileID: 0}
+        TargetButton: {fileID: 0}
+        TargetCheckbox: {fileID: 0}
+      - Name: ShortcutHelp
+        Active: 1
+        Type: 5
+        TitleText: Title text
+        TextType: 1
+        TextContents: "\uBC31\uCFFC\uD2B8(`) \uD0A4\uB85C \uC774 \uBA54\uB274\uB97C
+          \uC5F4\uACE0 \uB2EB\uC2B5\uB2C8\uB2E4."
+        ChoicesType: 0
+        ChoiceOneText: 
+        ChoiceOneEventName: ChoiceOneEvent
+        ChoiceTwoText: 
+        ChoiceTwoEventName: ChoiceTwoEvent
+        ChoiceThreeText: 
+        ChoiceThreeEventName: ChoiceThreeEvent
+        SelectedChoice: 0
+        ValueLabel: Value Label
+        ValueInitialValue: 255
+        ValueMMRadioReceiverChannel: 0
+        ButtonText: Button text
+        ButtonType: 0
+        ButtonEventName: Button
+        SpacerType: 0
+        CheckboxText: 
+        CheckboxInitialState: 0
+        CheckboxEventName: CheckboxEventName
+        SliderMode: 0
+        SliderText: 
+        SliderRemapZero: 0
+        SliderRemapOne: 1
+        SliderInitialValue: 0
+        SliderEventName: Slider
+        TargetSlider: {fileID: 0}
+        TargetButton: {fileID: 0}
+        TargetCheckbox: {fileID: 0}
+  DisplayDebugTab: 1
+  MaxTabs: 5
+  InitialActiveTabIndex: 0
+  ToggleDirection: 2
+  ToggleDuration: 0.18
+  ToggleCurve: 4
+  ToggleKey: 4
+  RegularFont: {fileID: 10102, guid: 0000000000000000e000000000000000, type: 0}
+  BoldFont: {fileID: 10102, guid: 0000000000000000e000000000000000, type: 0}
+  BackgroundColor: {r: 0.025, g: 0.035, b: 0.055, a: 0.97}
+  AccentColor: {r: 0.2, g: 0.9, b: 0.58, a: 1}
+  TextColor: {r: 1, g: 1, b: 1, a: 1}

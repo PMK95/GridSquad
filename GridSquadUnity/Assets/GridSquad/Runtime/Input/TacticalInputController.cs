@@ -27,6 +27,9 @@ namespace GridSquad
         private bool paused;
         private float activeTimeScale = 1f;
 
+        public bool Paused => paused;
+        public float ActiveTimeScale => activeTimeScale;
+
         private void Awake()
         {
             if (timeManager == null)
@@ -179,7 +182,12 @@ namespace GridSquad
 
         private void TogglePause()
         {
-            paused = !paused;
+            SetPaused(!paused);
+        }
+
+        private void SetPaused(bool shouldPause)
+        {
+            paused = shouldPause;
             if (timeManager != null)
             {
                 if (paused)
@@ -208,6 +216,21 @@ namespace GridSquad
                 Time.timeScale = activeTimeScale;
             }
             hud.SetTimeScaleDisplay(activeTimeScale, false);
+        }
+
+        public void SetPauseFromDebugMenu(bool shouldPause)
+        {
+            SetPaused(shouldPause);
+        }
+
+        public void SetGameSpeedFromDebugMenu(float speed)
+        {
+            SetGameSpeed(speed);
+        }
+
+        public void RestartCombatFromDebugMenu()
+        {
+            RestartScene();
         }
 
         private void RefreshSelectedPathLine()

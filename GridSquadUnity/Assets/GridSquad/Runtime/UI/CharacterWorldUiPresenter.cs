@@ -16,7 +16,6 @@ namespace GridSquad
         [SerializeField] private LineRenderer targetRing;
         [SerializeField] private LineRenderer peekLine;
         [SerializeField] private LineRenderer peekRing;
-        [SerializeField] private Transform cameraTransform;
 
         private Combatant owner;
         private int displayedHealth = -1;
@@ -175,20 +174,7 @@ namespace GridSquad
             return $"{owner.name}  HP {owner.CurrentHealth}/{owner.MaximumHealth}  TGT {targetName}\n{state}  COV {evaluation.CoverEvasionPercent:0}%  ANG {coverAngle}  PEEK {(owner.PeekEnabled ? "ON" : "OFF")}  FIRE {owner.FireState}  AMMO {owner.CurrentMagazineAmmo}/{owner.ReserveAmmo}";
         }
 
-        private void LateUpdate()
-        {
-            if (cameraTransform == null || canvas == null)
-                return;
-
-            canvas.transform.rotation = cameraTransform.rotation;
-        }
-
 #if UNITY_EDITOR
-        public void SetEditorCameraTransform(Transform newCameraTransform)
-        {
-            cameraTransform = newCameraTransform;
-        }
-
         public void SetEditorReferences(
             Canvas newCanvas,
             MMHealthBar newHealthBar,
@@ -198,8 +184,7 @@ namespace GridSquad
             LineRenderer newTargetLine,
             LineRenderer newTargetRing,
             LineRenderer newPeekLine,
-            LineRenderer newPeekRing,
-            Transform newCameraTransform)
+            LineRenderer newPeekRing)
         {
             canvas = newCanvas;
             healthBar = newHealthBar;
@@ -210,7 +195,6 @@ namespace GridSquad
             targetRing = newTargetRing;
             peekLine = newPeekLine;
             peekRing = newPeekRing;
-            cameraTransform = newCameraTransform;
         }
 #endif
     }
