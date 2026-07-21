@@ -1,12 +1,14 @@
 using MoreMountains.Feedbacks;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace GridSquad
 {
     public sealed class CombatantFeedbackPresenter : MonoBehaviour
     {
         [Header("사격 연출")]
-        [SerializeField] private MMF_Player shotFeedbacks;
+        [FormerlySerializedAs("shotFeedbacks")]
+        [SerializeField] private MMF_Player tracerFeedbacks;
         [SerializeField] private LineRenderer shotTracer;
         [SerializeField, Min(0.001f)] private float shotTracerWidth = 0.075f;
 
@@ -26,7 +28,7 @@ namespace GridSquad
                 shotTracer.gameObject.SetActive(false);
         }
 
-        public void PlayShotFeedback(Vector3 startPosition, Vector3 endPosition)
+        public void PlayShotTracer(Vector3 startPosition, Vector3 endPosition)
         {
             if (shotTracer != null)
             {
@@ -34,8 +36,7 @@ namespace GridSquad
                 shotTracer.SetPosition(1, endPosition);
                 shotTracer.widthCurve = AnimationCurve.Constant(0f, 1f, shotTracerWidth);
             }
-
-            shotFeedbacks?.PlayFeedbacks(startPosition);
+            tracerFeedbacks?.PlayFeedbacks(startPosition);
         }
 
         public void PlayDamageFeedback(int appliedDamage, Vector3 worldPosition)
@@ -63,7 +64,7 @@ namespace GridSquad
 
 #if UNITY_EDITOR
         public void SetEditorReferences(
-            MMF_Player newShotFeedbacks,
+            MMF_Player newTracerFeedbacks,
             LineRenderer newShotTracer,
             MMF_Player newHitFeedbacks,
             MMF_Player newDamageTextFeedbacks,
@@ -72,7 +73,7 @@ namespace GridSquad
             MMF_Player newDeathShakeFeedbacks,
             MMF_Player newDefeatShakeFeedbacks)
         {
-            shotFeedbacks = newShotFeedbacks;
+            tracerFeedbacks = newTracerFeedbacks;
             shotTracer = newShotTracer;
             hitFeedbacks = newHitFeedbacks;
             damageTextFeedbacks = newDamageTextFeedbacks;

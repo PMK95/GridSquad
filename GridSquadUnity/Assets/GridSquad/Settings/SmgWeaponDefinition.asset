@@ -10,15 +10,15 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: bac09dc4e36b5d84fa11bceed50de763, type: 3}
-  m_Name: WeaponDefinition
+  m_Name: SmgWeaponDefinition
   m_EditorClassIdentifier: Assembly-CSharp::GridSquad.WeaponDefinition
-  DisplayName: "\uC18C\uCD1D"
-  PresentationPrefab: {fileID: 4585488919674010619, guid: 51b96286a59fe2f468b5df6a020f02db, type: 3}
-  Damage: 30
-  AimEnterDuration: 0.6
-  AimedShotInterval: 0.65
-  MagazineCapacity: 8
-  StartingReserveAmmo: 32
-  ReloadDuration: 1.8
-  RangeInCells: 7
-  BaseHitChancePercent: 82
+  DisplayName: "\uAE30\uAD00\uB2E8\uCD1D"
+  PresentationPrefab: {fileID: 6401250690816191035, guid: c069bbc9e4a27a44ab8c4b910f23f272, type: 3}
+  Damage: 15
+  AimEnterDuration: 0.3
+  AimedShotInterval: 0.22
+  MagazineCapacity: 20
+  StartingReserveAmmo: 80
+  ReloadDuration: 1.35
+  RangeInCells: 4
+  BaseHitChancePercent: 68

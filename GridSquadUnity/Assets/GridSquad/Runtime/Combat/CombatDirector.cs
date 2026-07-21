@@ -11,14 +11,17 @@ namespace GridSquad
         [SerializeField] private ShotEvaluator shotEvaluator;
         [SerializeField] private CombatHudController hud;
         [SerializeField] private MMTimeManager timeManager;
+        [SerializeField] private WeaponLoadoutPanel weaponLoadoutPanel;
 
         private bool debugVisible;
         private bool battleFinished;
+        private bool battleStarted;
         private CombatControlMode allyControlMode = CombatControlMode.PlayerMovementAutomaticActions;
 
         public IReadOnlyList<Combatant> Combatants => combatants;
         public bool DebugVisible => debugVisible;
         public bool BattleFinished => battleFinished;
+        public bool BattleStarted => battleStarted;
         public CombatControlMode AllyControlMode => allyControlMode;
         public bool AllyFullAutoEnabled => allyControlMode == CombatControlMode.FullAutomatic;
 
@@ -31,6 +34,38 @@ namespace GridSquad
         private void Start()
         {
             SetAllyControlMode(CombatControlMode.PlayerMovementAutomaticActions);
+            if (weaponLoadoutPanel != null)
+                weaponLoadoutPanel.Show();
+            else
+                StartBattleWithCurrentLoadouts();
+        }
+
+        public void StartBattleWithCurrentLoadouts()
+        {
+            if (battleStarted || battleFinished)
+                return;
+
+            foreach (Combatant combatant in combatants)
+            {
+                if (combatant == null)
+                    continue;
+                if (!combatant.InitializeWeaponLoadoutForBattle(out string failureReason))
+                {
+                    Debug.LogError($"[전투 준비] {combatant.name}: {failureReason}");
+                    weaponLoadoutPanel?.SetStatusMessage(failureReason);
+                    return;
+                }
+            }
+
+            battleStarted = true;
+            weaponLoadoutPanel?.Hide();
+            SetAllyControlMode(allyControlMode);
+            foreach (Combatant combatant in combatants)
+            {
+                combatant?.GetComponent<UnitTacticalBehaviorController>()
+                    ?.StartBehaviorForBattle();
+            }
+            Debug.Log("[전투 준비] 모든 유닛의 무기 로드아웃 초기화 완료");
         }
 
         public Combatant FindClosestShootableEnemy(Combatant requester, bool allowPeek)
@@ -93,7 +128,7 @@ namespace GridSquad
                 if (controller != null)
                     controller.SetControlMode(mode);
             }
-            hud.SetAllyControlMode(mode);
+            hud?.SetAllyControlMode(mode);
         }
 
         public CombatControlMode GetControlModeFor(Combatant combatant)
@@ -122,7 +157,7 @@ namespace GridSquad
             Combatant deadCombatant,
             float deathAnimationDuration)
         {
-            if (battleFinished)
+            if (!battleStarted || battleFinished)
                 return BattleResult.None;
 
             bool alliesAlive = false;
@@ -183,6 +218,11 @@ namespace GridSquad
             shotEvaluator = newShotEvaluator;
             hud = newHud;
             timeManager = newTimeManager;
+        }
+
+        public void SetEditorWeaponLoadoutPanel(WeaponLoadoutPanel newWeaponLoadoutPanel)
+        {
+            weaponLoadoutPanel = newWeaponLoadoutPanel;
         }
 #endif
     }

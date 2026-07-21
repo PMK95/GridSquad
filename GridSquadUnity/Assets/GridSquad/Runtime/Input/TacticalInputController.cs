@@ -61,6 +61,16 @@ namespace GridSquad
                 return;
             }
 
+            if (!director.BattleStarted)
+            {
+                if (ActionPressed("ToggleDebug"))
+                    director.SetDebugVisible(!director.DebugVisible);
+                if (ActionPressed("Restart"))
+                    RestartScene();
+                RefreshSelectedPathLine();
+                return;
+            }
+
             if (ActionPressed("Select"))
                 HandleLeftClick();
             if (ActionPressed("MoveCommand"))
@@ -75,6 +85,8 @@ namespace GridSquad
                 TryUseStim();
             if (ActionPressed("Dash"))
                 BeginActionCellTargeting(CombatActionKind.Dash);
+            if (ActionPressed("SwitchWeapon"))
+                TrySwitchWeapon();
             if (ActionPressed("TogglePeek") && selectedCombatant != null && selectedCombatant.Team == Team.Ally)
             {
                 UnitTacticalBehaviorController behaviorController =
@@ -113,6 +125,7 @@ namespace GridSquad
             EnsureRuntimeButtonAction("Grenade", "<Keyboard>/g");
             EnsureRuntimeButtonAction("Stim", "<Keyboard>/v");
             EnsureRuntimeButtonAction("Dash", "<Keyboard>/x");
+            EnsureRuntimeButtonAction("SwitchWeapon", "<Keyboard>/c");
         }
 
         private void EnsureRuntimeButtonAction(string actionName, string bindingPath)
@@ -249,6 +262,19 @@ namespace GridSquad
                 hud.SetActionMessage(failureReason);
             else
                 hud.SetActionMessage("자극제 사용");
+            CancelTargeting();
+        }
+
+        private void TrySwitchWeapon()
+        {
+            CombatActionController actionController = GetSelectedAllyActionController();
+            if (actionController == null)
+                return;
+
+            if (!actionController.TryStartPlayerWeaponSwap(out string failureReason))
+                hud.SetActionMessage(failureReason);
+            else
+                hud.SetActionMessage("무기 교체 시작");
             CancelTargeting();
         }
 

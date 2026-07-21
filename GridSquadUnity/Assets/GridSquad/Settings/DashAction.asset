@@ -24,6 +24,10 @@ MonoBehaviour:
   grenadeRadiusCells: 1
   grenadeDamage: 40
   grenadeTravelSeconds: 0.4
+  grenadeFuseSeconds: 1.5
+  grenadeCameraShakeDuration: 0.28
+  grenadeCameraShakeAmplitude: 1.4
+  grenadeCameraShakeFrequency: 24
   stimDurationSeconds: 8
   stimMovementSpeedMultiplier: 1.35
   stimFireIntervalMultiplier: 0.75

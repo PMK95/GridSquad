@@ -9,8 +9,24 @@ namespace GridSquad
         [SerializeField] private CombatTuning tuning;
 
         public ShotEvaluation EvaluateShot(Combatant shooter, Combatant target)
+            => EvaluateShotWithWeapon(shooter, target, shooter != null ? shooter.Weapon : null);
+
+        public ShotEvaluation EvaluateShotWithWeapon(
+            Combatant shooter,
+            Combatant target,
+            WeaponDefinition weapon)
         {
             GridCoordinate originCell = shooter.CurrentCell;
+            if (weapon == null)
+            {
+                return CreateCannotShoot(
+                    ShotFailureReason.NoTarget,
+                    shooter,
+                    originCell,
+                    originCell,
+                    shooter.transform.position,
+                    true);
+            }
             if (target == null)
             {
                 return CreateCannotShoot(
@@ -40,11 +56,12 @@ namespace GridSquad
                 targetExposureCell,
                 target.CurrentExposureCenter,
                 false,
-                true);
+                true,
+                weapon);
             if (!shooter.PeekEnabled)
                 return direct;
 
-            if (!TryFindBestPeekShot(shooter, target, originCell, out ShotEvaluation peek))
+            if (!TryFindBestPeekShot(shooter, target, originCell, weapon, out ShotEvaluation peek))
                 return direct;
 
             if (peek.CanShoot && (!direct.CanShoot || peek.HitChancePercent > direct.HitChancePercent))
@@ -57,6 +74,14 @@ namespace GridSquad
             Combatant target,
             GridCoordinate shooterCell,
             bool allowPeek)
+            => EvaluateShotFromCellWithWeapon(shooter, target, shooterCell, allowPeek, shooter.Weapon);
+
+        public ShotEvaluation EvaluateShotFromCellWithWeapon(
+            Combatant shooter,
+            Combatant target,
+            GridCoordinate shooterCell,
+            bool allowPeek,
+            WeaponDefinition weapon)
         {
             if (target == null || !target.IsAlive)
             {
@@ -77,11 +102,12 @@ namespace GridSquad
                 targetExposureCell,
                 target.CurrentExposureCenter,
                 false,
-                false);
+                false,
+                weapon);
             if (!allowPeek)
                 return direct;
 
-            if (TryFindBestPeekShot(shooter, target, shooterCell, out ShotEvaluation peek)
+            if (TryFindBestPeekShot(shooter, target, shooterCell, weapon, out ShotEvaluation peek)
                 && peek.CanShoot
                 && (!direct.CanShoot || peek.HitChancePercent > direct.HitChancePercent))
             {
@@ -119,13 +145,15 @@ namespace GridSquad
                 targetCell,
                 targetCenter,
                 false,
-                false);
+                false,
+                shooter.Weapon);
         }
 
         private bool TryFindBestPeekShot(
             Combatant shooter,
             Combatant target,
             GridCoordinate shooterCell,
+            WeaponDefinition weapon,
             out ShotEvaluation best)
         {
             best = default;
@@ -167,7 +195,8 @@ namespace GridSquad
                         targetExposureCell,
                         target.CurrentExposureCenter,
                         true,
-                        false);
+                        false,
+                        weapon);
                     if (!found
                         || candidate.CanShoot && !best.CanShoot
                         || candidate.CanShoot == best.CanShoot
@@ -188,12 +217,13 @@ namespace GridSquad
             GridCoordinate targetExposureCell,
             Vector3 targetWorldCenter,
             bool usesPeekPosition,
-            bool useLiveMuzzle)
+            bool useLiveMuzzle,
+            WeaponDefinition weapon)
         {
             Vector3 shotOrigin = useLiveMuzzle && !usesPeekPosition
                 ? shooter.MuzzlePosition
                 : gridMap.GridToWorld(originCell) + Vector3.up * shooter.MuzzleHeight;
-            ShotFailureReason rangeFailure = GetShootingRangeFailure(shooter, targetExposureCell, originCell);
+            ShotFailureReason rangeFailure = GetShootingRangeFailure(weapon, targetExposureCell, originCell);
             if (rangeFailure != ShotFailureReason.None)
             {
                 return ShotEvaluation.CannotShoot(
@@ -216,7 +246,7 @@ namespace GridSquad
 
             CoverEvaluation cover = EvaluateCoverFromCells(originCell, targetPhysicalCell);
             float hitChance = Mathf.Clamp(
-                shooter.Weapon.BaseHitChancePercent - cover.EvasionPercent,
+                weapon.BaseHitChancePercent - cover.EvasionPercent,
                 tuning.MinimumHitChancePercent,
                 tuning.MaximumHitChancePercent);
             return new ShotEvaluation
@@ -267,9 +297,17 @@ namespace GridSquad
             Combatant shooter,
             GridCoordinate targetCell,
             GridCoordinate originCell)
+            => GetShootingRangeFailure(shooter.Weapon, targetCell, originCell);
+
+        private static ShotFailureReason GetShootingRangeFailure(
+            WeaponDefinition weapon,
+            GridCoordinate targetCell,
+            GridCoordinate originCell)
         {
+            if (weapon == null)
+                return ShotFailureReason.OutOfRange;
             Vector2 cellDifference = new(targetCell.X - originCell.X, targetCell.Z - originCell.Z);
-            return cellDifference.magnitude > shooter.Weapon.RangeInCells
+            return cellDifference.magnitude > weapon.RangeInCells
                 ? ShotFailureReason.OutOfRange
                 : ShotFailureReason.None;
         }

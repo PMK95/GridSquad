@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using GridSquad;
 using MoreMountains.Feedbacks;
 using MoreMountains.Tools;
@@ -28,11 +29,17 @@ namespace GridSquadEditor
         private const string EnemyPrefabPath = RootPath + "/Prefabs/EnemyUnit.prefab";
         private const string TuningPath = RootPath + "/Settings/CombatTuning.asset";
         private const string WeaponPath = RootPath + "/Settings/WeaponDefinition.asset";
+        private const string SmgWeaponPath = RootPath + "/Settings/SmgWeaponDefinition.asset";
+        private const string WeaponCatalogPath = RootPath + "/Settings/WeaponCatalog.asset";
+        private const string GunRootPrefabPath = RootPath + "/Prefabs/GunRoot.prefab";
+        private const string SmgGunRootPrefabPath = RootPath + "/Prefabs/SmgGunRoot.prefab";
+        private const string CharacterModelPrefabPath = RootPath + "/Prefabs/CharacterModel.prefab";
         private const string BehaviorGraphPath = RootPath + "/Behavior/UnitCombatBehavior.asset";
         private const string InputActionsPath = "Assets/InputSystem_Actions.inputactions";
         private const string GrenadeActionPath = RootPath + "/Settings/GrenadeAction.asset";
         private const string StimActionPath = RootPath + "/Settings/StimAction.asset";
         private const string DashActionPath = RootPath + "/Settings/DashAction.asset";
+        private const string SwitchWeaponActionPath = RootPath + "/Settings/SwitchWeaponAction.asset";
 
         private const int GroundLayer = 8;
         private const int UnitLayer = 9;
@@ -52,12 +59,21 @@ namespace GridSquadEditor
             EnsureLayer(GroundLayer, "Ground");
             EnsureLayer(UnitLayer, "Unit");
             EnsureLayer(CoverLayer, "Cover");
-            CombatFeelConfigurator.ConfigurePrefabAssets();
-
             CombatTuning tuning = LoadOrCreateAsset<CombatTuning>(TuningPath);
-            WeaponDefinition weapon = LoadOrCreateAsset<WeaponDefinition>(WeaponPath);
+            Material gunMaterial = CreateOrUpdateMaterial("Gun", new Color(0.12f, 0.14f, 0.16f));
+            Material smgMaterial = CreateOrUpdateMaterial("SmgGun", new Color(0.1f, 0.24f, 0.27f));
+            ConfigureCharacterWeaponSocket();
+            WeaponPresentation riflePresentation = ConfigureWeaponPresentationPrefab(GunRootPrefabPath, gunMaterial);
+            CreateOrUpdateSmgPrefab(smgMaterial);
+            WeaponPresentation smgPresentation = ConfigureWeaponPresentationPrefab(SmgGunRootPrefabPath, smgMaterial);
+            WeaponDefinition weapon = CreateOrUpdateRifleDefinition(riflePresentation);
+            WeaponDefinition smgWeapon = CreateOrUpdateSmgDefinition(smgPresentation);
+            WeaponCatalog weaponCatalog = LoadOrCreateAsset<WeaponCatalog>(WeaponCatalogPath);
+            weaponCatalog.SetEditorWeapons(new[] { weapon, smgWeapon });
+            EditorUtility.SetDirty(weaponCatalog);
             CombatActionDefinition[] actionDefinitions = CreateOrUpdateCombatActionDefinitions();
-            ConfigureUnitBaseCombatActions(actionDefinitions);
+            ConfigureUnitBaseCombatActions(actionDefinitions, weapon, smgWeapon);
+            CombatFeelConfigurator.ConfigurePrefabAssets();
             InputActionAsset inputActions = AssetDatabase.LoadAssetAtPath<InputActionAsset>(InputActionsPath);
             if (inputActions == null)
                 throw new InvalidOperationException("전술 입력 에셋을 찾지 못했습니다.");
@@ -65,7 +81,6 @@ namespace GridSquadEditor
 
             Material allyMaterial = CreateOrUpdateMaterial("Ally", new Color(0.15f, 0.55f, 1f));
             Material enemyMaterial = CreateOrUpdateMaterial("Enemy", new Color(1f, 0.22f, 0.18f));
-            Material gunMaterial = CreateOrUpdateMaterial("Gun", new Color(0.12f, 0.14f, 0.16f));
             Material coverMaterial = CreateOrUpdateMaterial("Cover", new Color(0.25f, 0.28f, 0.32f));
             Material gridEvenMaterial = CreateOrUpdateMaterial("GridEven", new Color(0.20f, 0.23f, 0.25f));
             Material gridOddMaterial = CreateOrUpdateMaterial("GridOdd", new Color(0.24f, 0.27f, 0.29f));
@@ -93,7 +108,8 @@ namespace GridSquadEditor
             TacticalInputController inputController = systems.AddComponent<TacticalInputController>();
             MMTimeManager timeManager = systems.AddComponent<MMTimeManager>();
             CombatHudController hud = CreateSceneHud(director);
-            CreateEventSystem();
+            WeaponLoadoutPanel weaponLoadoutPanel = CreateWeaponLoadoutPanel(hud.transform, director, weaponCatalog);
+            CreateEventSystem(inputActions);
             LineRenderer pathLine = CreateLineRenderer("SelectedPath", systems.transform, lineMaterial, 0.08f);
             GridCombatIndicator gridCombatIndicator = CreateGridCombatIndicator(
                 systems.transform,
@@ -115,6 +131,7 @@ namespace GridSquadEditor
                 tuning,
                 weapon);
             director.SetEditorReferences(combatants, shotEvaluator, hud, timeManager);
+            director.SetEditorWeaponLoadoutPanel(weaponLoadoutPanel);
             inputController.SetEditorReferences(
                 inputActions,
                 sceneCamera,
@@ -287,8 +304,14 @@ namespace GridSquadEditor
                     throw new InvalidOperationException($"{combatant.name}의 전술 AI가 누락되었습니다.");
                 CombatActionLoadout loadout = combatant.GetComponent<CombatActionLoadout>();
                 CombatActionController actionController = combatant.GetComponent<CombatActionController>();
-                if (loadout == null || actionController == null || loadout.Definitions.Count != 3)
+                if (loadout == null || actionController == null || loadout.Definitions.Count != 4)
                     throw new InvalidOperationException($"{combatant.name}의 전투 액션 로드아웃이 누락되었습니다.");
+                WeaponLoadout weaponLoadout = combatant.GetComponent<WeaponLoadout>();
+                WeaponMount weaponMount = combatant.GetComponent<WeaponMount>();
+                if (weaponLoadout == null || weaponMount == null
+                    || weaponLoadout.GetDefinition(0) == null
+                    || weaponLoadout.GetDefinition(1) == null)
+                    throw new InvalidOperationException($"{combatant.name}의 2슬롯 무기 로드아웃이 누락되었습니다.");
             }
             if (allyCount != 3 || enemyCount != 4)
                 throw new InvalidOperationException($"유닛 배치 수가 올바르지 않습니다. 아군 {allyCount}, 적군 {enemyCount}");
@@ -327,7 +350,7 @@ namespace GridSquadEditor
                 "CameraMove", "PointerPosition", "PointerDelta", "CameraOrbit", "CameraZoom",
                 "Select", "MoveCommand", "TargetCommand", "TogglePeek", "TogglePause",
                 "Speed1", "Speed2", "Speed3", "Speed4", "Cancel", "ToggleDebug", "Restart",
-                "CycleControlMode", "Grenade", "Stim", "Dash"
+                "CycleControlMode", "Grenade", "Stim", "Dash", "SwitchWeapon"
             };
             if (tacticalMap == null)
                 throw new InvalidOperationException("Tactical 입력 맵이 누락되었습니다.");
@@ -422,6 +445,167 @@ namespace GridSquadEditor
             return asset;
         }
 
+        private static void ConfigureCharacterWeaponSocket()
+        {
+            GameObject root = PrefabUtility.LoadPrefabContents(CharacterModelPrefabPath);
+            try
+            {
+                Transform existingSocket = FindDescendantByName(root.transform, "WeaponSocket");
+                if (existingSocket != null)
+                    return;
+
+                Transform mountedGun = FindDescendantByName(root.transform, "GunRoot");
+                if (mountedGun == null || mountedGun.parent == null)
+                    throw new InvalidOperationException("CharacterModel에서 오른손 GunRoot 인스턴스를 찾지 못했습니다.");
+
+                Transform socket = new GameObject("WeaponSocket").transform;
+                socket.SetParent(mountedGun.parent, false);
+                socket.localPosition = mountedGun.localPosition;
+                socket.localRotation = mountedGun.localRotation;
+                socket.localScale = mountedGun.localScale;
+                Object.DestroyImmediate(mountedGun.gameObject);
+                PrefabUtility.SaveAsPrefabAsset(root, CharacterModelPrefabPath);
+                Debug.Log("[무기 구성] CharacterModel 오른손 WeaponSocket 구성 완료");
+            }
+            finally
+            {
+                PrefabUtility.UnloadPrefabContents(root);
+            }
+        }
+
+        private static WeaponPresentation ConfigureWeaponPresentationPrefab(
+            string prefabPath,
+            Material weaponMaterial)
+        {
+            GameObject root = PrefabUtility.LoadPrefabContents(prefabPath);
+            try
+            {
+                Transform gunAim = FindDescendantByName(root.transform, "GunAim");
+                Transform muzzle = FindDescendantByName(root.transform, "Muzzle");
+                if (gunAim == null || muzzle == null)
+                    throw new InvalidOperationException($"{prefabPath}에서 GunAim 또는 Muzzle을 찾지 못했습니다.");
+
+                foreach (Renderer renderer in root.GetComponentsInChildren<Renderer>(true))
+                {
+                    if (renderer.GetComponent<ParticleSystemRenderer>() == null)
+                        renderer.sharedMaterial = weaponMaterial;
+                }
+
+                Transform feedbackTransform = FindDescendantByName(root.transform, "FireFeedbacks");
+                if (feedbackTransform == null)
+                {
+                    feedbackTransform = new GameObject("FireFeedbacks").transform;
+                    feedbackTransform.SetParent(root.transform, false);
+                }
+                MMF_Player fireFeedbacks = feedbackTransform.GetComponent<MMF_Player>();
+                if (fireFeedbacks == null)
+                    fireFeedbacks = feedbackTransform.gameObject.AddComponent<MMF_Player>();
+                fireFeedbacks.FeedbacksList = new List<MMF_Feedback>();
+                ParticleSystem muzzleFlash = muzzle.GetComponentInChildren<ParticleSystem>(true)
+                    ?? root.GetComponentInChildren<ParticleSystem>(true);
+                if (muzzleFlash != null)
+                {
+                    fireFeedbacks.AddFeedback(new MMF_Particles
+                    {
+                        Label = "총구 섬광",
+                        BoundParticleSystem = muzzleFlash,
+                        Mode = MMF_Particles.Modes.Play,
+                        StopSystemOnInit = true
+                    });
+                }
+
+                WeaponPresentation presentation = root.GetComponent<WeaponPresentation>();
+                if (presentation == null)
+                    presentation = root.AddComponent<WeaponPresentation>();
+                presentation.SetEditorReferences(gunAim, muzzle, fireFeedbacks, Vector3.forward);
+                PrefabUtility.SaveAsPrefabAsset(root, prefabPath);
+            }
+            finally
+            {
+                PrefabUtility.UnloadPrefabContents(root);
+            }
+            return LoadRequiredPrefab(prefabPath).GetComponent<WeaponPresentation>();
+        }
+
+        private static void CreateOrUpdateSmgPrefab(Material smgMaterial)
+        {
+            GameObject existing = AssetDatabase.LoadAssetAtPath<GameObject>(SmgGunRootPrefabPath);
+            if (existing == null)
+            {
+                GameObject rifle = LoadRequiredPrefab(GunRootPrefabPath);
+                GameObject instance = PrefabUtility.InstantiatePrefab(rifle) as GameObject;
+                if (instance == null)
+                    throw new InvalidOperationException("기관단총 프리팹 변형을 생성하지 못했습니다.");
+                instance.name = "SmgGunRoot";
+                PrefabUtility.SaveAsPrefabAsset(instance, SmgGunRootPrefabPath);
+                Object.DestroyImmediate(instance);
+            }
+
+            GameObject root = PrefabUtility.LoadPrefabContents(SmgGunRootPrefabPath);
+            try
+            {
+                Transform gun = FindDescendantByName(root.transform, "Gun");
+                if (gun != null)
+                    gun.localScale = new Vector3(gun.localScale.x, gun.localScale.y, 0.72f);
+                Transform muzzle = FindDescendantByName(root.transform, "Muzzle");
+                if (muzzle != null)
+                    muzzle.localPosition = new Vector3(
+                        muzzle.localPosition.x,
+                        muzzle.localPosition.y,
+                        muzzle.localPosition.z * 0.72f);
+                foreach (Renderer renderer in root.GetComponentsInChildren<Renderer>(true))
+                {
+                    if (renderer.GetComponent<ParticleSystemRenderer>() == null)
+                        renderer.sharedMaterial = smgMaterial;
+                }
+                PrefabUtility.SaveAsPrefabAsset(root, SmgGunRootPrefabPath);
+            }
+            finally
+            {
+                PrefabUtility.UnloadPrefabContents(root);
+            }
+        }
+
+        private static WeaponDefinition CreateOrUpdateRifleDefinition(WeaponPresentation presentation)
+        {
+            WeaponDefinition definition = LoadOrCreateAsset<WeaponDefinition>(WeaponPath);
+            definition.DisplayName = "소총";
+            definition.PresentationPrefab = presentation;
+            definition.Damage = 30;
+            definition.AimEnterDuration = 0.6f;
+            definition.AimedShotInterval = 0.65f;
+            definition.MagazineCapacity = 8;
+            definition.StartingReserveAmmo = 32;
+            definition.ReloadDuration = 1.8f;
+            definition.RangeInCells = 7f;
+            definition.BaseHitChancePercent = 82f;
+            EditorUtility.SetDirty(definition);
+            return definition;
+        }
+
+        private static WeaponDefinition CreateOrUpdateSmgDefinition(WeaponPresentation presentation)
+        {
+            WeaponDefinition definition = LoadOrCreateAsset<WeaponDefinition>(SmgWeaponPath);
+            definition.DisplayName = "기관단총";
+            definition.PresentationPrefab = presentation;
+            definition.Damage = 15;
+            definition.AimEnterDuration = 0.3f;
+            definition.AimedShotInterval = 0.22f;
+            definition.MagazineCapacity = 20;
+            definition.StartingReserveAmmo = 80;
+            definition.ReloadDuration = 1.35f;
+            definition.RangeInCells = 4f;
+            definition.BaseHitChancePercent = 68f;
+            EditorUtility.SetDirty(definition);
+            return definition;
+        }
+
+        private static Transform FindDescendantByName(Transform root, string objectName)
+        {
+            return root.GetComponentsInChildren<Transform>(true)
+                .FirstOrDefault(candidate => candidate.name == objectName);
+        }
+
         private static CombatActionDefinition[] CreateOrUpdateCombatActionDefinitions()
         {
             CombatActionDefinition grenade = LoadOrCreateAsset<CombatActionDefinition>(GrenadeActionPath);
@@ -460,14 +644,28 @@ namespace GridSquadEditor
                 0f);
             dash.SetEditorDashConfiguration(3, 3f, 15f);
 
+            CombatActionDefinition switchWeapon = LoadOrCreateAsset<CombatActionDefinition>(SwitchWeaponActionPath);
+            switchWeapon.SetEditorConfiguration(
+                CombatActionKind.SwitchWeapon,
+                "무기 교체",
+                CombatActionTargetType.None,
+                true,
+                true,
+                -1,
+                2f,
+                0.6f);
+
             EditorUtility.SetDirty(grenade);
             EditorUtility.SetDirty(stim);
             EditorUtility.SetDirty(dash);
-            return new[] { grenade, stim, dash };
+            EditorUtility.SetDirty(switchWeapon);
+            return new[] { grenade, stim, dash, switchWeapon };
         }
 
         private static void ConfigureUnitBaseCombatActions(
-            CombatActionDefinition[] actionDefinitions)
+            CombatActionDefinition[] actionDefinitions,
+            WeaponDefinition rifle,
+            WeaponDefinition smg)
         {
             GameObject root = PrefabUtility.LoadPrefabContents(UnitBasePrefabPath);
             try
@@ -478,7 +676,24 @@ namespace GridSquadEditor
                 if (root.GetComponent<CombatActionController>() == null)
                     root.AddComponent<CombatActionController>();
                 loadout.SetEditorDefinitions(actionDefinitions);
+
+                UnitAnimationController animationController = root.GetComponentInChildren<UnitAnimationController>(true);
+                Transform weaponSocket = FindDescendantByName(root.transform, "WeaponSocket");
+                if (weaponSocket == null)
+                    throw new InvalidOperationException("UnitBase에서 WeaponSocket을 찾지 못했습니다.");
+                WeaponMount weaponMount = root.GetComponent<WeaponMount>();
+                if (weaponMount == null)
+                    weaponMount = root.AddComponent<WeaponMount>();
+                weaponMount.SetEditorReferences(weaponSocket, animationController);
+
+                WeaponLoadout weaponLoadout = root.GetComponent<WeaponLoadout>();
+                if (weaponLoadout == null)
+                    weaponLoadout = root.AddComponent<WeaponLoadout>();
+                weaponLoadout.SetEditorConfiguration(rifle, smg, weaponMount);
+                root.GetComponent<Combatant>()?.SetEditorWeaponLoadout(weaponLoadout);
                 EditorUtility.SetDirty(loadout);
+                EditorUtility.SetDirty(weaponMount);
+                EditorUtility.SetDirty(weaponLoadout);
                 PrefabUtility.SaveAsPrefabAsset(root, UnitBasePrefabPath);
             }
             finally
@@ -494,6 +709,7 @@ namespace GridSquadEditor
             EnsureButtonAction(tacticalMap, "Grenade", "<Keyboard>/g");
             EnsureButtonAction(tacticalMap, "Stim", "<Keyboard>/v");
             EnsureButtonAction(tacticalMap, "Dash", "<Keyboard>/x");
+            EnsureButtonAction(tacticalMap, "SwitchWeapon", "<Keyboard>/c");
             EditorUtility.SetDirty(inputActions);
         }
 
@@ -1129,13 +1345,69 @@ namespace GridSquadEditor
             return hud;
         }
 
-        private static void CreateEventSystem()
+        private static WeaponLoadoutPanel CreateWeaponLoadoutPanel(
+            Transform hudRoot,
+            CombatDirector director,
+            WeaponCatalog weaponCatalog)
+        {
+            Image overlay = CreateImage(
+                "WeaponLoadoutPanel",
+                hudRoot,
+                new Color(0.01f, 0.015f, 0.025f, 0.96f));
+            SetStretch(overlay.rectTransform, Vector2.zero, Vector2.zero);
+
+            Image panel = CreateImage(
+                "LoadoutContent",
+                overlay.transform,
+                new Color(0.045f, 0.065f, 0.09f, 1f));
+            SetHudRect(panel.rectTransform, Vector2.zero, new Vector2(1120f, 760f), new Vector2(0.5f, 0.5f));
+
+            Text title = CreateText("Title", panel.transform, 36, TextAnchor.MiddleCenter);
+            title.text = "COMBAT LOADOUT";
+            title.fontStyle = FontStyle.Bold;
+            SetHudRect(title.rectTransform, new Vector2(0f, -28f), new Vector2(1000f, 54f), new Vector2(0.5f, 1f));
+
+            GameObject rowContainerObject = new("Rows", typeof(RectTransform), typeof(VerticalLayoutGroup));
+            rowContainerObject.transform.SetParent(panel.transform, false);
+            RectTransform rowContainer = rowContainerObject.GetComponent<RectTransform>();
+            SetHudRect(rowContainer, new Vector2(0f, -98f), new Vector2(1000f, 470f), new Vector2(0.5f, 1f));
+            VerticalLayoutGroup rowLayout = rowContainerObject.GetComponent<VerticalLayoutGroup>();
+            rowLayout.spacing = 10f;
+            rowLayout.childAlignment = TextAnchor.UpperCenter;
+            rowLayout.childControlHeight = true;
+            rowLayout.childForceExpandHeight = false;
+
+            Text statusText = CreateText("Status", panel.transform, 18, TextAnchor.MiddleCenter);
+            SetHudRect(statusText.rectTransform, new Vector2(0f, 112f), new Vector2(1000f, 42f), new Vector2(0.5f, 0f));
+
+            Button startButton = CreateButton(
+                "StartButton",
+                panel.transform,
+                new Color(0.1f, 0.58f, 0.32f, 1f),
+                out Text startButtonText);
+            startButtonText.text = "START";
+            startButtonText.fontSize = 28;
+            SetHudRect(startButton.GetComponent<RectTransform>(), new Vector2(0f, 42f), new Vector2(320f, 64f), new Vector2(0.5f, 0f));
+
+            WeaponLoadoutPanel loadoutPanel = hudRoot.gameObject.AddComponent<WeaponLoadoutPanel>();
+            loadoutPanel.SetEditorReferences(
+                overlay.gameObject,
+                rowContainer,
+                startButton,
+                statusText,
+                Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf"),
+                weaponCatalog,
+                director);
+            return loadoutPanel;
+        }
+
+        private static void CreateEventSystem(InputActionAsset inputActions)
         {
             GameObject eventSystemObject = new(
                 "EventSystem",
                 typeof(EventSystem),
                 typeof(InputSystemUIInputModule));
-            eventSystemObject.GetComponent<InputSystemUIInputModule>().AssignDefaultActions();
+            eventSystemObject.GetComponent<InputSystemUIInputModule>().actionsAsset = inputActions;
         }
 
         private static Image CreateImage(string name, Transform parent, Color color)

@@ -17,7 +17,8 @@ namespace GridSquad
         Reposition,
         Grenade,
         Stim,
-        Dash
+        Dash,
+        SwitchWeapon
     }
 
     public enum CombatActionTargetType
@@ -108,16 +109,29 @@ namespace GridSquad
                 CombatActionKind.Dash => "돌진",
                 _ => actionKind.ToString()
             };
+            if (actionKind == CombatActionKind.SwitchWeapon)
+                definition.displayName = "무기 교체";
             definition.targetType = actionKind switch
             {
                 CombatActionKind.Stim => CombatActionTargetType.Self,
                 CombatActionKind.Grenade => CombatActionTargetType.GridCell,
                 CombatActionKind.Dash => CombatActionTargetType.GridCell,
+                CombatActionKind.SwitchWeapon => CombatActionTargetType.None,
                 _ => CombatActionTargetType.None
             };
-            definition.startingCharges = actionKind == CombatActionKind.Dash ? -1 : 1;
-            definition.cooldownSeconds = actionKind == CombatActionKind.Dash ? 6f : 0f;
-            definition.windupSeconds = actionKind == CombatActionKind.Dash ? 0f : 0.5f;
+            definition.startingCharges = actionKind is CombatActionKind.Dash or CombatActionKind.SwitchWeapon ? -1 : 1;
+            definition.cooldownSeconds = actionKind switch
+            {
+                CombatActionKind.Dash => 6f,
+                CombatActionKind.SwitchWeapon => 2f,
+                _ => 0f
+            };
+            definition.windupSeconds = actionKind switch
+            {
+                CombatActionKind.Dash => 0f,
+                CombatActionKind.SwitchWeapon => 0.6f,
+                _ => 0.5f
+            };
             definition.automaticInSemiAuto = actionKind != CombatActionKind.Dash;
             return definition;
         }
@@ -211,13 +225,15 @@ namespace GridSquad
         public readonly bool HasTargetCell;
         public readonly float UtilityScore;
         public readonly UtilityScoreBreakdown Breakdown;
+        public readonly int TargetWeaponSlotIndex;
 
         public CombatActionCandidate(
             CombatActionKind kind,
             Combatant target,
             GridCoordinate targetCell,
             bool hasTargetCell,
-            UtilityScoreBreakdown breakdown)
+            UtilityScoreBreakdown breakdown,
+            int targetWeaponSlotIndex = -1)
         {
             Kind = kind;
             Target = target;
@@ -225,6 +241,7 @@ namespace GridSquad
             HasTargetCell = hasTargetCell;
             Breakdown = breakdown;
             UtilityScore = Mathf.Clamp(breakdown?.Total ?? 0f, 0f, 100f);
+            TargetWeaponSlotIndex = targetWeaponSlotIndex;
         }
     }
 

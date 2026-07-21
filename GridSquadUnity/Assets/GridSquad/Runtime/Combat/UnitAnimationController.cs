@@ -106,6 +106,33 @@ namespace GridSquad
             aiming = false;
         }
 
+        public void LowerAimForWeaponSwap()
+        {
+            aiming = false;
+            reloading = false;
+            aimTarget = null;
+            if (aimIk == null)
+                return;
+
+            aimIk.solver.IKPositionWeight = 0f;
+            aimIk.solver.target = null;
+        }
+
+        public void BindWeaponAimTransform(Transform weaponAimTransform, Vector3 weaponAimAxis)
+        {
+            if (aimIk == null)
+                aimIk = GetComponent<AimIK>();
+            if (aimIk == null || weaponAimTransform == null)
+                return;
+
+            aimIk.solver.IKPositionWeight = 0f;
+            aimIk.solver.transform = weaponAimTransform;
+            aimIk.solver.axis = weaponAimAxis.sqrMagnitude > 0.0001f
+                ? weaponAimAxis.normalized
+                : Vector3.forward;
+            aimIk.solver.target = aimTarget;
+        }
+
         public void PlayShot()
         {
             if (dead || shootClip == null || animancer == null)

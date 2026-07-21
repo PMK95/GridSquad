@@ -161,6 +161,16 @@ namespace GridSquad
             movementIntent = MovementIntent.None;
         }
 
+        public void StartBehaviorForBattle()
+        {
+            nextTacticalEvaluationTime = 0f;
+            nextMovementTime = 0f;
+            nextShotEvaluationTime = 0f;
+            moveCommandPending = false;
+            movementIntent = MovementIntent.None;
+            behaviorAgent?.Restart();
+        }
+
         public void TickTacticalDecisionFromBehavior(
             bool requestedAutonomousMovement,
             bool requestedAutomaticPeek,
@@ -168,7 +178,7 @@ namespace GridSquad
             Vector3 requestedMoveDestination,
             GameObject requestedPriorityTarget)
         {
-            if (combatant == null || !combatant.IsAlive || director == null || director.BattleFinished)
+            if (combatant == null || !combatant.IsAlive || director == null || !director.BattleStarted || director.BattleFinished)
                 return;
 
             autonomousMovementAllowed = controlMode == CombatControlMode.FullAutomatic;
@@ -218,7 +228,7 @@ namespace GridSquad
 
         public void TickCombatExecutionFromBehavior(GameObject requestedCurrentTarget)
         {
-            if (combatant == null || !combatant.IsAlive || director == null || director.BattleFinished)
+            if (combatant == null || !combatant.IsAlive || director == null || !director.BattleStarted || director.BattleFinished)
             {
                 combatant?.ResetBehaviorFireCycle();
                 return;

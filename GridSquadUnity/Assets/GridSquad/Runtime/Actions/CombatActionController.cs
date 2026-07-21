@@ -146,6 +146,22 @@ namespace GridSquad
                 CombatActionSelectionSource.Player,
                 out failureReason);
 
+        public bool TryStartPlayerWeaponSwap(out string failureReason)
+        {
+            if (combatant == null || combatant.WeaponLoadout == null)
+                return Fail("무기 로드아웃이 없습니다.", out failureReason);
+
+            int targetSlotIndex = combatant.WeaponLoadout.GetNextSlotIndex();
+            CombatActionCandidate candidate = new(
+                CombatActionKind.SwitchWeapon,
+                null,
+                combatant.CurrentCell,
+                false,
+                new UtilityScoreBreakdown().Add("플레이어 명령", 100f),
+                targetSlotIndex);
+            return TryStartCandidate(candidate, CombatActionSelectionSource.Player, out failureReason);
+        }
+
         public void TickActionExecutionFromBehavior()
         {
             if (lastExecutionFrame == Time.frameCount)
@@ -159,7 +175,7 @@ namespace GridSquad
                     runtimeAction.TickCooldown(deltaTime);
             }
 
-            if (combatant == null || !combatant.IsAlive || director == null || director.BattleFinished)
+            if (combatant == null || !combatant.IsAlive || director == null || !director.BattleStarted || director.BattleFinished)
             {
                 CancelAllActions();
                 combatant?.ResetBehaviorFireCycle();
@@ -278,6 +294,9 @@ namespace GridSquad
                 actions.Add(new DashRuntimeAction(
                     this,
                     CombatActionDefinition.CreateRuntimeDefault(CombatActionKind.Dash)));
+                actions.Add(new SwitchWeaponRuntimeAction(
+                    this,
+                    CombatActionDefinition.CreateRuntimeDefault(CombatActionKind.SwitchWeapon)));
                 return;
             }
 
@@ -290,6 +309,7 @@ namespace GridSquad
                     CombatActionKind.Grenade => new GrenadeRuntimeAction(this, definition),
                     CombatActionKind.Stim => new StimRuntimeAction(this, definition),
                     CombatActionKind.Dash => new DashRuntimeAction(this, definition),
+                    CombatActionKind.SwitchWeapon => new SwitchWeaponRuntimeAction(this, definition),
                     _ => null
                 };
                 if (action != null)
@@ -597,6 +617,166 @@ namespace GridSquad
             {
                 stopRequested = true;
                 Owner.combatant?.RequestStopMovementAfterCurrentCell();
+            }
+        }
+
+        private sealed class SwitchWeaponRuntimeAction : RuntimeCombatAction
+        {
+            private float elapsedSeconds;
+            private float executionDuration;
+            private int targetSlotIndex;
+            private bool weaponChanged;
+
+            public SwitchWeaponRuntimeAction(
+                CombatActionController owner,
+                CombatActionDefinition definition) : base(owner, definition) { }
+
+            public override CombatActionKind Kind => CombatActionKind.SwitchWeapon;
+
+            public override void CollectAutomaticCandidates(
+                CombatActionContext context,
+                List<CombatActionCandidate> results)
+            {
+                if (!IsAutomaticUseAllowed(context)
+                    || CooldownRemaining > 0f
+                    || context.Actor.WeaponLoadout == null
+                    || !context.Actor.WeaponLoadout.IsBattleInitialized)
+                {
+                    return;
+                }
+
+                WeaponLoadout weaponLoadout = context.Actor.WeaponLoadout;
+                int alternateSlotIndex = weaponLoadout.GetNextSlotIndex();
+                WeaponDefinition currentWeapon = context.Actor.Weapon;
+                WeaponDefinition alternateWeapon = weaponLoadout.GetDefinition(alternateSlotIndex);
+                if (currentWeapon == null || alternateWeapon == null || currentWeapon == alternateWeapon)
+                    return;
+
+                WeaponAmmoState currentAmmo = weaponLoadout.GetAmmoState(weaponLoadout.ActiveSlotIndex);
+                WeaponAmmoState alternateAmmo = weaponLoadout.GetAmmoState(alternateSlotIndex);
+                if (alternateAmmo.TotalAmmo <= 0)
+                    return;
+
+                UtilityScoreBreakdown breakdown = new();
+                if (currentAmmo.TotalAmmo <= 0)
+                {
+                    breakdown.Add("현재 무기 탄약 고갈", 98f);
+                    AddCandidate(results, context, alternateSlotIndex, breakdown);
+                    return;
+                }
+
+                Combatant target = context.PriorityTarget;
+                if (target == null || !target.IsAlive || target.Team == context.Actor.Team)
+                    target = context.Actor.CurrentTarget;
+                if (target == null || !target.IsAlive || target.Team == context.Actor.Team)
+                    return;
+
+                ShotEvaluation currentShot = context.ShotEvaluator.EvaluateShotWithWeapon(
+                    context.Actor,
+                    target,
+                    currentWeapon);
+                ShotEvaluation alternateShot = context.ShotEvaluator.EvaluateShotWithWeapon(
+                    context.Actor,
+                    target,
+                    alternateWeapon);
+
+                if (!currentShot.CanShoot && alternateShot.CanShoot)
+                {
+                    breakdown.Add("대체 무기만 사격 가능", 92f);
+                    AddCandidate(results, context, alternateSlotIndex, breakdown, target);
+                    return;
+                }
+
+                if (currentAmmo.MagazineAmmo <= 0 && alternateAmmo.MagazineAmmo > 0)
+                {
+                    breakdown.Add("대체 무기 탄창 즉시 사용 가능", 88f);
+                    AddCandidate(results, context, alternateSlotIndex, breakdown, target);
+                    return;
+                }
+
+                if (!currentShot.CanShoot || !alternateShot.CanShoot || alternateAmmo.MagazineAmmo <= 0)
+                    return;
+
+                float currentDps = CalculateExpectedDamagePerSecond(currentWeapon, currentShot);
+                float alternateDps = CalculateExpectedDamagePerSecond(alternateWeapon, alternateShot);
+                if (alternateDps < currentDps * 1.25f)
+                    return;
+
+                float improvementRatio = alternateDps / Mathf.Max(0.01f, currentDps);
+                float score = Mathf.Clamp(82f + (improvementRatio - 1.25f) * 52f, 82f, 95f);
+                breakdown
+                    .Add("기대 화력 우세", score)
+                    .Add($"현재 DPS {currentDps:0.0}", 0f)
+                    .Add($"대체 DPS {alternateDps:0.0}", 0f);
+                AddCandidate(results, context, alternateSlotIndex, breakdown, target);
+            }
+
+            public override bool CanStart(
+                CombatActionCandidate candidate,
+                out string failureReason)
+            {
+                if (!base.CanStart(candidate, out failureReason))
+                    return false;
+                return Owner.combatant.CanSwitchToWeaponSlot(
+                    candidate.TargetWeaponSlotIndex,
+                    out failureReason);
+            }
+
+            public override bool Start(CombatActionIntent intent)
+            {
+                targetSlotIndex = intent.Candidate.TargetWeaponSlotIndex;
+                elapsedSeconds = 0f;
+                executionDuration = Mathf.Max(0.01f, Definition.WindupSeconds);
+                weaponChanged = false;
+                Owner.combatant.BeginWeaponSwap();
+                return true;
+            }
+
+            public override CombatActionExecutionStatus Tick(float deltaTime)
+            {
+                elapsedSeconds += deltaTime;
+                if (!weaponChanged && elapsedSeconds >= executionDuration * 0.5f)
+                {
+                    if (!Owner.combatant.CommitWeaponSwap(targetSlotIndex, out string failureReason))
+                    {
+                        Debug.LogWarning($"[무기 교체] {Owner.combatant.name}: {failureReason}");
+                        return CombatActionExecutionStatus.Failed;
+                    }
+                    weaponChanged = true;
+                }
+
+                if (elapsedSeconds < executionDuration)
+                    return CombatActionExecutionStatus.Running;
+
+                ConsumeChargeAndStartCooldown();
+                return CombatActionExecutionStatus.Completed;
+            }
+
+            private static float CalculateExpectedDamagePerSecond(
+                WeaponDefinition weapon,
+                ShotEvaluation shot)
+            {
+                return weapon.Damage
+                    * (shot.HitChancePercent / 100f)
+                    / Mathf.Max(0.01f, weapon.AimedShotInterval);
+            }
+
+            private void AddCandidate(
+                List<CombatActionCandidate> results,
+                CombatActionContext context,
+                int alternateSlotIndex,
+                UtilityScoreBreakdown breakdown,
+                Combatant target = null)
+            {
+                WeaponDefinition alternateWeapon = context.Actor.WeaponLoadout.GetDefinition(alternateSlotIndex);
+                breakdown.Add($"교체 대상 {alternateWeapon.DisplayName}", 0f);
+                results.Add(new CombatActionCandidate(
+                    Kind,
+                    target,
+                    context.Actor.CurrentCell,
+                    false,
+                    breakdown,
+                    alternateSlotIndex));
             }
         }
 

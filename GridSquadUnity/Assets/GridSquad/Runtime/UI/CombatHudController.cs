@@ -166,7 +166,7 @@ namespace GridSquad
             string targetName = target != null && target.IsAlive ? target.name : "-";
             string shotState = shot.CanShoot ? "READY" : $"BLOCKED ({shot.FailureReason})";
             string weaponInfo = weapon != null
-                ? $"DMG {weapon.Damage}  RANGE {weapon.RangeInCells:0}\nAIM {weapon.AimEnterDuration:0.0}s  INTERVAL {weapon.AimedShotInterval:0.0}s  RELOAD {weapon.ReloadDuration:0.0}s\nAMMO {selectedCombatant.CurrentMagazineAmmo}/{selectedCombatant.ReserveAmmo}"
+                ? BuildWeaponInfo(selectedCombatant, weapon)
                 : "WEAPON -";
             string fireState = selectedCombatant.FireStateRemainingSeconds > 0.01f
                 ? $"{selectedCombatant.FireState}  {selectedCombatant.FireStateRemainingSeconds:0.0}s"
@@ -188,7 +188,8 @@ namespace GridSquad
             string actionInfo = actionController != null
                 ? $"G GRENADE  {actionController.GetActionStatusText(CombatActionKind.Grenade)}\n" +
                   $"V STIM     {actionController.GetActionStatusText(CombatActionKind.Stim)}\n" +
-                  $"X DASH     {actionController.GetActionStatusText(CombatActionKind.Dash)}"
+                  $"X DASH     {actionController.GetActionStatusText(CombatActionKind.Dash)}\n" +
+                  $"C SWITCH   {actionController.GetActionStatusText(CombatActionKind.SwitchWeapon)}"
                 : "ACTIONS -";
             string message = Time.unscaledTime < actionMessageEndTime
                 ? $"\n\n{actionMessage}"
@@ -211,6 +212,26 @@ namespace GridSquad
                 $"COVER ANG {coverAngle}\n" +
                 $"PEEK    {(selectedCombatant.PeekEnabled ? "ON" : "OFF")}  AUTO {automaticPeek}\n\n" +
                 weaponInfo + "\n\n" + actionInfo + message + utilityDebug;
+        }
+
+        private static string BuildWeaponInfo(Combatant combatant, WeaponDefinition activeWeapon)
+        {
+            string header = $"[{activeWeapon.DisplayName}]  DMG {activeWeapon.Damage}  RANGE {activeWeapon.RangeInCells:0}\n" +
+                $"AIM {activeWeapon.AimEnterDuration:0.0}s  INTERVAL {activeWeapon.AimedShotInterval:0.00}s  RELOAD {activeWeapon.ReloadDuration:0.0}s\n" +
+                $"AMMO {combatant.CurrentMagazineAmmo}/{combatant.ReserveAmmo}";
+            WeaponLoadout weaponLoadout = combatant.WeaponLoadout;
+            if (weaponLoadout == null || !weaponLoadout.IsBattleInitialized)
+                return header;
+
+            string slots = string.Empty;
+            for (int slotIndex = 0; slotIndex < 2; slotIndex++)
+            {
+                WeaponDefinition definition = weaponLoadout.GetDefinition(slotIndex);
+                WeaponAmmoState ammo = weaponLoadout.GetAmmoState(slotIndex);
+                string marker = slotIndex == weaponLoadout.ActiveSlotIndex ? ">" : " ";
+                slots += $"\n{marker}S{slotIndex + 1} {(definition != null ? definition.DisplayName : "-")}  {ammo.MagazineAmmo}/{ammo.ReserveAmmo}";
+            }
+            return header + slots;
         }
 
         private void HandleAllyFullAutoClicked()
