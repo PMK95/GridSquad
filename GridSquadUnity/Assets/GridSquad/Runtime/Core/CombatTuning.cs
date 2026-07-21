@@ -19,6 +19,10 @@ namespace GridSquad
         [Min(0.02f)] public float ShotTracerDuration = 0.09f;
         [Min(0.02f)] public float EvaluationRefreshInterval = 0.1f;
 
+        [Header("피격")]
+        [Tooltip("피격 시 현재 행동을 중단하고 피격 애니메이션을 재생할 확률입니다.")]
+        [Range(0f, 100f)] public float HitReactionInterruptChancePercent = 25f;
+
         [Header("적 AI")]
         [Min(0.05f)] public float AiEvaluationInterval = 0.5f;
         [Min(1)] public int AiCandidatePathDistance = 6;

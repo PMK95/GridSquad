@@ -925,7 +925,8 @@ MonoBehaviour:
   - {fileID: 4367358766390518911}
   - {fileID: 5667006522157940481}
   - {fileID: 2797448859419630374}
-  emissionColor: {r: 2, g: 1.009434, b: 1.009434, a: 1}
+  emissionColor: {r: 5.3403134, g: 0, b: 0, a: 1}
+  duration: 0.03
 --- !u!4 &8719370725537038574 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -8995212700073126884, guid: f6d25c15c0571734ea2ac7a5d2410df0, type: 3}

@@ -242,9 +242,10 @@ namespace GridSquadEditor
                     "aimCenter",
                     "selectionCollider",
                     "muzzleFlash",
-                    "hitEffect",
                     "shotTracer",
                     "worldUi");
+                if (combatant.GetComponentInChildren<Flicker>(true) == null)
+                    throw new InvalidOperationException($"{combatant.name}의 피격 플리커가 누락되었습니다.");
                 BehaviorGraphAgent behaviorAgent = combatant.GetComponent<BehaviorGraphAgent>();
                 UnitTacticalBehaviorController behaviorController = combatant.GetComponent<UnitTacticalBehaviorController>();
                 if (behaviorController != null)
@@ -354,7 +355,9 @@ namespace GridSquadEditor
             if (nestedPath != CharacterUiPath)
                 throw new InvalidOperationException($"{unitPrefabPath}의 CharacterWorldUI가 별도 프리팹으로 중첩되지 않았습니다.");
             if (prefab.GetComponentInChildren<ParticleSystem>(true) == null)
-                throw new InvalidOperationException($"{unitPrefabPath}의 파티클 시스템이 누락되었습니다.");
+                throw new InvalidOperationException($"{unitPrefabPath}의 총구 파티클 시스템이 누락되었습니다.");
+            if (prefab.GetComponentInChildren<Flicker>(true) == null)
+                throw new InvalidOperationException($"{unitPrefabPath}의 피격 플리커가 누락되었습니다.");
         }
 
         private static void EnsureFolders()
@@ -678,6 +681,7 @@ namespace GridSquadEditor
             gun.transform.localScale = new Vector3(0.18f, 0.18f, 0.9f);
             Object.DestroyImmediate(gun.GetComponent<Collider>());
             gun.GetComponent<Renderer>().sharedMaterial = gunMaterial;
+            visualRoot.AddComponent<Flicker>();
 
             Transform muzzle = new GameObject("Muzzle").transform;
             muzzle.SetParent(visualRoot.transform, false);
@@ -687,8 +691,6 @@ namespace GridSquadEditor
             aimCenter.localPosition = new Vector3(0f, 1.1f, 0f);
 
             ParticleSystem muzzleFlash = CreateParticleSystem("MuzzleFlash", muzzle, new Color(1f, 0.65f, 0.1f));
-            ParticleSystem hitEffect = CreateParticleSystem("HitEffect", root.transform, bodyMaterial.color);
-            hitEffect.transform.localPosition = new Vector3(0f, 1.1f, 0f);
             LineRenderer shotTracer = CreateLineRenderer("ShotTracer", root.transform, lineMaterial, 0.075f);
             shotTracer.enabled = false;
 
@@ -709,7 +711,6 @@ namespace GridSquadEditor
                 aimCenter,
                 collider,
                 muzzleFlash,
-                hitEffect,
                 shotTracer,
                 worldUi);
             behaviorController.SetEditorReferences(
@@ -891,7 +892,6 @@ namespace GridSquadEditor
                 Transform muzzle = visualRoot.Find("Muzzle");
                 Transform aimCenter = visualRoot.Find("AimCenter");
                 ParticleSystem muzzleFlash = muzzle.GetComponentInChildren<ParticleSystem>(true);
-                ParticleSystem hitEffect = instance.transform.Find("HitEffect").GetComponent<ParticleSystem>();
                 LineRenderer shotTracer = instance.transform.Find("ShotTracer").GetComponent<LineRenderer>();
                 CharacterWorldUiPresenter worldUi = instance.GetComponentInChildren<CharacterWorldUiPresenter>(true);
                 worldUi.SetEditorCameraTransform(cameraTransform);
@@ -908,7 +908,6 @@ namespace GridSquadEditor
                     aimCenter,
                     instance.GetComponent<Collider>(),
                     muzzleFlash,
-                    hitEffect,
                     shotTracer,
                     worldUi);
 

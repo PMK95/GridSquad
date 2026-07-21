@@ -22,10 +22,10 @@ namespace GridSquad
         [SerializeField] private Transform aimCenter;
         [SerializeField] private Collider selectionCollider;
         [SerializeField] private ParticleSystem muzzleFlash;
-        [SerializeField] private ParticleSystem hitEffect;
         [SerializeField] private LineRenderer shotTracer;
         [SerializeField] private CharacterWorldUiPresenter worldUi;
         [SerializeField] private UnitAnimationController animationController;
+        [SerializeField] private Flicker damageFlicker;
 
         private readonly List<GridCoordinate> movementPath = new();
         private int movementIndex;
@@ -120,6 +120,8 @@ namespace GridSquad
             gridMap.RegisterOccupant(this, currentCell);
             if (animationController == null)
                 animationController = GetComponentInChildren<UnitAnimationController>(true);
+            if (damageFlicker == null)
+                damageFlicker = GetComponentInChildren<Flicker>(true);
             animationController?.Initialize();
             worldUi.Initialize(this);
             worldUi.SetSelected(false);
@@ -203,8 +205,7 @@ namespace GridSquad
             if (!IsAlive)
                 return;
             currentHealth = Mathf.Max(0, currentHealth - Mathf.Max(0, damage));
-            if (hitEffect != null)
-                hitEffect.Play(true);
+            damageFlicker?.Play();
             worldUi.RefreshHealth();
             if (currentHealth == 0)
             {
@@ -212,11 +213,22 @@ namespace GridSquad
                 return;
             }
 
+            if (!ShouldInterruptCurrentActionForHit())
+                return;
+
             float hitDuration = animationController != null
                 ? animationController.PlayHitReaction()
                 : 0f;
             if (hitDuration > 0f)
                 hitReactionRemainingSeconds = hitDuration;
+        }
+
+        private bool ShouldInterruptCurrentActionForHit()
+        {
+            float chancePercent = tuning != null
+                ? tuning.HitReactionInterruptChancePercent
+                : 0f;
+            return UnityEngine.Random.value < chancePercent / 100f;
         }
 
         public void SetSelected(bool value)
@@ -609,7 +621,6 @@ namespace GridSquad
             Transform newAimCenter,
             Collider newSelectionCollider,
             ParticleSystem newMuzzleFlash,
-            ParticleSystem newHitEffect,
             LineRenderer newShotTracer,
             CharacterWorldUiPresenter newWorldUi)
         {
@@ -625,7 +636,6 @@ namespace GridSquad
             aimCenter = newAimCenter;
             selectionCollider = newSelectionCollider;
             muzzleFlash = newMuzzleFlash;
-            hitEffect = newHitEffect;
             shotTracer = newShotTracer;
             worldUi = newWorldUi;
         }
