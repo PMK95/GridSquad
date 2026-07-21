@@ -9,6 +9,7 @@ namespace GridSquad
         [SerializeField] private Canvas canvas;
         [SerializeField] private MMHealthBar healthBar;
         [SerializeField] private Image reloadFill;
+        [SerializeField] private Text outOfAmmoText;
         [SerializeField] private Text detailText;
         [SerializeField] private GameObject selectionIndicator;
         [SerializeField] private LineRenderer targetLine;
@@ -18,10 +19,14 @@ namespace GridSquad
         [SerializeField] private Transform cameraTransform;
 
         private Combatant owner;
+        private int displayedHealth = -1;
+        private int displayedMaximumHealth = -1;
 
         public void Initialize(Combatant newOwner)
         {
             owner = newOwner;
+            displayedHealth = -1;
+            displayedMaximumHealth = -1;
             RefreshHealth();
             RefreshMagazine();
         }
@@ -33,6 +38,7 @@ namespace GridSquad
             bool debugVisible)
         {
             bool showDetails = selected || debugVisible;
+            RefreshHealth();
             RefreshMagazine();
             if (canvas != null)
                 canvas.enabled = owner != null && owner.IsAlive;
@@ -95,14 +101,24 @@ namespace GridSquad
         {
             if (owner == null || healthBar == null)
                 return;
+            if (displayedHealth == owner.CurrentHealth
+                && displayedMaximumHealth == owner.MaximumHealth)
+            {
+                return;
+            }
+            displayedHealth = owner.CurrentHealth;
+            displayedMaximumHealth = owner.MaximumHealth;
             healthBar.UpdateBar(owner.CurrentHealth, 0f, owner.MaximumHealth, true);
         }
 
         public void RefreshMagazine()
         {
-            if (owner == null || reloadFill == null)
+            if (owner == null)
                 return;
-            reloadFill.fillAmount = owner.MagazineFillRatio;
+            if (reloadFill != null)
+                reloadFill.fillAmount = owner.MagazineFillRatio;
+            if (outOfAmmoText != null)
+                outOfAmmoText.gameObject.SetActive(owner.IsAlive && owner.IsOutOfAmmo);
         }
 
         public void SetSelected(bool value)
@@ -127,6 +143,8 @@ namespace GridSquad
                 peekRing.enabled = false;
             if (reloadFill != null)
                 reloadFill.fillAmount = 0f;
+            if (outOfAmmoText != null)
+                outOfAmmoText.gameObject.SetActive(false);
         }
 
         private static void SetLineColor(LineRenderer line, Color color)
@@ -174,6 +192,7 @@ namespace GridSquad
         public void SetEditorReferences(
             Canvas newCanvas,
             MMHealthBar newHealthBar,
+            Text newOutOfAmmoText,
             Text newDetailText,
             GameObject newSelectionIndicator,
             LineRenderer newTargetLine,
@@ -184,6 +203,7 @@ namespace GridSquad
         {
             canvas = newCanvas;
             healthBar = newHealthBar;
+            outOfAmmoText = newOutOfAmmoText;
             detailText = newDetailText;
             selectionIndicator = newSelectionIndicator;
             targetLine = newTargetLine;

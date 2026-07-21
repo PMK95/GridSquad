@@ -17,6 +17,7 @@ namespace GridSquad
         private readonly HashSet<GridCoordinate> blocked = new();
         private readonly Dictionary<GridCoordinate, Combatant> occupants = new();
         private readonly Dictionary<GridCoordinate, Combatant> reservations = new();
+        private readonly Dictionary<GridCoordinate, Combatant> transitReservations = new();
 
         public int Width => width;
         public int Height => height;
@@ -67,7 +68,30 @@ namespace GridSquad
                 return false;
             if (occupants.TryGetValue(coordinate, out Combatant occupant) && occupant != requester)
                 return false;
-            return !reservations.TryGetValue(coordinate, out Combatant owner) || owner == requester;
+            if (reservations.TryGetValue(coordinate, out Combatant destinationOwner) && destinationOwner != requester)
+                return false;
+            return !transitReservations.TryGetValue(coordinate, out Combatant transitOwner)
+                || transitOwner == requester;
+        }
+
+        public bool IsTraversableForPath(
+            GridCoordinate coordinate,
+            Combatant requester,
+            bool avoidDynamicBlockers)
+        {
+            if (!IsInside(coordinate) || IsBlocked(coordinate))
+                return false;
+            if (reservations.TryGetValue(coordinate, out Combatant destinationOwner)
+                && destinationOwner != requester)
+            {
+                return false;
+            }
+            if (!avoidDynamicBlockers)
+                return true;
+            if (occupants.TryGetValue(coordinate, out Combatant occupant) && occupant != requester)
+                return false;
+            return !transitReservations.TryGetValue(coordinate, out Combatant transitOwner)
+                || transitOwner == requester;
         }
 
         public bool IsAvailablePeekCell(GridCoordinate coordinate, Combatant requester)
@@ -148,6 +172,7 @@ namespace GridSquad
             if (occupants.TryGetValue(previous, out Combatant previousOccupant) && previousOccupant == combatant)
                 occupants.Remove(previous);
             occupants[next] = combatant;
+            ReleaseTransitReservation(combatant);
         }
 
         public void UnregisterOccupant(Combatant combatant, GridCoordinate coordinate)
@@ -155,6 +180,7 @@ namespace GridSquad
             if (occupants.TryGetValue(coordinate, out Combatant occupant) && occupant == combatant)
                 occupants.Remove(coordinate);
             ReleaseReservation(combatant);
+            ReleaseTransitReservation(combatant);
         }
 
         public bool TryReserveCell(Combatant combatant, GridCoordinate coordinate)
@@ -179,6 +205,30 @@ namespace GridSquad
             }
             if (target.HasValue)
                 reservations.Remove(target.Value);
+        }
+
+        public bool TryReserveTransitCell(Combatant combatant, GridCoordinate coordinate)
+        {
+            if (!IsWalkable(coordinate, combatant))
+                return false;
+            ReleaseTransitReservation(combatant);
+            transitReservations[coordinate] = combatant;
+            return true;
+        }
+
+        public void ReleaseTransitReservation(Combatant combatant)
+        {
+            GridCoordinate? target = null;
+            foreach (KeyValuePair<GridCoordinate, Combatant> pair in transitReservations)
+            {
+                if (pair.Value == combatant)
+                {
+                    target = pair.Key;
+                    break;
+                }
+            }
+            if (target.HasValue)
+                transitReservations.Remove(target.Value);
         }
 
         public bool TryGetOccupant(GridCoordinate coordinate, out Combatant combatant)

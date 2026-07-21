@@ -185,8 +185,8 @@ MonoBehaviour:
   LerpForegroundBar: 1
   LerpForegroundBarSpeedDecreasing: 15
   LerpForegroundBarSpeedIncreasing: 15
-  LerpForegroundBarDurationDecreasing: 0.08
-  LerpForegroundBarDurationIncreasing: 0.08
+  LerpForegroundBarDurationDecreasing: 0.05
+  LerpForegroundBarDurationIncreasing: 0.05
   LerpForegroundBarCurveDecreasing:
     serializedVersion: 2
     m_Curve:
@@ -570,7 +570,7 @@ MonoBehaviour:
   LerpFrontBarSpeed: 15
   LerpDelayedBar: 1
   LerpDelayedBarSpeed: 15
-  BumpScaleOnChange: 1
+  BumpScaleOnChange: 0
   BumpDuration: 0.2
   BumpAnimationCurve:
     serializedVersion: 2
@@ -754,6 +754,7 @@ MonoBehaviour:
   canvas: {fileID: 8364490120843045396}
   healthBar: {fileID: 6480213891169104247}
   reloadFill: {fileID: 6958750988945001759}
+  outOfAmmoText: {fileID: 8576598192523524008}
   detailText: {fileID: 3169148494166547385}
   selectionIndicator: {fileID: 2326003054584980670}
   targetLine: {fileID: 7438553200902799560}
@@ -1233,6 +1234,7 @@ RectTransform:
   - {fileID: 5709016689761064089}
   - {fileID: 8249458042812165345}
   - {fileID: 1632288035866777365}
+  - {fileID: 8114091484488254246}
   m_Father: {fileID: 780380533701142970}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
@@ -1589,6 +1591,101 @@ LineRenderer:
   m_UseWorldSpace: 1
   m_Loop: 0
   m_ApplyActiveColorSpace: 1
+--- !u!1 &7444738697535221231
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 8114091484488254246}
+  - component: {fileID: 1187974521016828157}
+  - component: {fileID: 8576598192523524008}
+  - component: {fileID: 8238164793119545892}
+  m_Layer: 0
+  m_Name: OutOfAmmoText
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 0
+--- !u!224 &8114091484488254246
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7444738697535221231}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 5215122924182128106}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0.5, y: 0.5}
+  m_AnchorMax: {x: 0.5, y: 0.5}
+  m_AnchoredPosition: {x: 0, y: 39}
+  m_SizeDelta: {x: 210, y: 22}
+  m_Pivot: {x: 0.5, y: 0.5}
+--- !u!222 &1187974521016828157
+CanvasRenderer:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7444738697535221231}
+  m_CullTransparentMesh: 1
+--- !u!114 &8576598192523524008
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7444738697535221231}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5f7201a12d95ffc409449d95f23cf332, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Text
+  m_Material: {fileID: 0}
+  m_Color: {r: 1, g: 0.25, b: 0.12, a: 1}
+  m_RaycastTarget: 1
+  m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
+  m_Maskable: 1
+  m_OnCullStateChanged:
+    m_PersistentCalls:
+      m_Calls: []
+  m_FontData:
+    m_Font: {fileID: 10102, guid: 0000000000000000e000000000000000, type: 0}
+    m_FontSize: 16
+    m_FontStyle: 1
+    m_BestFit: 0
+    m_MinSize: 10
+    m_MaxSize: 40
+    m_Alignment: 4
+    m_AlignByGeometry: 0
+    m_RichText: 1
+    m_HorizontalOverflow: 1
+    m_VerticalOverflow: 1
+    m_LineSpacing: 1
+  m_Text: OUT OF AMMO
+--- !u!114 &8238164793119545892
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7444738697535221231}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e19747de3f5aca642ab2be37e372fb86, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Outline
+  m_EffectColor: {r: 0.05, g: 0.01, b: 0.01, a: 0.95}
+  m_EffectDistance: {x: 1.5, y: -1.5}
+  m_UseGraphicAlpha: 1
 --- !u!1 &7512639491411834329
 GameObject:
   m_ObjectHideFlags: 0

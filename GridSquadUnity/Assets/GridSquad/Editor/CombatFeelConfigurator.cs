@@ -88,7 +88,8 @@ namespace GridSquadEditor
 
             GameObject worldUi = LoadRequiredAsset<GameObject>(WorldUiPath);
             if (worldUi.GetComponentInChildren<MMHealthBar>(true) == null
-                || worldUi.GetComponentInChildren<MMProgressBar>(true) == null)
+                || worldUi.GetComponentInChildren<MMProgressBar>(true) == null
+                || FindDescendant(worldUi.transform, "OutOfAmmoText")?.GetComponent<Text>() == null)
                 throw new InvalidOperationException("CharacterWorldUI의 Feel HP 바 구성이 누락되었습니다.");
 
             MMFloatingTextSpawner spawner = Object.FindFirstObjectByType<MMFloatingTextSpawner>();
@@ -144,6 +145,11 @@ namespace GridSquadEditor
                 Transform backgroundTransform = FindRequiredDescendant(root.transform, "HPBackground");
                 Image foreground = FindRequiredDescendant(root.transform, "HPFill").GetComponent<Image>();
                 Image delayed = EnsureDelayedHealthImage(backgroundTransform, foreground);
+                Text outOfAmmoText = EnsureOutOfAmmoText(root.transform);
+
+                foreground.type = Image.Type.Filled;
+                foreground.fillMethod = Image.FillMethod.Horizontal;
+                foreground.fillOrigin = (int)Image.OriginHorizontal.Left;
 
                 MMProgressBar progressBar = GetOrAddComponent<MMProgressBar>(backgroundTransform.gameObject);
                 progressBar.ForegroundBar = foreground.transform;
@@ -153,8 +159,8 @@ namespace GridSquadEditor
                 progressBar.TimeScale = MMProgressBar.TimeScales.UnscaledTime;
                 progressBar.BarFillMode = MMProgressBar.BarFillModes.FixedDuration;
                 progressBar.LerpForegroundBar = true;
-                progressBar.LerpForegroundBarDurationDecreasing = 0.08f;
-                progressBar.LerpForegroundBarDurationIncreasing = 0.08f;
+                progressBar.LerpForegroundBarDurationDecreasing = 0.05f;
+                progressBar.LerpForegroundBarDurationIncreasing = 0.05f;
                 progressBar.DecreasingDelay = 0.15f;
                 progressBar.LerpDecreasingDelayedBar = true;
                 progressBar.LerpDecreasingDelayedBarDuration = 0.18f;
@@ -170,14 +176,62 @@ namespace GridSquadEditor
                 healthBar.TargetProgressBar = progressBar;
                 healthBar.AlwaysVisible = true;
                 healthBar.HideBarAtZero = false;
+                healthBar.BumpScaleOnChange = false;
 
                 SetObjectReference(presenter, "healthBar", healthBar);
+                SetObjectReference(presenter, "outOfAmmoText", outOfAmmoText);
                 PrefabUtility.SaveAsPrefabAsset(root, WorldUiPath);
             }
             finally
             {
                 PrefabUtility.UnloadPrefabContents(root);
             }
+        }
+
+        private static Text EnsureOutOfAmmoText(Transform root)
+        {
+            Transform canvas = FindRequiredDescendant(root, "WorldCanvas");
+            Transform existing = FindDescendant(canvas, "OutOfAmmoText");
+            GameObject textObject;
+            if (existing == null)
+            {
+                textObject = new GameObject(
+                    "OutOfAmmoText",
+                    typeof(RectTransform),
+                    typeof(CanvasRenderer),
+                    typeof(Text),
+                    typeof(Outline));
+                textObject.transform.SetParent(canvas, false);
+            }
+            else
+            {
+                textObject = existing.gameObject;
+                if (textObject.GetComponent<Outline>() == null)
+                    textObject.AddComponent<Outline>();
+            }
+
+            RectTransform rect = textObject.GetComponent<RectTransform>();
+            rect.anchorMin = new Vector2(0.5f, 0.5f);
+            rect.anchorMax = new Vector2(0.5f, 0.5f);
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.anchoredPosition = new Vector2(0f, 39f);
+            rect.sizeDelta = new Vector2(210f, 22f);
+
+            Text text = textObject.GetComponent<Text>();
+            text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            text.fontSize = 16;
+            text.fontStyle = FontStyle.Bold;
+            text.alignment = TextAnchor.MiddleCenter;
+            text.color = new Color(1f, 0.25f, 0.12f, 1f);
+            text.horizontalOverflow = HorizontalWrapMode.Overflow;
+            text.verticalOverflow = VerticalWrapMode.Overflow;
+            text.text = "OUT OF AMMO";
+
+            Outline outline = textObject.GetComponent<Outline>();
+            outline.effectColor = new Color(0.05f, 0.01f, 0.01f, 0.95f);
+            outline.effectDistance = new Vector2(1.5f, -1.5f);
+            textObject.SetActive(false);
+            return text;
         }
 
         private static Image EnsureDelayedHealthImage(Transform background, Image foreground)

@@ -4,7 +4,12 @@ namespace GridSquad
 {
     public static class GridPathfinder
     {
-        public static List<GridCoordinate> FindPath(GridMap grid, GridCoordinate start, GridCoordinate goal, Combatant requester)
+        public static List<GridCoordinate> FindPath(
+            GridMap grid,
+            GridCoordinate start,
+            GridCoordinate goal,
+            Combatant requester,
+            bool avoidDynamicBlockers = false)
         {
             if (start == goal)
                 return new List<GridCoordinate>();
@@ -27,7 +32,8 @@ namespace GridSquad
 
                 foreach (GridCoordinate neighbor in grid.GetCardinalNeighbors(current))
                 {
-                    if (closed.Contains(neighbor) || !grid.IsWalkable(neighbor, requester))
+                    if (closed.Contains(neighbor)
+                        || !grid.IsTraversableForPath(neighbor, requester, avoidDynamicBlockers))
                         continue;
 
                     int newCost = cost[current] + 1;

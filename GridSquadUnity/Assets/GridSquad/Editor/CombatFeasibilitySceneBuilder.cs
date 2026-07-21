@@ -623,6 +623,7 @@ namespace GridSquadEditor
             healthFill.rectTransform.pivot = new Vector2(0f, 0.5f);
             healthFill.type = Image.Type.Filled;
             healthFill.fillMethod = Image.FillMethod.Horizontal;
+            healthFill.fillOrigin = (int)Image.OriginHorizontal.Left;
             MMProgressBar progressBar = healthBackground.gameObject.AddComponent<MMProgressBar>();
             progressBar.ForegroundBar = healthFill.transform;
             progressBar.FillMode = MMProgressBar.FillModes.FillAmount;
@@ -630,6 +631,17 @@ namespace GridSquadEditor
             healthBar.HealthBarType = MMHealthBar.HealthBarTypes.Existing;
             healthBar.TargetProgressBar = progressBar;
             healthBar.AlwaysVisible = true;
+            healthBar.BumpScaleOnChange = false;
+
+            Text outOfAmmoText = CreateText("OutOfAmmoText", canvasRect, 16, TextAnchor.MiddleCenter);
+            SetRect(outOfAmmoText.rectTransform, new Vector2(0f, 39f), new Vector2(210f, 22f));
+            outOfAmmoText.fontStyle = FontStyle.Bold;
+            outOfAmmoText.color = new Color(1f, 0.25f, 0.12f, 1f);
+            outOfAmmoText.text = "OUT OF AMMO";
+            Outline ammoOutline = outOfAmmoText.gameObject.AddComponent<Outline>();
+            ammoOutline.effectColor = new Color(0.05f, 0.01f, 0.01f, 0.95f);
+            ammoOutline.effectDistance = new Vector2(1.5f, -1.5f);
+            outOfAmmoText.gameObject.SetActive(false);
 
             Text detailText = CreateText("DebugText", canvasRect, 14, TextAnchor.UpperCenter);
             SetRect(detailText.rectTransform, new Vector2(0f, -8f), new Vector2(260f, 44f));
@@ -655,6 +667,7 @@ namespace GridSquadEditor
             presenter.SetEditorReferences(
                 canvas,
                 healthBar,
+                outOfAmmoText,
                 detailText,
                 selection,
                 targetLine,

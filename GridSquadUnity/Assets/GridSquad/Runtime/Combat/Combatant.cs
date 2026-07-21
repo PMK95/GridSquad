@@ -26,6 +26,10 @@ namespace GridSquad
 
         private readonly List<GridCoordinate> movementPath = new();
         private int movementIndex;
+        private GridCoordinate movementDestination;
+        private bool hasMovementDestination;
+        private bool hasTransitReservation;
+        private float blockedMovementSeconds;
         private int currentHealth;
         private GridCoordinate currentCell;
         private Combatant currentTarget;
@@ -130,9 +134,9 @@ namespace GridSquad
                 return;
 
             UpdateHitReaction();
-            MoveAlongPath();
+            bool movedThisFrame = MoveAlongPath();
             RotateTowardMovementOrTarget();
-            animationController?.SetMovementState(IsMoving && !IsReloading && !IsHitReacting);
+            animationController?.SetMovementState(movedThisFrame && !IsReloading && !IsHitReacting);
             worldUi.Refresh(currentTarget, currentShotEvaluation, selected, debugVisible);
         }
 
@@ -151,6 +155,10 @@ namespace GridSquad
                 movementPath.Clear();
                 movementIndex = 0;
                 gridMap.ReleaseReservation(this);
+                gridMap.ReleaseTransitReservation(this);
+                hasMovementDestination = false;
+                hasTransitReservation = false;
+                blockedMovementSeconds = 0f;
                 ResetFireCycle();
                 return true;
             }
@@ -158,9 +166,14 @@ namespace GridSquad
             if (path == null || !gridMap.TryReserveCell(this, destination))
                 return false;
 
+            gridMap.ReleaseTransitReservation(this);
             movementPath.Clear();
             movementPath.AddRange(path);
             movementIndex = 0;
+            movementDestination = destination;
+            hasMovementDestination = true;
+            hasTransitReservation = false;
+            blockedMovementSeconds = 0f;
             peekEnabled = false;
             SetActivePeekOffset(Vector3.zero);
             ResetFireCycle();
@@ -192,6 +205,10 @@ namespace GridSquad
             movementPath.Clear();
             movementIndex = 0;
             gridMap.ReleaseReservation(this);
+            gridMap.ReleaseTransitReservation(this);
+            hasMovementDestination = false;
+            hasTransitReservation = false;
+            blockedMovementSeconds = 0f;
             ResetFireCycle();
         }
 
@@ -242,28 +259,66 @@ namespace GridSquad
             debugVisible = value;
         }
 
-        private void MoveAlongPath()
+        private bool MoveAlongPath()
         {
             if (movementIndex >= movementPath.Count || IsReloading || IsHitReacting)
-                return;
+                return false;
 
             GridCoordinate nextCell = movementPath[movementIndex];
-            if (!gridMap.IsWalkable(nextCell, this))
-                return;
+            if (!hasTransitReservation)
+            {
+                if (!gridMap.TryReserveTransitCell(this, nextCell))
+                {
+                    TryRebuildPathAroundBlockingUnit();
+                    return false;
+                }
+                hasTransitReservation = true;
+            }
             Vector3 destination = gridMap.GridToWorld(nextCell);
             transform.position = Vector3.MoveTowards(transform.position, destination, tuning.MovementSpeed * Time.deltaTime);
             if ((transform.position - destination).sqrMagnitude > 0.0001f)
-                return;
+                return true;
 
             GridCoordinate previous = currentCell;
             currentCell = nextCell;
             gridMap.MoveOccupant(this, previous, currentCell);
+            hasTransitReservation = false;
+            blockedMovementSeconds = 0f;
             movementIndex++;
             if (movementIndex >= movementPath.Count)
             {
                 movementPath.Clear();
                 gridMap.ReleaseReservation(this);
+                hasMovementDestination = false;
             }
+            return true;
+        }
+
+        private void TryRebuildPathAroundBlockingUnit()
+        {
+            if (!hasMovementDestination)
+                return;
+
+            blockedMovementSeconds += Time.deltaTime;
+            float retryDelay = 0.12f + Mathf.Abs(GetInstanceID() % 4) * 0.03f;
+            if (blockedMovementSeconds < retryDelay)
+                return;
+
+            blockedMovementSeconds = 0f;
+            List<GridCoordinate> alternatePath = GridPathfinder.FindPath(
+                gridMap,
+                currentCell,
+                movementDestination,
+                this,
+                true);
+            if (alternatePath == null || alternatePath.Count == 0)
+                return;
+
+            gridMap.ReleaseTransitReservation(this);
+            hasTransitReservation = false;
+            movementPath.Clear();
+            movementPath.AddRange(alternatePath);
+            movementIndex = 0;
         }
 
         private void RotateTowardMovementOrTarget()
@@ -595,6 +650,9 @@ namespace GridSquad
             ResetFireCycle(true);
             gridMap.UnregisterOccupant(this, currentCell);
             movementPath.Clear();
+            hasMovementDestination = false;
+            hasTransitReservation = false;
+            blockedMovementSeconds = 0f;
             SetActivePeekOffset(Vector3.zero);
             if (selectionCollider != null)
                 selectionCollider.enabled = false;
@@ -617,6 +675,10 @@ namespace GridSquad
             movementPath.Clear();
             movementIndex = 0;
             gridMap.ReleaseReservation(this);
+            gridMap.ReleaseTransitReservation(this);
+            hasMovementDestination = false;
+            hasTransitReservation = false;
+            blockedMovementSeconds = 0f;
             SetBehaviorTarget(null);
             ResetFireCycle(true);
             hitReactionRemainingSeconds = 0f;
