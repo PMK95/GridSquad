@@ -9,6 +9,8 @@ namespace GridSquad
 {
     public sealed class TacticalInputController : MonoBehaviour
     {
+        private static readonly float[] SelectableGameSpeeds = { 0.5f, 1f, 2f, 4f };
+
         [SerializeField] private InputActionAsset inputActions;
         [SerializeField] private Camera sceneCamera;
         [SerializeField] private GridMap gridMap;
@@ -74,10 +76,12 @@ namespace GridSquad
             if (ActionPressed("TogglePause"))
                 TogglePause();
             if (ActionPressed("Speed1"))
-                SetGameSpeed(1f);
+                SetGameSpeed(0.5f);
             if (ActionPressed("Speed2"))
-                SetGameSpeed(2f);
+                SetGameSpeed(1f);
             if (ActionPressed("Speed3"))
+                SetGameSpeed(2f);
+            if (ActionPressed("Speed4"))
                 SetGameSpeed(4f);
             if (ActionPressed("Cancel"))
                 SetTargetingMode(false);
@@ -202,9 +206,9 @@ namespace GridSquad
             hud.SetTimeScaleDisplay(activeTimeScale, paused);
         }
 
-        private void SetGameSpeed(float speed)
+        private void SetGameSpeed(float requestedSpeed)
         {
-            activeTimeScale = speed;
+            activeTimeScale = FindClosestSelectableGameSpeed(requestedSpeed);
             paused = false;
             if (timeManager != null)
             {
@@ -218,14 +222,31 @@ namespace GridSquad
             hud.SetTimeScaleDisplay(activeTimeScale, false);
         }
 
+        private static float FindClosestSelectableGameSpeed(float requestedSpeed)
+        {
+            float closestSpeed = SelectableGameSpeeds[0];
+            float closestDifference = Mathf.Abs(requestedSpeed - closestSpeed);
+            for (int i = 1; i < SelectableGameSpeeds.Length; i++)
+            {
+                float difference = Mathf.Abs(requestedSpeed - SelectableGameSpeeds[i]);
+                if (difference >= closestDifference)
+                    continue;
+
+                closestSpeed = SelectableGameSpeeds[i];
+                closestDifference = difference;
+            }
+            return closestSpeed;
+        }
+
         public void SetPauseFromDebugMenu(bool shouldPause)
         {
             SetPaused(shouldPause);
         }
 
-        public void SetGameSpeedFromDebugMenu(float speed)
+        public float SetGameSpeedFromDebugMenu(float speed)
         {
             SetGameSpeed(speed);
+            return activeTimeScale;
         }
 
         public void RestartCombatFromDebugMenu()

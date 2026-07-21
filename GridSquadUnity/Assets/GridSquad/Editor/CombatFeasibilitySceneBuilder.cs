@@ -316,7 +316,7 @@ namespace GridSquadEditor
             {
                 "CameraMove", "PointerPosition", "PointerDelta", "CameraOrbit", "CameraZoom",
                 "Select", "MoveCommand", "TargetCommand", "TogglePeek", "TogglePause",
-                "Speed1", "Speed2", "Speed3", "Cancel", "ToggleDebug", "Restart"
+                "Speed1", "Speed2", "Speed3", "Speed4", "Cancel", "ToggleDebug", "Restart"
             };
             if (tacticalMap == null)
                 throw new InvalidOperationException("Tactical 입력 맵이 누락되었습니다.");

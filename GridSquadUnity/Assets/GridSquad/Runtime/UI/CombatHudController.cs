@@ -51,7 +51,7 @@ namespace GridSquad
         public void SetTimeScaleDisplay(float scale, bool paused)
         {
             if (stateText != null)
-                stateText.text = paused ? "PAUSED" : $"SPEED x{scale:0}";
+                stateText.text = paused ? "PAUSED" : $"SPEED x{scale:0.#}";
         }
 
         public void SetTargetingState(bool value)

@@ -226,7 +226,7 @@ MonoBehaviour:
         CheckboxEventName: CheckboxEventName
         SliderMode: 0
         SliderText: "\uAC8C\uC784 \uBC30\uC18D"
-        SliderRemapZero: 0.25
+        SliderRemapZero: 0.5
         SliderRemapOne: 4
         SliderInitialValue: 1
         SliderEventName: Combat.GameSpeed

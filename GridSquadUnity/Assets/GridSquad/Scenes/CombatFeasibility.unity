@@ -16457,8 +16457,8 @@ GameObject:
   - component: {fileID: 1623640738}
   - component: {fileID: 1623640737}
   - component: {fileID: 1623640736}
-  - component: {fileID: 1623640735}
   - component: {fileID: 1623640741}
+  - component: {fileID: 1623640735}
   - component: {fileID: 1623640740}
   m_Layer: 0
   m_Name: RTSCinemachineCamera

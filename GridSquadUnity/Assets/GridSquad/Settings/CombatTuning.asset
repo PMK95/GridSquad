@@ -32,7 +32,7 @@ MonoBehaviour:
   AiMovementCooldown: 1
   CameraPanSpeed: 30
   CameraOrbitSensitivity: 0.15
-  CameraZoomSensitivity: 0.06
+  CameraZoomSensitivity: 0.56
   CameraMinimumPitch: 30
   CameraMaximumPitch: 75
   CameraMinimumDistance: 12

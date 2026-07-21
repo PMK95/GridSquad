@@ -711,6 +711,7 @@ GameObject:
   m_Component:
   - component: {fileID: 780380533701142970}
   - component: {fileID: 4826339789071380899}
+  - component: {fileID: 5349584501520016844}
   m_Layer: 0
   m_Name: CharacterWorldUI
   m_TagString: Untagged
@@ -761,6 +762,22 @@ MonoBehaviour:
   targetRing: {fileID: 1255423084342934386}
   peekLine: {fileID: 930686979096268540}
   peekRing: {fileID: 5168795592271864967}
+--- !u!114 &5349584501520016844
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2608239023034724650}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 90e9b0613a9f9544580c1644719392dd, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: MoreMountains.Tools::MoreMountains.Tools.MMBillboard
+  GrabMainCameraOnStart: 1
+  NestObject: 0
+  OffsetDirection: {x: 0, y: 0, z: 1}
+  Up: {x: 0, y: 1, z: 0}
 --- !u!1 &2849273115037480987
 GameObject:
   m_ObjectHideFlags: 0

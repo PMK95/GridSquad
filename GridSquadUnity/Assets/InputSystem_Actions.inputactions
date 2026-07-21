@@ -640,6 +640,15 @@
                     "initialStateCheck": false
                 },
                 {
+                    "name": "Speed4",
+                    "type": "Button",
+                    "id": "e44ef753-27ed-4bb5-ae8b-9d56a1f1e2c3",
+                    "expectedControlType": "Button",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
+                },
+                {
                     "name": "Cancel",
                     "type": "Button",
                     "id": "19aafb93-148c-474f-885b-6f30186fd546",
@@ -852,6 +861,17 @@
                     "processors": "",
                     "groups": "Keyboard&Mouse",
                     "action": "Speed3",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "f5c6ed47-8b16-47fa-846e-1ab2c3d4e5f6",
+                    "path": "<Keyboard>/4",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "Keyboard&Mouse",
+                    "action": "Speed4",
                     "isComposite": false,
                     "isPartOfComposite": false
                 },

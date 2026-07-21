@@ -20,6 +20,9 @@ namespace GridSquad
         {
             orbitalFollow = GetComponent<CinemachineOrbitalFollow>();
             tacticalMap = inputActions.FindActionMap("Tactical", true);
+            CinemachineBrain outputBrain = outputCamera.GetComponent<CinemachineBrain>();
+            if (outputBrain != null)
+                outputBrain.IgnoreTimeScale = true;
             orbitalFollow.HorizontalAxis.Range = new Vector2(-180f, 180f);
             orbitalFollow.HorizontalAxis.Wrap = true;
             orbitalFollow.VerticalAxis.Range = new Vector2(tuning.CameraMinimumPitch, tuning.CameraMaximumPitch);

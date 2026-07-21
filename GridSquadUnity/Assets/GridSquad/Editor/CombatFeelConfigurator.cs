@@ -298,7 +298,7 @@ namespace GridSquadEditor
                 Type = MMDebugMenuItem.MMDebugMenuItemTypes.Slider,
                 SliderMode = MMDebugMenuItemSlider.Modes.Float,
                 SliderText = "게임 배속",
-                SliderRemapZero = 0.25f,
+                SliderRemapZero = 0.5f,
                 SliderRemapOne = 4f,
                 SliderInitialValue = 1f,
                 SliderEventName = CombatDebugMenuBridge.GameSpeedEvent

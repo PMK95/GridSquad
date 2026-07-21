@@ -121,7 +121,14 @@ namespace GridSquad
                 return;
             }
 
-            inputController?.SetGameSpeedFromDebugMenu(value);
+            if (inputController == null)
+                return;
+
+            float appliedSpeed = inputController.SetGameSpeedFromDebugMenu(value);
+            MMDebugMenuSliderEvent.Trigger(
+                GameSpeedEvent,
+                appliedSpeed,
+                MMDebugMenuSliderEvent.EventModes.SetSlider);
         }
 
         private void HandleButtonPressed(
