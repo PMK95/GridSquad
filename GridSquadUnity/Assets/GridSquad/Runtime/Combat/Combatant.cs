@@ -25,6 +25,7 @@ namespace GridSquad
         [SerializeField] private ParticleSystem hitEffect;
         [SerializeField] private LineRenderer shotTracer;
         [SerializeField] private CharacterWorldUiPresenter worldUi;
+        [SerializeField] private UnitAnimationController animationController;
 
         private readonly List<GridCoordinate> movementPath = new();
         private int movementIndex;
@@ -33,8 +34,14 @@ namespace GridSquad
         private Combatant currentTarget;
         private ShotEvaluation currentShotEvaluation;
         private FireCycleState fireCycleState;
-        private float fireStateEndTime;
+        private float fireStateRemainingSeconds;
         private Combatant aimingTarget;
+        private int currentMagazineAmmo;
+        private int reserveAmmo;
+        private int pendingReloadAmmo;
+        private float reloadElapsedSeconds;
+        private bool reloadAnimationStarted;
+        private float hitReactionRemainingSeconds;
         private bool peekEnabled;
         private bool selected;
         private bool debugVisible;
@@ -54,7 +61,29 @@ namespace GridSquad
         public Combatant CurrentTarget => currentTarget;
         public ShotEvaluation CurrentShotEvaluation => currentShotEvaluation;
         public FireCycleState FireState => fireCycleState;
-        public float FireStateRemainingSeconds => Mathf.Max(0f, fireStateEndTime - Time.time);
+        public float FireStateRemainingSeconds => IsReloading && reloadAnimationStarted
+            ? Mathf.Max(0f, weapon.ReloadDuration - reloadElapsedSeconds)
+            : Mathf.Max(0f, fireStateRemainingSeconds);
+        public Transform AimCenterTransform => aimCenter != null ? aimCenter : transform;
+        public int CurrentMagazineAmmo => currentMagazineAmmo;
+        public int ReserveAmmo => reserveAmmo;
+        public int MagazineCapacity => weapon != null ? Mathf.Max(1, weapon.MagazineCapacity) : 1;
+        public float ReloadProgress => IsReloading && reloadAnimationStarted
+            ? Mathf.Clamp01(reloadElapsedSeconds / Mathf.Max(0.01f, weapon.ReloadDuration))
+            : 0f;
+        public float MagazineFillRatio
+        {
+            get
+            {
+                float displayedAmmo = currentMagazineAmmo;
+                if (IsReloading && reloadAnimationStarted)
+                    displayedAmmo += pendingReloadAmmo * ReloadProgress;
+                return Mathf.Clamp01(displayedAmmo / MagazineCapacity);
+            }
+        }
+        public bool IsReloading => fireCycleState == FireCycleState.Reloading;
+        public bool IsOutOfAmmo => fireCycleState == FireCycleState.OutOfAmmo;
+        public bool IsHitReacting => hitReactionRemainingSeconds > 0f;
         public float MuzzleHeight => muzzle != null ? muzzle.position.y - transform.position.y : 1.25f;
         public Vector3 MuzzlePosition => muzzle != null ? muzzle.position : transform.position + Vector3.up * 1.25f;
         public Vector3 CurrentAimCenter => aimCenter != null ? aimCenter.position : transform.position + Vector3.up * 1.1f;
@@ -84,9 +113,14 @@ namespace GridSquad
         private void Awake()
         {
             currentHealth = maximumHealth;
+            currentMagazineAmmo = MagazineCapacity;
+            reserveAmmo = weapon != null ? Mathf.Max(0, weapon.StartingReserveAmmo) : 0;
             currentCell = gridMap.WorldToGrid(transform.position);
             transform.position = gridMap.GridToWorld(currentCell);
             gridMap.RegisterOccupant(this, currentCell);
+            if (animationController == null)
+                animationController = GetComponentInChildren<UnitAnimationController>(true);
+            animationController?.Initialize();
             worldUi.Initialize(this);
             worldUi.SetSelected(false);
             if (shotTracer != null)
@@ -98,8 +132,10 @@ namespace GridSquad
             if (!IsAlive)
                 return;
 
+            UpdateHitReaction();
             MoveAlongPath();
             RotateTowardMovementOrTarget();
+            animationController?.SetMovementState(IsMoving && !IsReloading && !IsHitReacting);
             worldUi.Refresh(currentTarget, currentShotEvaluation, selected, debugVisible);
         }
 
@@ -111,7 +147,7 @@ namespace GridSquad
 
         public bool SetMoveDestination(GridCoordinate destination)
         {
-            if (!IsAlive)
+            if (!IsAlive || IsReloading)
                 return false;
             if (destination == currentCell)
             {
@@ -171,7 +207,16 @@ namespace GridSquad
                 hitEffect.Play(true);
             worldUi.RefreshHealth();
             if (currentHealth == 0)
+            {
                 EnterDeadState();
+                return;
+            }
+
+            float hitDuration = animationController != null
+                ? animationController.PlayHitReaction()
+                : 0f;
+            if (hitDuration > 0f)
+                hitReactionRemainingSeconds = hitDuration;
         }
 
         public void SetSelected(bool value)
@@ -187,7 +232,7 @@ namespace GridSquad
 
         private void MoveAlongPath()
         {
-            if (movementIndex >= movementPath.Count)
+            if (movementIndex >= movementPath.Count || IsReloading || IsHitReacting)
                 return;
 
             GridCoordinate nextCell = movementPath[movementIndex];
@@ -211,6 +256,9 @@ namespace GridSquad
 
         private void RotateTowardMovementOrTarget()
         {
+            if (IsHitReacting)
+                return;
+
             Vector3 lookDirection = Vector3.zero;
             if (movementIndex < movementPath.Count)
                 lookDirection = gridMap.GridToWorld(movementPath[movementIndex]) - transform.position;
@@ -271,6 +319,15 @@ namespace GridSquad
 
         public void TickAutomaticFireCycleFromBehavior()
         {
+            if (IsHitReacting)
+                return;
+
+            if (IsReloading)
+            {
+                TickReload();
+                return;
+            }
+
             if (IsMoving || currentTarget == null || !currentTarget.IsAlive || !currentShotEvaluation.CanShoot)
             {
                 ResetFireCycle();
@@ -280,9 +337,17 @@ namespace GridSquad
             switch (fireCycleState)
             {
                 case FireCycleState.WaitingForAim:
+                    if (currentMagazineAmmo <= 0)
+                    {
+                        BeginReload(0f);
+                        return;
+                    }
                     aimingTarget = currentTarget;
                     fireCycleState = FireCycleState.Aiming;
-                    fireStateEndTime = Time.time + weapon.AimDuration;
+                    fireStateRemainingSeconds = weapon.AimEnterDuration;
+                    animationController?.BeginAimingAt(
+                        currentTarget.AimCenterTransform,
+                        weapon.AimEnterDuration);
                     return;
 
                 case FireCycleState.Aiming:
@@ -291,26 +356,47 @@ namespace GridSquad
                         ResetFireCycle();
                         return;
                     }
-                    if (Time.time < fireStateEndTime)
+                    fireStateRemainingSeconds = Mathf.Max(
+                        0f,
+                        fireStateRemainingSeconds - Time.deltaTime);
+                    if (fireStateRemainingSeconds > 0f)
                         return;
                     if (!IsAimAlignedWithCurrentTarget())
+                        return;
+                    if (animationController != null && !animationController.IsAimReady)
                         return;
                     if (!FireCurrentShot())
                     {
                         ResetFireCycle();
                         return;
                     }
-                    fireCycleState = FireCycleState.Cooldown;
-                    fireStateEndTime = Time.time + weapon.FireInterval;
-                    aimingTarget = null;
+                    fireCycleState = FireCycleState.AimedFiring;
+                    fireStateRemainingSeconds = weapon.AimedShotInterval;
+                    if (currentMagazineAmmo <= 0)
+                        BeginReload(CalculatePostShotReloadDelay());
                     return;
 
-                case FireCycleState.Cooldown:
-                    if (Time.time >= fireStateEndTime)
+                case FireCycleState.AimedFiring:
+                    fireStateRemainingSeconds = Mathf.Max(
+                        0f,
+                        fireStateRemainingSeconds - Time.deltaTime);
+                    if (fireStateRemainingSeconds > 0f)
+                        return;
+                    if (!IsAimAlignedWithCurrentTarget())
+                        return;
+                    if (animationController != null && !animationController.IsAimReady)
+                        return;
+                    if (!FireCurrentShot())
                     {
-                        fireCycleState = FireCycleState.WaitingForAim;
-                        fireStateEndTime = 0f;
+                        ResetFireCycle();
+                        return;
                     }
+                    fireStateRemainingSeconds = weapon.AimedShotInterval;
+                    if (currentMagazineAmmo <= 0)
+                        BeginReload(CalculatePostShotReloadDelay());
+                    return;
+
+                case FireCycleState.OutOfAmmo:
                     return;
             }
         }
@@ -330,6 +416,8 @@ namespace GridSquad
 
             if (UnityEngine.Random.value * 100f <= currentShotEvaluation.HitChancePercent)
                 currentTarget.ApplyDamage(weapon.Damage);
+            currentMagazineAmmo = Mathf.Max(0, currentMagazineAmmo - 1);
+            animationController?.PlayShot();
             return true;
         }
 
@@ -345,13 +433,118 @@ namespace GridSquad
             return Vector3.Angle(transform.forward, aimDirection) <= tuning.FireAimToleranceDegrees;
         }
 
-        public void ResetBehaviorFireCycle() => ResetFireCycle();
-
-        private void ResetFireCycle()
+        private float CalculatePostShotReloadDelay()
         {
+            float shotAnimationDuration = animationController != null
+                ? animationController.ShotDuration
+                : 0f;
+            return Mathf.Max(weapon.AimedShotInterval, shotAnimationDuration);
+        }
+
+        public void ResetBehaviorFireCycle() => ResetFireCycle(true);
+
+        private void ResetFireCycle(bool cancelReload = false)
+        {
+            if (IsReloading && !cancelReload)
+                return;
+
             fireCycleState = FireCycleState.WaitingForAim;
-            fireStateEndTime = 0f;
+            fireStateRemainingSeconds = 0f;
             aimingTarget = null;
+            pendingReloadAmmo = 0;
+            reloadElapsedSeconds = 0f;
+            reloadAnimationStarted = false;
+            animationController?.StopAiming();
+            if (cancelReload)
+                animationController?.CompleteReload();
+        }
+
+        private void BeginReload(float shotAnimationDelay)
+        {
+            if (currentMagazineAmmo >= MagazineCapacity)
+            {
+                fireCycleState = FireCycleState.WaitingForAim;
+                return;
+            }
+            if (reserveAmmo <= 0)
+            {
+                fireCycleState = FireCycleState.OutOfAmmo;
+                fireStateRemainingSeconds = 0f;
+                animationController?.StopAiming();
+                return;
+            }
+
+            pendingReloadAmmo = Mathf.Min(MagazineCapacity - currentMagazineAmmo, reserveAmmo);
+            reloadElapsedSeconds = 0f;
+            reloadAnimationStarted = false;
+            fireCycleState = FireCycleState.Reloading;
+            fireStateRemainingSeconds = Mathf.Max(0f, shotAnimationDelay);
+            if (fireStateRemainingSeconds <= 0f)
+                StartReloadAnimation();
+        }
+
+        private void TickReload()
+        {
+            if (!reloadAnimationStarted)
+            {
+                fireStateRemainingSeconds = Mathf.Max(
+                    0f,
+                    fireStateRemainingSeconds - Time.deltaTime);
+                if (fireStateRemainingSeconds > 0f)
+                    return;
+                StartReloadAnimation();
+                return;
+            }
+
+            reloadElapsedSeconds += Time.deltaTime;
+            if (reloadElapsedSeconds < weapon.ReloadDuration)
+                return;
+
+            currentMagazineAmmo += pendingReloadAmmo;
+            reserveAmmo -= pendingReloadAmmo;
+            pendingReloadAmmo = 0;
+            reloadElapsedSeconds = 0f;
+            reloadAnimationStarted = false;
+            fireCycleState = currentMagazineAmmo > 0
+                ? FireCycleState.WaitingForAim
+                : FireCycleState.OutOfAmmo;
+            animationController?.CompleteReload();
+        }
+
+        private void StartReloadAnimation()
+        {
+            reloadAnimationStarted = true;
+            reloadElapsedSeconds = 0f;
+            fireStateRemainingSeconds = 0f;
+            animationController?.StopAiming();
+            animationController?.BeginReload(weapon.ReloadDuration);
+        }
+
+        private void UpdateHitReaction()
+        {
+            if (!IsHitReacting)
+                return;
+
+            hitReactionRemainingSeconds = Mathf.Max(
+                0f,
+                hitReactionRemainingSeconds - Time.deltaTime);
+            if (hitReactionRemainingSeconds > 0f)
+                return;
+
+            if (IsReloading && reloadAnimationStarted)
+            {
+                animationController?.BeginReload(weapon.ReloadDuration, ReloadProgress);
+                return;
+            }
+            if ((fireCycleState == FireCycleState.Aiming
+                    || fireCycleState == FireCycleState.AimedFiring)
+                && currentTarget != null
+                && currentTarget.IsAlive)
+            {
+                animationController?.BeginAimingAt(
+                    currentTarget.AimCenterTransform,
+                    weapon.AimEnterDuration);
+            }
         }
 
         private IEnumerator ShowShotTracer(Vector3 start, Vector3 end)
@@ -389,11 +582,14 @@ namespace GridSquad
 
         private void EnterDeadState()
         {
+            hitReactionRemainingSeconds = 0f;
+            ResetFireCycle(true);
             gridMap.UnregisterOccupant(this, currentCell);
             movementPath.Clear();
             SetActivePeekOffset(Vector3.zero);
             if (selectionCollider != null)
                 selectionCollider.enabled = false;
+            animationController?.PlayDeath();
             worldUi.SetDead();
             Died?.Invoke(this);
             director.NotifyCombatantDied(this);

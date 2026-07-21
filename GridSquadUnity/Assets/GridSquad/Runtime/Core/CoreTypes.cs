@@ -49,7 +49,9 @@ namespace GridSquad
     {
         WaitingForAim,
         Aiming,
-        Cooldown
+        AimedFiring,
+        Reloading,
+        OutOfAmmo
     }
 
     [Serializable]

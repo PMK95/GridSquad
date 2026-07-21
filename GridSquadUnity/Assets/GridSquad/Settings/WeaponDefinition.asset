@@ -13,7 +13,10 @@ MonoBehaviour:
   m_Name: WeaponDefinition
   m_EditorClassIdentifier: Assembly-CSharp::GridSquad.WeaponDefinition
   Damage: 25
-  AimDuration: 0.6
-  FireInterval: 1
-  RangeInCells: 10
+  AimEnterDuration: 0.6
+  AimedShotInterval: 0.1
+  MagazineCapacity: 30
+  StartingReserveAmmo: 300
+  ReloadDuration: 1.6
+  RangeInCells: 5
   BaseHitChancePercent: 75

@@ -12,9 +12,13 @@ PrefabInstance:
       propertyPath: team
       value: 1
       objectReference: {fileID: 0}
+    - target: {fileID: 2226115731067931971, guid: 20c722ded39798149befeae630a834e5, type: 3}
+      propertyPath: 'm_Materials.Array.data[0]'
+      value: 
+      objectReference: {fileID: 2100000, guid: 010bff4d419433b4a8ac99ea0d772643, type: 2}
     - target: {fileID: 2985916207501052990, guid: 20c722ded39798149befeae630a834e5, type: 3}
       propertyPath: m_Name
-      value: EnemyUnit Variant
+      value: EnemyUnit
       objectReference: {fileID: 0}
     - target: {fileID: 3043437930687339996, guid: 20c722ded39798149befeae630a834e5, type: 3}
       propertyPath: 'm_Materials.Array.data[0]'

@@ -24,6 +24,7 @@ namespace GridSquad
             if (healthFill != null)
                 healthFill.rectTransform.pivot = new Vector2(0f, 0.5f);
             RefreshHealth();
+            RefreshMagazine();
         }
 
         public void Refresh(
@@ -33,6 +34,7 @@ namespace GridSquad
             bool debugVisible)
         {
             bool showDetails = selected || debugVisible;
+            RefreshMagazine();
             if (canvas != null)
                 canvas.enabled = owner != null && owner.IsAlive;
             if (detailText != null)
@@ -101,6 +103,13 @@ namespace GridSquad
             healthFill.rectTransform.localScale = new Vector3(healthRatio, 1f, 1f);
         }
 
+        public void RefreshMagazine()
+        {
+            if (owner == null || reloadFill == null)
+                return;
+            reloadFill.fillAmount = owner.MagazineFillRatio;
+        }
+
         public void SetSelected(bool value)
         {
             if (selectionIndicator != null)
@@ -121,6 +130,8 @@ namespace GridSquad
                 peekLine.enabled = false;
             if (peekRing != null)
                 peekRing.enabled = false;
+            if (reloadFill != null)
+                reloadFill.fillAmount = 0f;
         }
 
         private static void SetLineColor(LineRenderer line, Color color)
@@ -148,7 +159,7 @@ namespace GridSquad
             string targetName = target != null ? target.name : "-";
             string state = evaluation.CanShoot ? $"HIT {evaluation.HitChancePercent:0}%" : "NO SHOT";
             string coverAngle = evaluation.CoverAngleDegrees >= 0f ? $"{evaluation.CoverAngleDegrees:0}deg" : "-";
-            return $"{owner.name}  HP {owner.CurrentHealth}/{owner.MaximumHealth}  TGT {targetName}\n{state}  COV {evaluation.CoverEvasionPercent:0}%  ANG {coverAngle}  PEEK {(owner.PeekEnabled ? "ON" : "OFF")}  FIRE {owner.FireState}";
+            return $"{owner.name}  HP {owner.CurrentHealth}/{owner.MaximumHealth}  TGT {targetName}\n{state}  COV {evaluation.CoverEvasionPercent:0}%  ANG {coverAngle}  PEEK {(owner.PeekEnabled ? "ON" : "OFF")}  FIRE {owner.FireState}  AMMO {owner.CurrentMagazineAmmo}/{owner.ReserveAmmo}";
         }
 
         private void LateUpdate()

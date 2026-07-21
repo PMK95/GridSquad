@@ -121,7 +121,7 @@ namespace GridSquad
             string targetName = target != null && target.IsAlive ? target.name : "-";
             string shotState = shot.CanShoot ? "READY" : $"BLOCKED ({shot.FailureReason})";
             string weaponInfo = weapon != null
-                ? $"DMG {weapon.Damage}  RANGE {weapon.RangeInCells:0}\nAIM {weapon.AimDuration:0.0}s  COOLDOWN {weapon.FireInterval:0.0}s"
+                ? $"DMG {weapon.Damage}  RANGE {weapon.RangeInCells:0}\nAIM {weapon.AimEnterDuration:0.0}s  INTERVAL {weapon.AimedShotInterval:0.0}s  RELOAD {weapon.ReloadDuration:0.0}s\nAMMO {selectedCombatant.CurrentMagazineAmmo}/{selectedCombatant.ReserveAmmo}"
                 : "WEAPON -";
             string fireState = selectedCombatant.FireStateRemainingSeconds > 0.01f
                 ? $"{selectedCombatant.FireState}  {selectedCombatant.FireStateRemainingSeconds:0.0}s"

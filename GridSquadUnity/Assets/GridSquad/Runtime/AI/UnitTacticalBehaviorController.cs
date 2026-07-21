@@ -142,6 +142,8 @@ namespace GridSquad
 
             if (moveCommandPending)
             {
+                if (combatant.IsReloading || combatant.IsHitReacting)
+                    return;
                 ProcessPendingMoveCommand();
                 return;
             }
@@ -157,7 +159,10 @@ namespace GridSquad
                 movementIntent = MovementIntent.None;
             }
 
-            if (combatant.IsMoving || Time.time < nextTacticalEvaluationTime)
+            if (combatant.IsMoving
+                || combatant.IsReloading
+                || combatant.IsHitReacting
+                || Time.time < nextTacticalEvaluationTime)
                 return;
 
             nextTacticalEvaluationTime = Time.time + (

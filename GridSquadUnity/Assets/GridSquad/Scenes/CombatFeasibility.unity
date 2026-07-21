@@ -3354,6 +3354,10 @@ PrefabInstance:
       value: 
       objectReference: {fileID: 1419081442}
     - target: {fileID: 5134074117150235086, guid: 88c935558177fb84e8cd9d383754aa40, type: 3}
+      propertyPath: m_Enabled
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 5134074117150235086, guid: 88c935558177fb84e8cd9d383754aa40, type: 3}
       propertyPath: shotEvaluator
       value: 
       objectReference: {fileID: 1419081443}
@@ -4641,6 +4645,10 @@ PrefabInstance:
       propertyPath: director
       value: 
       objectReference: {fileID: 1419081442}
+    - target: {fileID: 5134074117150235086, guid: 88c935558177fb84e8cd9d383754aa40, type: 3}
+      propertyPath: m_Enabled
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 5134074117150235086, guid: 88c935558177fb84e8cd9d383754aa40, type: 3}
       propertyPath: shotEvaluator
       value: 
@@ -14048,6 +14056,10 @@ PrefabInstance:
       value: 
       objectReference: {fileID: 1419081442}
     - target: {fileID: 5134074117150235086, guid: 88c935558177fb84e8cd9d383754aa40, type: 3}
+      propertyPath: m_Enabled
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 5134074117150235086, guid: 88c935558177fb84e8cd9d383754aa40, type: 3}
       propertyPath: shotEvaluator
       value: 
       objectReference: {fileID: 1419081443}
@@ -18727,6 +18739,10 @@ PrefabInstance:
       propertyPath: director
       value: 
       objectReference: {fileID: 1419081442}
+    - target: {fileID: 5134074117150235086, guid: 88c935558177fb84e8cd9d383754aa40, type: 3}
+      propertyPath: m_Enabled
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 5134074117150235086, guid: 88c935558177fb84e8cd9d383754aa40, type: 3}
       propertyPath: shotEvaluator
       value: 

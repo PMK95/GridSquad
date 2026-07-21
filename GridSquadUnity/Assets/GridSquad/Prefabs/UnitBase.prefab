@@ -106,7 +106,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GridSquad.Combatant
   team: 0
-  maximumHealth: 100
+  maximumHealth: 1111
   weapon: {fileID: 11400000, guid: fe826854c04049d46a2e0c277a5603f4, type: 2}
   tuning: {fileID: 11400000, guid: 750f35e9934c51e41aa779aa3c765d69, type: 2}
   gridMap: {fileID: 0}
@@ -120,6 +120,7 @@ MonoBehaviour:
   hitEffect: {fileID: 5186066446539804378}
   shotTracer: {fileID: 3339004353157106066}
   worldUi: {fileID: 3526578922867783654}
+  animationController: {fileID: 3917027562528671163}
 --- !u!114 &448263477535009713
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -5310,6 +5311,17 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 2612106902607068400, guid: c9ccec5ad1333e84788bb92068db7218, type: 3}
   m_PrefabInstance: {fileID: 3430058087019041158}
   m_PrefabAsset: {fileID: 0}
+--- !u!114 &3917027562528671163 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 1857190007078802493, guid: c9ccec5ad1333e84788bb92068db7218, type: 3}
+  m_PrefabInstance: {fileID: 3430058087019041158}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c1f583df93e50474490530a9f1228e7d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::GridSquad.UnitAnimationController
 --- !u!4 &5925402414719492767 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 9052588958938116889, guid: c9ccec5ad1333e84788bb92068db7218, type: 3}
