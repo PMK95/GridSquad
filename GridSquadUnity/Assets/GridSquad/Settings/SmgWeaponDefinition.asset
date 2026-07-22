@@ -12,8 +12,20 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: bac09dc4e36b5d84fa11bceed50de763, type: 3}
   m_Name: SmgWeaponDefinition
   m_EditorClassIdentifier: Assembly-CSharp::GridSquad.WeaponDefinition
-  DisplayName: "\uAE30\uAD00\uB2E8\uCD1D"
+  equipmentId: smg
+  displayName: "\uAE30\uAD00\uB2E8\uCD1D"
+  description: "\uADFC\uAC70\uB9AC \uC5F0\uC18D \uC0AC\uACA9\uC5D0 \uD2B9\uD654\uB41C
+    \uAE30\uAD00\uB2E8\uCD1D"
+  icon: {fileID: 21300000, guid: da1e5d8a321e87d46908832272e80fce, type: 3}
+  weight: 3
+  maximumStack: 1
+  actionGrants:
+  - action: {fileID: 11400000, guid: 130616886d6849efbe74b4a114078b34, type: 2}
+    availability: 0
+  handedness: 1
   PresentationPrefab: {fileID: 6401250690816191035, guid: c069bbc9e4a27a44ab8c4b910f23f272, type: 3}
+  attackBehavior: {fileID: 11400000, guid: d549c996a01aa5146aca60341ad7fe24, type: 2}
+  hitEffects: []
   Damage: 15
   AimEnterDuration: 0.3
   AimedShotInterval: 0.22

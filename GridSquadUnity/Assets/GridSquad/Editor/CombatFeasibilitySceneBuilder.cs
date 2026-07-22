@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using GridSquad;
+using GridSquad.Editor;
 using MoreMountains.Feedbacks;
 using MoreMountains.Tools;
 using Unity.Behavior;
@@ -39,7 +40,19 @@ namespace GridSquadEditor
         private const string GrenadeActionPath = RootPath + "/Settings/GrenadeAction.asset";
         private const string StimActionPath = RootPath + "/Settings/StimAction.asset";
         private const string DashActionPath = RootPath + "/Settings/DashAction.asset";
-        private const string SwitchWeaponActionPath = RootPath + "/Settings/SwitchWeaponAction.asset";
+        private const string BasicAttackActionPath = RootPath + "/Settings/BasicAttackAction.asset";
+        private const string RepositionActionPath = RootPath + "/Settings/RepositionAction.asset";
+        private const string BasicAttackBehaviorPath = RootPath + "/Settings/BasicAttackBehavior.asset";
+        private const string RepositionBehaviorPath = RootPath + "/Settings/RepositionBehavior.asset";
+        private const string GrenadeBehaviorPath = RootPath + "/Settings/GrenadeBehavior.asset";
+        private const string StimBehaviorPath = RootPath + "/Settings/StimBehavior.asset";
+        private const string DashBehaviorPath = RootPath + "/Settings/DashBehavior.asset";
+        private const string UnitStatCatalogPath = RootPath + "/Settings/UnitStatCatalog.asset";
+        private const string MaximumHealthStatPath = RootPath + "/Settings/MaximumHealthStat.asset";
+        private const string MovementSpeedStatPath = RootPath + "/Settings/MovementSpeedStat.asset";
+        private const string HitChanceStatPath = RootPath + "/Settings/HitChanceStat.asset";
+        private const string DamageMultiplierStatPath = RootPath + "/Settings/DamageMultiplierStat.asset";
+        private const string CarryCapacityStatPath = RootPath + "/Settings/CarryCapacityStat.asset";
 
         private const int GroundLayer = 8;
         private const int UnitLayer = 9;
@@ -71,8 +84,14 @@ namespace GridSquadEditor
             WeaponCatalog weaponCatalog = LoadOrCreateAsset<WeaponCatalog>(WeaponCatalogPath);
             weaponCatalog.SetEditorWeapons(new[] { weapon, smgWeapon });
             EditorUtility.SetDirty(weaponCatalog);
-            CombatActionDefinition[] actionDefinitions = CreateOrUpdateCombatActionDefinitions();
-            ConfigureUnitBaseCombatActions(actionDefinitions, weapon, smgWeapon);
+            CombatActionDefinition[] actionDefinitions = CreateOrUpdateCombatActionDefinitions(
+                out CombatActionDefinition[] innateActionDefinitions);
+            UnitStatCatalog statCatalog = CreateOrUpdateUnitStatDefinitions();
+            ConfigureUnitBaseCombatActions(
+                innateActionDefinitions,
+                actionDefinitions,
+                statCatalog);
+            EquipmentAssetFactory.EnsureProjectEquipmentAssets();
             CombatFeelConfigurator.ConfigurePrefabAssets();
             InputActionAsset inputActions = AssetDatabase.LoadAssetAtPath<InputActionAsset>(InputActionsPath);
             if (inputActions == null)
@@ -108,7 +127,6 @@ namespace GridSquadEditor
             TacticalInputController inputController = systems.AddComponent<TacticalInputController>();
             MMTimeManager timeManager = systems.AddComponent<MMTimeManager>();
             CombatHudController hud = CreateSceneHud(director);
-            WeaponLoadoutPanel weaponLoadoutPanel = CreateWeaponLoadoutPanel(hud.transform, director, weaponCatalog);
             CreateEventSystem(inputActions);
             LineRenderer pathLine = CreateLineRenderer("SelectedPath", systems.transform, lineMaterial, 0.08f);
             GridCombatIndicator gridCombatIndicator = CreateGridCombatIndicator(
@@ -131,7 +149,6 @@ namespace GridSquadEditor
                 tuning,
                 weapon);
             director.SetEditorReferences(combatants, shotEvaluator, hud, timeManager);
-            director.SetEditorWeaponLoadoutPanel(weaponLoadoutPanel);
             inputController.SetEditorReferences(
                 inputActions,
                 sceneCamera,
@@ -142,7 +159,8 @@ namespace GridSquadEditor
                 gridCombatIndicator,
                 timeManager,
                 1 << GroundLayer,
-                1 << UnitLayer);
+                1 << UnitLayer,
+                1 << CoverLayer);
             CombatFeelConfigurator.ConfigureActiveScene();
 
             Selection.activeGameObject = systems;
@@ -151,6 +169,24 @@ namespace GridSquadEditor
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
             Debug.Log("전투 피저빌리티 씬과 프리팹 생성을 완료했습니다.");
+        }
+
+        [MenuItem("GridSquad/데이터 주도 전투 에셋 마이그레이션")]
+        public static void MigrateDataDrivenCombatAssets()
+        {
+            EnsureFolders();
+            CombatActionDefinition[] playerActions = CreateOrUpdateCombatActionDefinitions(
+                out CombatActionDefinition[] innateActions);
+            UnitStatCatalog statCatalog = CreateOrUpdateUnitStatDefinitions();
+            ConfigureUnitBaseCombatActions(innateActions, playerActions, statCatalog);
+            EquipmentAssetFactory.EnsureProjectEquipmentAssets();
+
+            InputActionAsset inputActions = AssetDatabase.LoadAssetAtPath<InputActionAsset>(InputActionsPath);
+            if (inputActions != null)
+                EnsureCombatInputActions(inputActions);
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
+            Debug.Log("[전투 데이터] 행동 전략, 기본 행동, 스탯 정의 에셋 마이그레이션 완료");
         }
 
         public static void ConfigureRtsCameraController()
@@ -234,6 +270,12 @@ namespace GridSquadEditor
             GridCombatIndicator gridCombatIndicator = Object.FindFirstObjectByType<GridCombatIndicator>();
             if (gridMap == null || gridMap.Width != 12 || gridMap.Height != 12 || !Mathf.Approximately(gridMap.CellSize, 2f))
                 throw new InvalidOperationException("12×12, 2m 그리드 직렬화가 올바르지 않습니다.");
+            GameObject coverPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(DestructibleCoverPrefabFactory.PrefabPath);
+            if (coverPrefab == null || coverPrefab.GetComponent<DestructibleCover>() == null)
+                throw new InvalidOperationException("공용 Cover 프리팹 또는 파괴 가능한 엄폐물 컴포넌트가 누락되었습니다.");
+            Transform coversRoot = gridMap.transform.Find("Covers");
+            if (coversRoot == null || coversRoot.childCount != CoverCells.Length)
+                throw new InvalidOperationException("전투 장면 엄폐물 배치 수가 올바르지 않습니다.");
             if (director == null || shotEvaluator == null || positionEvaluator == null
                 || inputController == null || hud == null || gridCombatIndicator == null
                 || uiInputModule == null || uiInputModule.GetComponent<EventSystem>() == null)
@@ -260,6 +302,23 @@ namespace GridSquadEditor
                     enemyCount++;
                 if (combatant.GetComponentInChildren<CharacterWorldUiPresenter>(true) == null)
                     throw new InvalidOperationException($"{combatant.name}의 캐릭터 UI가 누락되었습니다.");
+                if (combatant.GetComponent<TacticalEntity>() == null
+                    || combatant.GetComponent<EntityHealth>() == null
+                    || combatant.GetComponent<ShootableTarget>() == null
+                    || combatant.GetComponent<GridMovementController>() == null
+                    || combatant.GetComponent<RangedAttackController>() == null
+                    || combatant.GetComponent<CombatTargetingController>() == null
+                    || combatant.GetComponent<WeaponRuntimeController>() == null
+                    || combatant.GetComponent<RangedFireCycleController>() == null
+                    || combatant.GetComponent<CombatantHitReactionController>() == null
+                    || combatant.GetComponent<CombatantStatusEffectController>() == null
+                    || combatant.GetComponent<CombatantFacingController>() == null
+                    || combatant.GetComponent<CombatCommandState>() == null
+                    || combatant.GetComponent<CombatDecisionCoordinator>() == null)
+                {
+                    throw new InvalidOperationException(
+                        $"{combatant.name}의 전술 엔티티 능력 컴포넌트가 누락되었습니다.");
+                }
                 RequireReferenceFields(
                     combatant,
                     "weapon",
@@ -268,7 +327,6 @@ namespace GridSquadEditor
                     "shotEvaluator",
                     "director",
                     "visualRoot",
-                    "muzzle",
                     "aimCenter",
                     "selectionCollider",
                     "worldUi",
@@ -304,17 +362,34 @@ namespace GridSquadEditor
                     throw new InvalidOperationException($"{combatant.name}의 전술 AI가 누락되었습니다.");
                 CombatActionLoadout loadout = combatant.GetComponent<CombatActionLoadout>();
                 CombatActionController actionController = combatant.GetComponent<CombatActionController>();
-                if (loadout == null || actionController == null || loadout.Definitions.Count != 4)
+                if (loadout == null || actionController == null)
                     throw new InvalidOperationException($"{combatant.name}의 전투 액션 로드아웃이 누락되었습니다.");
                 WeaponLoadout weaponLoadout = combatant.GetComponent<WeaponLoadout>();
                 WeaponMount weaponMount = combatant.GetComponent<WeaponMount>();
-                if (weaponLoadout == null || weaponMount == null
-                    || weaponLoadout.GetDefinition(0) == null
-                    || weaponLoadout.GetDefinition(1) == null)
-                    throw new InvalidOperationException($"{combatant.name}의 2슬롯 무기 로드아웃이 누락되었습니다.");
+                EquipmentLoadout equipmentLoadout = combatant.GetComponent<EquipmentLoadout>();
+                UnitInventory inventory = combatant.GetComponent<UnitInventory>();
+                if (weaponLoadout == null
+                    || weaponMount == null
+                    || equipmentLoadout?.Layout == null
+                    || equipmentLoadout.Layout.Slots.Count != 9
+                    || inventory == null)
+                {
+                    throw new InvalidOperationException($"{combatant.name}의 인벤토리 또는 9슬롯 장비 구성이 누락되었습니다.");
+                }
             }
             if (allyCount != 3 || enemyCount != 4)
                 throw new InvalidOperationException($"유닛 배치 수가 올바르지 않습니다. 아군 {allyCount}, 적군 {enemyCount}");
+
+            foreach (DestructibleCover cover in Object.FindObjectsByType<DestructibleCover>(FindObjectsSortMode.None))
+            {
+                if (cover.GetComponent<TacticalEntity>() == null
+                    || cover.GetComponent<EntityHealth>() == null
+                    || cover.GetComponent<ShootableTarget>() == null)
+                {
+                    throw new InvalidOperationException(
+                        $"{cover.name}의 파괴 가능한 엄폐물 능력 컴포넌트가 누락되었습니다.");
+                }
+            }
 
             RequireReferenceFields(inputController, "inputActions", "sceneCamera", "gridMap", "director", "hud", "selectedPathLine", "gridCombatIndicator", "timeManager");
             RequireReferenceFields(gridCombatIndicator, "gridMap", "shotEvaluator", "tuning", "viewCellMeshFilter", "shootableCellMeshFilter");
@@ -350,7 +425,7 @@ namespace GridSquadEditor
                 "CameraMove", "PointerPosition", "PointerDelta", "CameraOrbit", "CameraZoom",
                 "Select", "MoveCommand", "TargetCommand", "TogglePeek", "TogglePause",
                 "Speed1", "Speed2", "Speed3", "Speed4", "Cancel", "ToggleDebug", "Restart",
-                "CycleControlMode", "Grenade", "Stim", "Dash", "SwitchWeapon"
+                "CycleControlMode", "ActionSlot1", "ActionSlot2", "ActionSlot3", "ActionSlot4"
             };
             if (tacticalMap == null)
                 throw new InvalidOperationException("Tactical 입력 맵이 누락되었습니다.");
@@ -606,66 +681,125 @@ namespace GridSquadEditor
                 .FirstOrDefault(candidate => candidate.name == objectName);
         }
 
-        private static CombatActionDefinition[] CreateOrUpdateCombatActionDefinitions()
+        private static CombatActionDefinition[] CreateOrUpdateCombatActionDefinitions(
+            out CombatActionDefinition[] innateDefinitions)
         {
+            BasicAttackActionBehaviorDefinition basicAttackBehavior =
+                LoadOrCreateAsset<BasicAttackActionBehaviorDefinition>(BasicAttackBehaviorPath);
+            RepositionActionBehaviorDefinition repositionBehavior =
+                LoadOrCreateAsset<RepositionActionBehaviorDefinition>(RepositionBehaviorPath);
+            GrenadeActionBehaviorDefinition grenadeBehavior =
+                LoadOrCreateAsset<GrenadeActionBehaviorDefinition>(GrenadeBehaviorPath);
+            StimActionBehaviorDefinition stimBehavior =
+                LoadOrCreateAsset<StimActionBehaviorDefinition>(StimBehaviorPath);
+            DashActionBehaviorDefinition dashBehavior =
+                LoadOrCreateAsset<DashActionBehaviorDefinition>(DashBehaviorPath);
+            grenadeBehavior.SetEditorConfiguration(5, 1, 40, 0.4f, 1.5f, 0.28f, 1.4f, 24f);
+            stimBehavior.SetEditorConfiguration(8f, 1.35f, 0.75f);
+            dashBehavior.SetEditorConfiguration(3, 3f, 15f);
+
+            CombatActionDefinition basicAttack = LoadOrCreateAsset<CombatActionDefinition>(BasicAttackActionPath);
+            basicAttack.SetEditorConfiguration(
+                "basic_attack",
+                "기본 사격",
+                basicAttackBehavior,
+                true,
+                true,
+                -1,
+                0f,
+                0f);
+
+            CombatActionDefinition reposition = LoadOrCreateAsset<CombatActionDefinition>(RepositionActionPath);
+            reposition.SetEditorConfiguration(
+                "reposition",
+                "위치 변경",
+                repositionBehavior,
+                true,
+                false,
+                -1,
+                0f,
+                0f);
+
             CombatActionDefinition grenade = LoadOrCreateAsset<CombatActionDefinition>(GrenadeActionPath);
             grenade.SetEditorConfiguration(
-                CombatActionKind.Grenade,
+                "grenade",
                 "수류탄",
-                CombatActionTargetType.GridCell,
+                grenadeBehavior,
                 true,
                 true,
-                1,
+                -1,
                 0f,
                 0.5f);
-            grenade.SetEditorGrenadeConfiguration(5, 1, 40, 0.4f, 1.5f, 0.28f, 1.4f, 24f);
 
             CombatActionDefinition stim = LoadOrCreateAsset<CombatActionDefinition>(StimActionPath);
             stim.SetEditorConfiguration(
-                CombatActionKind.Stim,
+                "stim",
                 "자극제",
-                CombatActionTargetType.Self,
+                stimBehavior,
                 true,
                 true,
-                1,
+                -1,
                 0f,
                 0.5f);
-            stim.SetEditorStimConfiguration(8f, 1.35f, 0.75f);
 
             CombatActionDefinition dash = LoadOrCreateAsset<CombatActionDefinition>(DashActionPath);
             dash.SetEditorConfiguration(
-                CombatActionKind.Dash,
+                "dash",
                 "돌진",
-                CombatActionTargetType.GridCell,
+                dashBehavior,
                 true,
                 false,
                 -1,
                 6f,
                 0f);
-            dash.SetEditorDashConfiguration(3, 3f, 15f);
 
-            CombatActionDefinition switchWeapon = LoadOrCreateAsset<CombatActionDefinition>(SwitchWeaponActionPath);
-            switchWeapon.SetEditorConfiguration(
-                CombatActionKind.SwitchWeapon,
-                "무기 교체",
-                CombatActionTargetType.None,
-                true,
-                true,
-                -1,
-                2f,
-                0.6f);
-
+            EditorUtility.SetDirty(basicAttackBehavior);
+            EditorUtility.SetDirty(repositionBehavior);
+            EditorUtility.SetDirty(grenadeBehavior);
+            EditorUtility.SetDirty(stimBehavior);
+            EditorUtility.SetDirty(dashBehavior);
+            EditorUtility.SetDirty(basicAttack);
+            EditorUtility.SetDirty(reposition);
             EditorUtility.SetDirty(grenade);
             EditorUtility.SetDirty(stim);
             EditorUtility.SetDirty(dash);
-            EditorUtility.SetDirty(switchWeapon);
-            return new[] { grenade, stim, dash, switchWeapon };
+            innateDefinitions = new[] { reposition };
+            return new[] { grenade, stim, dash };
+        }
+
+        private static UnitStatCatalog CreateOrUpdateUnitStatDefinitions()
+        {
+            UnitStatDefinition maximumHealth = LoadOrCreateAsset<UnitStatDefinition>(MaximumHealthStatPath);
+            maximumHealth.SetEditorConfiguration("maximum_health", "최대 체력", 500f, 1f, true, 0);
+            UnitStatDefinition movementSpeed = LoadOrCreateAsset<UnitStatDefinition>(MovementSpeedStatPath);
+            movementSpeed.SetEditorConfiguration("movement_speed_multiplier", "이동 배율", 1f, 0.1f, false, 10);
+            UnitStatDefinition hitChance = LoadOrCreateAsset<UnitStatDefinition>(HitChanceStatPath);
+            hitChance.SetEditorConfiguration("hit_chance_bonus_percent", "명중 보너스", 0f, float.MinValue, false, 20);
+            UnitStatDefinition damageMultiplier = LoadOrCreateAsset<UnitStatDefinition>(DamageMultiplierStatPath);
+            damageMultiplier.SetEditorConfiguration("damage_multiplier", "피해 배율", 1f, 0.1f, false, 30);
+            UnitStatDefinition carryCapacity = LoadOrCreateAsset<UnitStatDefinition>(CarryCapacityStatPath);
+            carryCapacity.SetEditorConfiguration("carry_capacity", "휴대 한도", 30f, 0f, false, 500);
+
+            UnitStatCatalog catalog = LoadOrCreateAsset<UnitStatCatalog>(UnitStatCatalogPath);
+            catalog.SetEditorConfiguration(
+                maximumHealth,
+                movementSpeed,
+                hitChance,
+                damageMultiplier,
+                carryCapacity);
+            EditorUtility.SetDirty(maximumHealth);
+            EditorUtility.SetDirty(movementSpeed);
+            EditorUtility.SetDirty(hitChance);
+            EditorUtility.SetDirty(damageMultiplier);
+            EditorUtility.SetDirty(carryCapacity);
+            EditorUtility.SetDirty(catalog);
+            return catalog;
         }
 
         private static void ConfigureUnitBaseCombatActions(
+            CombatActionDefinition[] innateDefinitions,
             CombatActionDefinition[] actionDefinitions,
-            WeaponDefinition rifle,
-            WeaponDefinition smg)
+            UnitStatCatalog statCatalog)
         {
             GameObject root = PrefabUtility.LoadPrefabContents(UnitBasePrefabPath);
             try
@@ -675,7 +809,24 @@ namespace GridSquadEditor
                     loadout = root.AddComponent<CombatActionLoadout>();
                 if (root.GetComponent<CombatActionController>() == null)
                     root.AddComponent<CombatActionController>();
-                loadout.SetEditorDefinitions(actionDefinitions);
+                if (root.GetComponent<CombatCommandState>() == null)
+                    root.AddComponent<CombatCommandState>();
+                if (root.GetComponent<CombatDecisionCoordinator>() == null)
+                    root.AddComponent<CombatDecisionCoordinator>();
+                if (root.GetComponent<CombatTargetingController>() == null)
+                    root.AddComponent<CombatTargetingController>();
+                if (root.GetComponent<WeaponRuntimeController>() == null)
+                    root.AddComponent<WeaponRuntimeController>();
+                if (root.GetComponent<RangedFireCycleController>() == null)
+                    root.AddComponent<RangedFireCycleController>();
+                if (root.GetComponent<CombatantHitReactionController>() == null)
+                    root.AddComponent<CombatantHitReactionController>();
+                if (root.GetComponent<CombatantStatusEffectController>() == null)
+                    root.AddComponent<CombatantStatusEffectController>();
+                if (root.GetComponent<CombatantFacingController>() == null)
+                    root.AddComponent<CombatantFacingController>();
+                loadout.SetEditorInnateDefinitions(innateDefinitions);
+                loadout.SetEditorDefinitions(Array.Empty<CombatActionDefinition>());
 
                 UnitAnimationController animationController = root.GetComponentInChildren<UnitAnimationController>(true);
                 Transform weaponSocket = FindDescendantByName(root.transform, "WeaponSocket");
@@ -689,8 +840,10 @@ namespace GridSquadEditor
                 WeaponLoadout weaponLoadout = root.GetComponent<WeaponLoadout>();
                 if (weaponLoadout == null)
                     weaponLoadout = root.AddComponent<WeaponLoadout>();
-                weaponLoadout.SetEditorConfiguration(rifle, smg, weaponMount);
-                root.GetComponent<Combatant>()?.SetEditorWeaponLoadout(weaponLoadout);
+                weaponLoadout.SetEditorConfiguration(weaponMount);
+                Combatant combatant = root.GetComponent<Combatant>();
+                combatant?.SetEditorWeaponLoadout(weaponLoadout);
+                combatant?.SetEditorStatCatalog(statCatalog);
                 EditorUtility.SetDirty(loadout);
                 EditorUtility.SetDirty(weaponMount);
                 EditorUtility.SetDirty(weaponLoadout);
@@ -706,10 +859,10 @@ namespace GridSquadEditor
         {
             InputActionMap tacticalMap = inputActions.FindActionMap("Tactical", true);
             EnsureButtonAction(tacticalMap, "CycleControlMode", "<Keyboard>/tab");
-            EnsureButtonAction(tacticalMap, "Grenade", "<Keyboard>/g");
-            EnsureButtonAction(tacticalMap, "Stim", "<Keyboard>/v");
-            EnsureButtonAction(tacticalMap, "Dash", "<Keyboard>/x");
-            EnsureButtonAction(tacticalMap, "SwitchWeapon", "<Keyboard>/c");
+            EnsureButtonAction(tacticalMap, "ActionSlot1", "<Keyboard>/g");
+            EnsureButtonAction(tacticalMap, "ActionSlot2", "<Keyboard>/v");
+            EnsureButtonAction(tacticalMap, "ActionSlot3", "<Keyboard>/x");
+            EnsureButtonAction(tacticalMap, "ActionSlot4", "<Keyboard>/c");
             EditorUtility.SetDirty(inputActions);
         }
 
@@ -759,25 +912,7 @@ namespace GridSquadEditor
                 "Self",
                 (GameObject)null,
                 new SerializableGUID(1, 0));
-            TypedVariableModel<bool> autonomousMovementAllowed =
-                CreateBlackboardVariable("AutonomousMovementAllowed", false);
-            TypedVariableModel<bool> automaticPeekAllowed =
-                CreateBlackboardVariable("AutomaticPeekAllowed", true);
-            TypedVariableModel<bool> moveCommandPending =
-                CreateBlackboardVariable("MoveCommandPending", false);
-            TypedVariableModel<Vector3> moveDestination =
-                CreateBlackboardVariable("MoveDestination", Vector3.zero);
-            TypedVariableModel<GameObject> priorityTarget =
-                CreateBlackboardVariable("PriorityTarget", (GameObject)null);
-            TypedVariableModel<GameObject> currentTarget =
-                CreateBlackboardVariable("CurrentTarget", (GameObject)null);
             blackboard.Variables.Add(self);
-            blackboard.Variables.Add(autonomousMovementAllowed);
-            blackboard.Variables.Add(automaticPeekAllowed);
-            blackboard.Variables.Add(moveCommandPending);
-            blackboard.Variables.Add(moveDestination);
-            blackboard.Variables.Add(priorityTarget);
-            blackboard.Variables.Add(currentTarget);
             blackboard.SetAssetDirty();
 
             StartNodeModel start = (StartNodeModel)CreateBehaviorNode(
@@ -785,41 +920,28 @@ namespace GridSquadEditor
                 typeof(Start),
                 new Vector2(0f, 0f));
             start.Repeat = true;
-            CompositeNodeModel parallel = (CompositeNodeModel)CreateBehaviorNode(
+            Type sequenceType = Type.GetType("Unity.Behavior.SequenceComposite, Unity.Behavior");
+            if (sequenceType == null)
+                throw new InvalidOperationException("Unity Behavior Sequence 노드를 찾지 못했습니다.");
+            CompositeNodeModel sequence = (CompositeNodeModel)CreateBehaviorNode(
                 authoringGraph,
-                typeof(ParallelAllComposite),
+                sequenceType,
                 new Vector2(0f, 160f));
-            BehaviorGraphNodeModel tacticalLoop = CreateBehaviorNode(
+            BehaviorGraphNodeModel selectIntent = CreateBehaviorNode(
                 authoringGraph,
-                typeof(TacticalDecisionLoopAction),
+                typeof(SelectCombatIntentAction),
                 new Vector2(-260f, 340f));
-            BehaviorGraphNodeModel combatLoop = CreateBehaviorNode(
+            BehaviorGraphNodeModel executeIntent = CreateBehaviorNode(
                 authoringGraph,
-                typeof(CombatExecutionLoopAction),
+                typeof(ExecuteCombatIntentAction),
                 new Vector2(260f, 340f));
 
-            tacticalLoop.SetField("Agent", self, typeof(GameObject));
-            tacticalLoop.SetField(
-                "AutonomousMovementAllowed",
-                autonomousMovementAllowed,
-                typeof(bool));
-            tacticalLoop.SetField(
-                "AutomaticPeekAllowed",
-                automaticPeekAllowed,
-                typeof(bool));
-            tacticalLoop.SetField(
-                "MoveCommandPending",
-                moveCommandPending,
-                typeof(bool));
-            tacticalLoop.SetField("MoveDestination", moveDestination, typeof(Vector3));
-            tacticalLoop.SetField("PriorityTarget", priorityTarget, typeof(GameObject));
-            tacticalLoop.SetField("CurrentTarget", currentTarget, typeof(GameObject));
-            combatLoop.SetField("Agent", self, typeof(GameObject));
-            combatLoop.SetField("CurrentTarget", currentTarget, typeof(GameObject));
+            selectIntent.SetField("Agent", self, typeof(GameObject));
+            executeIntent.SetField("Agent", self, typeof(GameObject));
 
-            ConnectBehaviorNodes(authoringGraph, start, parallel);
-            ConnectBehaviorNodes(authoringGraph, parallel, tacticalLoop);
-            ConnectBehaviorNodes(authoringGraph, parallel, combatLoop);
+            ConnectBehaviorNodes(authoringGraph, start, sequence);
+            ConnectBehaviorNodes(authoringGraph, sequence, selectIntent);
+            ConnectBehaviorNodes(authoringGraph, sequence, executeIntent);
             authoringGraph.SetAssetDirty();
             authoringGraph.ValidateAsset();
             BehaviorGraph runtimeGraph = authoringGraph.BuildRuntimeGraph(true);
@@ -1188,13 +1310,12 @@ namespace GridSquadEditor
             covers.transform.SetParent(root.transform, false);
             foreach (Vector2Int blocked in CoverCells)
             {
-                GameObject cover = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                cover.name = $"Cover_{blocked.x:00}_{blocked.y:00}";
-                cover.layer = CoverLayer;
-                cover.transform.SetParent(covers.transform, false);
-                cover.transform.position = gridMap.GridToWorld(new GridCoordinate(blocked.x, blocked.y)) + Vector3.up * 0.7f;
-                cover.transform.localScale = new Vector3(1.8f, 1.4f, 1.8f);
-                cover.GetComponent<Renderer>().sharedMaterial = coverMaterial;
+                DestructibleCoverPrefabFactory.InstantiateCover(
+                    covers.transform,
+                    $"Cover_{blocked.x:00}_{blocked.y:00}",
+                    gridMap.GridToWorld(new GridCoordinate(blocked.x, blocked.y)) + Vector3.up * 0.7f,
+                    new Vector3(1.8f, 1.4f, 1.8f),
+                    coverMaterial);
             }
             return gridMap;
         }
@@ -1308,7 +1429,7 @@ namespace GridSquadEditor
                 new Vector2(320f, 46f),
                 new Vector2(0f, 1f));
             Text controls = CreateText("Controls", canvasObject.transform, 18, TextAnchor.LowerLeft);
-            controls.text = "LMB Select/Use | RMB Move | T Target | Tab Mode | G Grenade | V Stim | X Dash | Esc Cancel | Space Pause | 1/2/3/4 Speed | F1 Debug | R Restart";
+            controls.text = "LMB Select/Use | RMB Move | T Target | Tab Mode | G/V/X/C Action Slots | Esc Cancel | Space Pause | 1/2/3/4 Speed | F1 Debug | R Restart";
             SetHudRect(controls.rectTransform, new Vector2(20f, 20f), new Vector2(1200f, 36f), new Vector2(0f, 0f));
 
             Image selectedInfoPanel = CreateImage("SelectedInfoPanel", canvasObject.transform, new Color(0.035f, 0.045f, 0.06f, 0.92f));
@@ -1343,62 +1464,6 @@ namespace GridSquadEditor
                 null,
                 null);
             return hud;
-        }
-
-        private static WeaponLoadoutPanel CreateWeaponLoadoutPanel(
-            Transform hudRoot,
-            CombatDirector director,
-            WeaponCatalog weaponCatalog)
-        {
-            Image overlay = CreateImage(
-                "WeaponLoadoutPanel",
-                hudRoot,
-                new Color(0.01f, 0.015f, 0.025f, 0.96f));
-            SetStretch(overlay.rectTransform, Vector2.zero, Vector2.zero);
-
-            Image panel = CreateImage(
-                "LoadoutContent",
-                overlay.transform,
-                new Color(0.045f, 0.065f, 0.09f, 1f));
-            SetHudRect(panel.rectTransform, Vector2.zero, new Vector2(1120f, 760f), new Vector2(0.5f, 0.5f));
-
-            Text title = CreateText("Title", panel.transform, 36, TextAnchor.MiddleCenter);
-            title.text = "COMBAT LOADOUT";
-            title.fontStyle = FontStyle.Bold;
-            SetHudRect(title.rectTransform, new Vector2(0f, -28f), new Vector2(1000f, 54f), new Vector2(0.5f, 1f));
-
-            GameObject rowContainerObject = new("Rows", typeof(RectTransform), typeof(VerticalLayoutGroup));
-            rowContainerObject.transform.SetParent(panel.transform, false);
-            RectTransform rowContainer = rowContainerObject.GetComponent<RectTransform>();
-            SetHudRect(rowContainer, new Vector2(0f, -98f), new Vector2(1000f, 470f), new Vector2(0.5f, 1f));
-            VerticalLayoutGroup rowLayout = rowContainerObject.GetComponent<VerticalLayoutGroup>();
-            rowLayout.spacing = 10f;
-            rowLayout.childAlignment = TextAnchor.UpperCenter;
-            rowLayout.childControlHeight = true;
-            rowLayout.childForceExpandHeight = false;
-
-            Text statusText = CreateText("Status", panel.transform, 18, TextAnchor.MiddleCenter);
-            SetHudRect(statusText.rectTransform, new Vector2(0f, 112f), new Vector2(1000f, 42f), new Vector2(0.5f, 0f));
-
-            Button startButton = CreateButton(
-                "StartButton",
-                panel.transform,
-                new Color(0.1f, 0.58f, 0.32f, 1f),
-                out Text startButtonText);
-            startButtonText.text = "START";
-            startButtonText.fontSize = 28;
-            SetHudRect(startButton.GetComponent<RectTransform>(), new Vector2(0f, 42f), new Vector2(320f, 64f), new Vector2(0.5f, 0f));
-
-            WeaponLoadoutPanel loadoutPanel = hudRoot.gameObject.AddComponent<WeaponLoadoutPanel>();
-            loadoutPanel.SetEditorReferences(
-                overlay.gameObject,
-                rowContainer,
-                startButton,
-                statusText,
-                Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf"),
-                weaponCatalog,
-                director);
-            return loadoutPanel;
         }
 
         private static void CreateEventSystem(InputActionAsset inputActions)

@@ -182,14 +182,14 @@ namespace GridSquadEditor
             float coverHeight = gridMap.CellSize * 0.7f;
             foreach (Vector2Int blockedCell in blockedCells)
             {
-                GameObject cover = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                Undo.RegisterCreatedObjectUndo(cover, undoName);
-                cover.name = $"Cover_{blockedCell.x:00}_{blockedCell.y:00}";
-                cover.layer = CoverLayer;
-                cover.transform.SetParent(coversRoot.transform, false);
-                cover.transform.position = gridMap.GridToWorld(new GridCoordinate(blockedCell.x, blockedCell.y)) + Vector3.up * (coverHeight * 0.5f);
-                cover.transform.localScale = new Vector3(coverWidth, coverHeight, coverWidth);
-                cover.GetComponent<Renderer>().sharedMaterial = coverMaterial;
+                DestructibleCoverPrefabFactory.InstantiateCover(
+                    coversRoot.transform,
+                    $"Cover_{blockedCell.x:00}_{blockedCell.y:00}",
+                    gridMap.GridToWorld(new GridCoordinate(blockedCell.x, blockedCell.y))
+                        + Vector3.up * (coverHeight * 0.5f),
+                    new Vector3(coverWidth, coverHeight, coverWidth),
+                    coverMaterial,
+                    undoName);
             }
         }
 

@@ -397,6 +397,7 @@ MonoBehaviour:
   throwClip: {fileID: -6185155371445809522, guid: b7bee514394b5414da0ee3777d6821fb, type: 3}
   useItemClip: {fileID: 7417917891377754313, guid: b7bee514394b5414da0ee3777d6821fb, type: 3}
   dashClip: {fileID: -3851722262833059593, guid: fd5218c3ed44a404b85a78fda0589372, type: 3}
+  meleeAttackClip: {fileID: -8653722278162725603, guid: b26221f86a9f3b94a86d460207ba6812, type: 3}
   crossFadeDuration: 0.12
   aimReleaseDuration: 0.15
 --- !u!4 &8719370725537038574 stripped

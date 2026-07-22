@@ -21,6 +21,8 @@ MonoBehaviour:
   MinimumHitChancePercent: 5
   MaximumHitChancePercent: 95
   EvaluationRefreshInterval: 0.1
+  FriendlyFireSafeRangeCells: 5
+  AiFriendlyFireRiskScoreWeight: 3
   HitReactionInterruptChancePercent: 10.1
   AiEvaluationInterval: 0.5
   AiCandidatePathDistance: 6

@@ -31,7 +31,7 @@ namespace GridSquad
         }
 
         public void Refresh(
-            Combatant target,
+            ShootableTarget target,
             ShotEvaluation evaluation,
             bool selected,
             bool debugVisible)
@@ -56,7 +56,9 @@ namespace GridSquad
                 targetRing.enabled = showTargetSet;
             Color color = !evaluation.CanShoot
                 ? Color.red
-                : evaluation.CoverEvasionPercent > 0.01f ? Color.yellow : Color.green;
+                : evaluation.FriendlyFireRiskPercent > 0.01f
+                    ? new Color(1f, 0.25f, 0.85f)
+                    : evaluation.CoverEvasionPercent > 0.01f ? Color.yellow : Color.green;
             if (showTargetSet)
             {
                 Vector3 targetDisplayPosition = target.CurrentExposureCenter;
@@ -166,12 +168,12 @@ namespace GridSquad
             }
         }
 
-        private string BuildDetailText(Combatant target, ShotEvaluation evaluation)
+        private string BuildDetailText(ShootableTarget target, ShotEvaluation evaluation)
         {
             string targetName = target != null ? target.DisplayName : "-";
             string state = evaluation.CanShoot ? $"HIT {evaluation.HitChancePercent:0}%" : "NO SHOT";
             string coverAngle = evaluation.CoverAngleDegrees >= 0f ? $"{evaluation.CoverAngleDegrees:0}deg" : "-";
-            return $"{owner.DisplayName}  HP {owner.CurrentHealth}/{owner.MaximumHealth}  TGT {targetName}\n{state}  COV {evaluation.CoverEvasionPercent:0}%  ANG {coverAngle}  PEEK {(owner.PeekEnabled ? "ON" : "OFF")}  FIRE {owner.FireState}  AMMO {owner.CurrentMagazineAmmo}/{owner.ReserveAmmo}";
+            return $"{owner.DisplayName}  HP {owner.CurrentHealth}/{owner.MaximumHealth}  TGT {targetName}\n{state}  COV {evaluation.CoverEvasionPercent:0}%  FF {evaluation.FriendlyFireRiskPercent:0}%  ANG {coverAngle}  PEEK {(owner.PeekEnabled ? "ON" : "OFF")}  FIRE {owner.FireState}  AMMO {owner.CurrentMagazineAmmo}/{owner.ReserveAmmo}";
         }
 
 #if UNITY_EDITOR

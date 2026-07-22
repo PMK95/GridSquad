@@ -537,6 +537,8 @@ namespace GridSquadEditor
                 AddFloatingTextFeedback(damageText, damageChannel, true);
                 MMF_Player missText = ConfigurePlayer(feedbackRoot, "MissTextFeedbacks", true);
                 AddFloatingTextFeedback(missText, damageChannel, false);
+                MMF_Player blockText = ConfigurePlayer(feedbackRoot, "BlockTextFeedbacks", true);
+                AddBlockFloatingTextFeedback(blockText, damageChannel);
                 MMF_Player deathVisual = ConfigurePlayer(feedbackRoot, "DeathVisualFeedbacks", true);
                 AddDeathVisualFeedbacks(deathVisual, deathEffect);
                 MMF_Player deathShake = ConfigurePlayer(feedbackRoot, "DeathShakeFeedbacks", true);
@@ -550,6 +552,7 @@ namespace GridSquadEditor
                     hit,
                     damageText,
                     missText,
+                    blockText,
                     deathVisual,
                     deathShake,
                     defeatShake);
@@ -714,6 +717,25 @@ namespace GridSquadEditor
                 Timing = UnscaledTiming(true)
             };
             player.AddFeedback(feedback);
+        }
+
+        private static void AddBlockFloatingTextFeedback(MMF_Player player, MMChannel damageChannel)
+        {
+            player.AddFeedback(new MMF_FloatingText
+            {
+                Label = "방탄판 방어 BLOCK",
+                ChannelMode = MMChannelModes.MMChannel,
+                MMChannelDefinition = damageChannel,
+                UseIntensityAsValue = false,
+                Value = "BLOCK",
+                ForceColor = true,
+                AnimateColorGradient = CreateGradient(new Color(0.35f, 0.85f, 1f), new Color(0.08f, 0.38f, 0.95f)),
+                ForceLifetime = true,
+                Lifetime = 0.7f,
+                PositionMode = MMF_FloatingText.PositionModes.PlayPosition,
+                Direction = Vector3.up,
+                Timing = UnscaledTiming(true)
+            });
         }
 
         private static void AddDeathVisualFeedbacks(MMF_Player player, ParticleSystem deathEffect)

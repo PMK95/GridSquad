@@ -18,6 +18,10 @@ namespace GridSquad
         [Range(0f, 100f)] public float MaximumHitChancePercent = 95f;
         [Min(0.02f)] public float EvaluationRefreshInterval = 0.1f;
 
+        [Header("오사")]
+        [Min(0f)] public float FriendlyFireSafeRangeCells = 5f;
+        [Min(0f)] public float AiFriendlyFireRiskScoreWeight = 3f;
+
         [Header("피격")]
         [Tooltip("피격 시 현재 행동을 중단하고 피격 애니메이션을 재생할 확률입니다.")]
         [Range(0f, 100f)] public float HitReactionInterruptChancePercent = 25f;

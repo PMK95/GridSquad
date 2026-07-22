@@ -17,7 +17,8 @@ namespace GridSquad
         private readonly HashSet<GridCoordinate> actionAffectedCells = new();
         private Combatant selectedCombatant;
         private CombatActionController actionController;
-        private CombatActionKind? actionTargetingKind;
+        private CombatActionDefinition actionTargetingDefinition;
+        private readonly CombatActionPreview actionPreview = new();
         private Mesh viewCellMesh;
         private Mesh shootableCellMesh;
         private Mesh actionTargetMesh;
@@ -98,32 +99,21 @@ namespace GridSquad
         public bool IsShootableCell(GridCoordinate cell) => shootableCells.Contains(cell);
 
         public void SetActionTargeting(
-            CombatActionKind? kind,
+            CombatActionDefinition definition,
             CombatActionController newActionController)
         {
-            actionTargetingKind = kind;
+            actionTargetingDefinition = definition;
             actionController = newActionController;
             actionTargetCells.Clear();
             actionAffectedCells.Clear();
-            if (!kind.HasValue || actionController == null)
+            if (definition == null || actionController == null)
             {
                 actionTargetMeshFilter.gameObject.SetActive(false);
                 actionAffectedMeshFilter.gameObject.SetActive(false);
                 return;
             }
 
-            for (int x = 0; x < gridMap.Width; x++)
-            {
-                for (int z = 0; z < gridMap.Height; z++)
-                {
-                    GridCoordinate cell = new(x, z);
-                    bool valid = kind == CombatActionKind.Grenade
-                        ? actionController.IsValidGrenadeTarget(cell, out _)
-                        : actionController.IsValidDashTarget(cell, out _);
-                    if (valid)
-                        actionTargetCells.Add(cell);
-                }
-            }
+            actionController.CollectValidTargetCells(definition, actionTargetCells);
             BuildCellMesh(actionTargetMesh, actionTargetCells, 0.095f, 0.18f);
             actionTargetMeshFilter.gameObject.SetActive(actionTargetCells.Count > 0);
             actionAffectedMeshFilter.gameObject.SetActive(false);
@@ -131,46 +121,17 @@ namespace GridSquad
 
         public void SetActionPreviewCell(GridCoordinate targetCell)
         {
-            if (!actionTargetingKind.HasValue || actionController == null)
+            if (actionTargetingDefinition == null || actionController == null)
                 return;
 
             actionAffectedCells.Clear();
-            bool valid = actionTargetCells.Contains(targetCell);
-            if (actionTargetingKind == CombatActionKind.Grenade)
-            {
-                int radius = actionController.GetGrenadeRadiusCells();
-                for (int x = targetCell.X - radius; x <= targetCell.X + radius; x++)
-                {
-                    for (int z = targetCell.Z - radius; z <= targetCell.Z + radius; z++)
-                    {
-                        GridCoordinate cell = new(x, z);
-                        if (gridMap.IsInside(cell))
-                            actionAffectedCells.Add(cell);
-                    }
-                }
-                bool friendlyFire = actionController.DoesGrenadeAreaContainFriendly(targetCell);
-                actionAffectedMaterial.color = friendlyFire
-                    ? new Color(1f, 0.08f, 0.08f, 0.58f)
-                    : valid
-                        ? new Color(1f, 0.48f, 0.08f, 0.5f)
-                        : new Color(0.8f, 0.05f, 0.05f, 0.5f);
-            }
-            else
-            {
-                GridCoordinate origin = actionController.OwnerCombatant.CurrentCell;
-                int xStep = System.Math.Sign(targetCell.X - origin.X);
-                int zStep = System.Math.Sign(targetCell.Z - origin.Z);
-                int distance = origin.ManhattanDistance(targetCell);
-                for (int step = 1; step <= distance; step++)
-                {
-                    GridCoordinate cell = new(origin.X + xStep * step, origin.Z + zStep * step);
-                    if (gridMap.IsInside(cell))
-                        actionAffectedCells.Add(cell);
-                }
-                actionAffectedMaterial.color = valid
-                    ? new Color(0.2f, 0.9f, 1f, 0.55f)
-                    : new Color(1f, 0.08f, 0.08f, 0.58f);
-            }
+            actionController.BuildActionPreview(
+                actionTargetingDefinition,
+                CombatActionTargetSelection.Cell(targetCell),
+                actionPreview);
+            foreach (GridCoordinate cell in actionPreview.AffectedCells)
+                actionAffectedCells.Add(cell);
+            actionAffectedMaterial.color = actionPreview.Color;
 
             BuildCellMesh(actionAffectedMesh, actionAffectedCells, 0.13f, 0.1f);
             actionAffectedMeshFilter.gameObject.SetActive(actionAffectedCells.Count > 0);

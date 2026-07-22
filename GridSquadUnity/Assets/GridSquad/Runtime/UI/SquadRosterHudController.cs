@@ -10,10 +10,10 @@ namespace GridSquad
     {
         TargetCommand,
         AutomaticPeek,
-        Grenade,
-        Stim,
-        Dash,
-        SwitchWeapon
+        PlayerAction1,
+        PlayerAction2,
+        PlayerAction3,
+        PlayerAction4
     }
 
     public sealed class SquadRosterHudController : MonoBehaviour
@@ -26,6 +26,7 @@ namespace GridSquad
             public Text NameText;
             public Text RoleText;
             public Image HealthFill;
+            public Image ArmorDurabilityFill;
             public Text HealthText;
             public Image SelectionBorder;
             public Outline SelectionOutline;
@@ -60,6 +61,7 @@ namespace GridSquad
         [SerializeField] private Text selectedNameText;
         [SerializeField] private Text selectedRoleText;
         [SerializeField] private Text selectedHealthText;
+        [SerializeField] private Image selectedArmorDurabilityFill;
         [SerializeField] private Text selectedWeaponText;
         [SerializeField] private Text selectedTraitsText;
         [SerializeField] private Button detailsButton;
@@ -73,8 +75,11 @@ namespace GridSquad
         [Header("선택 액션")]
         [SerializeField] private GameObject selectedActionBar;
         [SerializeField] private ActionButtonView[] actionButtons = Array.Empty<ActionButtonView>();
+        [SerializeField] private Transform playerActionButtonContainer;
+        [SerializeField] private CombatActionButtonView playerActionButtonPrefab;
 
         private readonly List<Combatant> friendlyCombatants = new();
+        private readonly List<CombatActionButtonView> generatedActionButtons = new();
         private bool detailsVisible;
 
         private static readonly Color EnabledActionColor = new(0.12f, 0.18f, 0.23f, 0.96f);
@@ -92,10 +97,11 @@ namespace GridSquad
                 legacyHud = GetComponent<CombatHudController>();
 
             legacyHud?.SetLegacySelectedInfoVisible(false);
+            if (selectedUnitPanel != null)
+                selectedUnitPanel.gameObject.SetActive(false);
+            if (selectedActionBar != null)
+                selectedActionBar.SetActive(false);
             BindRosterButtons();
-            BindActionButtons();
-            if (detailsButton != null)
-                detailsButton.onClick.AddListener(ToggleSelectedUnitDetails);
             SetDetailsVisible(false);
         }
 
@@ -112,13 +118,8 @@ namespace GridSquad
 
         private void OnDestroy()
         {
-            if (detailsButton != null)
-                detailsButton.onClick.RemoveListener(ToggleSelectedUnitDetails);
-
             foreach (RosterCardView card in rosterCards)
                 card?.Button?.onClick.RemoveAllListeners();
-            foreach (ActionButtonView view in actionButtons)
-                view?.Button?.onClick.RemoveAllListeners();
         }
 
         private void Update()
@@ -130,8 +131,6 @@ namespace GridSquad
                 ? inputController.SelectedCombatant
                 : null;
             RefreshRosterCards(selected);
-            RefreshSelectedUnitPanel(selected);
-            RefreshSelectedActionBar(selected);
         }
 
         private void RefreshFriendlyCombatants()
@@ -172,6 +171,36 @@ namespace GridSquad
             }
         }
 
+        private void BuildPlayerActionButtonsFromPrefab()
+        {
+            if (playerActionButtonPrefab == null || playerActionButtonContainer == null)
+                return;
+
+            generatedActionButtons.Clear();
+            foreach (ActionButtonView view in actionButtons)
+            {
+                if (view?.Button != null
+                    && view.Slot is >= SelectedHudActionSlot.PlayerAction1
+                        and <= SelectedHudActionSlot.PlayerAction4)
+                {
+                    view.Button.gameObject.SetActive(false);
+                }
+            }
+
+            string[] hotkeys = { "G", "V", "X", "C" };
+            for (int slotIndex = 0; slotIndex < CombatActionLoadout.KeyboardShortcutActionCount; slotIndex++)
+            {
+                int capturedSlotIndex = slotIndex;
+                CombatActionButtonView view = Instantiate(
+                    playerActionButtonPrefab,
+                    playerActionButtonContainer);
+                view.name = $"PlayerActionSlot{slotIndex + 1}";
+                view.Bind(() => inputController?.BeginSelectedActionFromHud(capturedSlotIndex));
+                view.SetContent("비어 있음", hotkeys[slotIndex], "미장착", null);
+                generatedActionButtons.Add(view);
+            }
+        }
+
         private void SelectFriendlyRosterCard(int cardIndex)
         {
             if (inputController == null
@@ -197,17 +226,11 @@ namespace GridSquad
                 case SelectedHudActionSlot.AutomaticPeek:
                     inputController.ToggleSelectedAutomaticPeekFromHud();
                     break;
-                case SelectedHudActionSlot.Grenade:
-                    inputController.BeginSelectedActionFromHud(CombatActionKind.Grenade);
-                    break;
-                case SelectedHudActionSlot.Stim:
-                    inputController.BeginSelectedActionFromHud(CombatActionKind.Stim);
-                    break;
-                case SelectedHudActionSlot.Dash:
-                    inputController.BeginSelectedActionFromHud(CombatActionKind.Dash);
-                    break;
-                case SelectedHudActionSlot.SwitchWeapon:
-                    inputController.BeginSelectedActionFromHud(CombatActionKind.SwitchWeapon);
+                case SelectedHudActionSlot.PlayerAction1:
+                case SelectedHudActionSlot.PlayerAction2:
+                case SelectedHudActionSlot.PlayerAction3:
+                case SelectedHudActionSlot.PlayerAction4:
+                    inputController.BeginSelectedActionFromHud(GetPlayerActionSlotIndex(slot));
                     break;
             }
         }
@@ -251,6 +274,7 @@ namespace GridSquad
                 }
                 if (card.HealthText != null)
                     card.HealthText.text = $"{combatant.CurrentHealth}/{combatant.MaximumHealth}";
+                RefreshArmorDurabilityFill(card.ArmorDurabilityFill, combatant);
                 if (card.SelectionOutline != null)
                 {
                     card.SelectionOutline.enabled = selected == combatant;
@@ -268,34 +292,77 @@ namespace GridSquad
             }
         }
 
-        private void RefreshSelectedUnitPanel(Combatant selected)
+        private void RefreshSelectedEntityPanel(
+            TacticalEntity selectedEntity,
+            Combatant selectedCombatant)
         {
             if (selectedUnitPanel == null)
                 return;
 
-            selectedUnitPanel.gameObject.SetActive(selected != null);
-            if (selected == null)
+            selectedUnitPanel.gameObject.SetActive(selectedEntity != null);
+            if (selectedEntity == null)
                 return;
 
+            if (selectedCombatant == null)
+            {
+                if (selectedArmorDurabilityFill != null)
+                    selectedArmorDurabilityFill.gameObject.SetActive(false);
+                EntityHealth health = selectedEntity.GetComponent<EntityHealth>();
+                ShootableTarget shootableTarget = selectedEntity.ShootableTarget;
+                if (selectedPortrait != null)
+                    selectedPortrait.sprite = null;
+                if (selectedNameText != null)
+                    selectedNameText.text = selectedEntity.DisplayName;
+                if (selectedRoleText != null)
+                {
+                    selectedRoleText.text = shootableTarget != null && shootableTarget.IsCover
+                        ? "파괴 가능한 엄폐물"
+                        : "전술 개체";
+                    selectedRoleText.color = new Color(0.78f, 0.66f, 0.34f, 1f);
+                }
+                if (selectedHealthText != null)
+                {
+                    selectedHealthText.text = health != null
+                        ? $"체력  {health.CurrentHealth} / {health.MaximumHealth}"
+                        : "체력  -";
+                }
+                if (selectedWeaponText != null)
+                    selectedWeaponText.text = shootableTarget != null ? "사격 대상 지정 가능" : "사격 대상 아님";
+                if (selectedTraitsText != null)
+                    selectedTraitsText.text = "명령 수행 능력 없음";
+                if (detailsText != null)
+                {
+                    detailsText.text =
+                        $"전술 상태\n셀  {selectedEntity.CurrentCell}\n" +
+                        $"상태  {(selectedEntity.IsAvailable ? "사용 가능" : "파괴됨")}\n" +
+                        $"파괴 가능  {(health != null ? "예" : "아니오")}\n" +
+                        $"사격 가능  {(shootableTarget != null && shootableTarget.IsAlive ? "예" : "아니오")}";
+                }
+                if (utilityDebugText != null)
+                    utilityDebugText.gameObject.SetActive(false);
+                return;
+            }
+
             if (selectedPortrait != null)
-                selectedPortrait.sprite = selected.Portrait;
+                selectedPortrait.sprite = selectedCombatant.Portrait;
             if (selectedNameText != null)
-                selectedNameText.text = selected.DisplayName;
+                selectedNameText.text = selectedCombatant.DisplayName;
             if (selectedRoleText != null)
             {
-                selectedRoleText.text = selected.RoleName;
-                selectedRoleText.color = selected.AccentColor;
+                selectedRoleText.text = selectedCombatant.RoleName;
+                selectedRoleText.color = selectedCombatant.AccentColor;
             }
             if (selectedHealthText != null)
-                selectedHealthText.text = $"체력  {selected.CurrentHealth} / {selected.MaximumHealth}";
+                selectedHealthText.text = $"체력  {selectedCombatant.CurrentHealth} / {selectedCombatant.MaximumHealth}";
+            RefreshArmorDurabilityFill(selectedArmorDurabilityFill, selectedCombatant);
             if (selectedWeaponText != null)
-                selectedWeaponText.text = BuildSelectedWeaponSummary(selected);
+                selectedWeaponText.text = BuildSelectedWeaponSummary(selectedCombatant);
             if (selectedTraitsText != null)
-                selectedTraitsText.text = BuildTraitNameSummary(selected);
+                selectedTraitsText.text = BuildTraitNameSummary(selectedCombatant);
             if (detailsText != null)
-                detailsText.text = BuildDetailedUnitInformation(selected);
+                detailsText.text = BuildDetailedUnitInformation(selectedCombatant);
 
-            CombatActionController actionController = GetActionController(selected);
+            CombatActionController actionController = GetActionController(selectedCombatant);
             bool showUtility = director != null && director.DebugVisible && actionController != null;
             if (utilityDebugText != null)
             {
@@ -345,19 +412,24 @@ namespace GridSquad
                 }
                 else
                 {
-                    CombatActionKind kind = ConvertToCombatActionKind(view.Slot);
+                    int slotIndex = GetPlayerActionSlotIndex(view.Slot);
                     CombatActionRuntimeState runtimeState = actionController != null
-                        ? actionController.GetActionRuntimeState(kind)
+                        ? actionController.GetPlayerActionRuntimeState(slotIndex)
                         : default;
                     equipped = isControllableAlly && runtimeState.IsEquipped;
                     interactable = isControllableAlly && runtimeState.IsInteractable;
                     active = runtimeState.IsRunning
-                        || (inputController != null && inputController.TargetingActionKind == kind);
+                        || (inputController != null
+                            && inputController.TargetingActionDefinition == runtimeState.Definition);
                     status = isControllableAlly ? runtimeState.StatusText : "명령 불가";
                     if (!runtimeState.IsEquipped)
                         status = "미장착";
                     if (runtimeState.Definition != null && runtimeState.Definition.Icon != null)
                         icon = runtimeState.Definition.Icon;
+                    if (view.NameText != null)
+                        view.NameText.text = runtimeState.Definition != null
+                            ? runtimeState.Definition.DisplayName
+                            : "비어 있음";
                 }
 
                 if (!isControllableAlly)
@@ -369,6 +441,40 @@ namespace GridSquad
                 }
 
                 ApplyActionButtonState(view, equipped, interactable, active, status, icon);
+            }
+
+            RefreshGeneratedPlayerActionButtons(isControllableAlly, actionController);
+        }
+
+        private void RefreshGeneratedPlayerActionButtons(
+            bool isControllableAlly,
+            CombatActionController actionController)
+        {
+            string[] hotkeys = { "G", "V", "X", "C" };
+            for (int slotIndex = 0; slotIndex < generatedActionButtons.Count; slotIndex++)
+            {
+                CombatActionButtonView view = generatedActionButtons[slotIndex];
+                CombatActionRuntimeState state = actionController != null
+                    ? actionController.GetPlayerActionRuntimeState(slotIndex)
+                    : default;
+                bool equipped = isControllableAlly && state.IsEquipped;
+                bool interactable = isControllableAlly && state.IsInteractable;
+                bool active = state.IsRunning
+                    || (inputController != null
+                        && inputController.TargetingActionDefinition == state.Definition);
+                string status = !isControllableAlly
+                    ? "명령 불가"
+                    : state.Definition == null ? "미장착" : state.StatusText;
+                Sprite icon = state.Definition != null ? state.Definition.Icon : null;
+                view.SetContent(
+                    state.Definition != null ? state.Definition.DisplayName : "비어 있음",
+                    hotkeys[slotIndex],
+                    status,
+                    icon);
+                view.SetState(
+                    interactable,
+                    active ? ActiveActionColor : equipped ? EnabledActionColor : DisabledActionColor,
+                    equipped ? Color.white : DisabledIconColor);
             }
         }
 
@@ -446,11 +552,19 @@ namespace GridSquad
         private static string BuildDetailedUnitInformation(Combatant selected)
         {
             StringBuilder builder = new();
-            UnitStatBlock stats = selected.EffectiveStats;
-            builder.Append("유효 스탯\n")
-                .Append("이동 x").Append(stats.MovementSpeedMultiplier.ToString("0.00"))
-                .Append("   명중 +").Append(stats.HitChanceBonusPercent.ToString("0"))
-                .Append("   피해 x").Append(stats.DamageMultiplier.ToString("0.00"));
+            builder.Append("유효 스탯");
+            IReadOnlyList<UnitRuntimeStatEntry> stats = selected.EffectiveStats;
+            foreach (UnitRuntimeStatEntry stat in stats)
+            {
+                if (stat.Definition == null)
+                    continue;
+                builder.Append("\n")
+                    .Append(stat.Definition.DisplayName)
+                    .Append("  ")
+                    .Append(stat.Definition.RoundToInteger
+                        ? Mathf.RoundToInt(stat.Value).ToString()
+                        : stat.Value.ToString("0.##"));
+            }
 
             if (!string.IsNullOrWhiteSpace(selected.Description))
                 builder.Append("\n\n").Append(selected.Description);
@@ -478,14 +592,26 @@ namespace GridSquad
                     .Append(weapon != null ? $"  {ammo.MagazineAmmo}/{ammo.ReserveAmmo}" : string.Empty);
             }
 
+            EquipmentLoadout equipment = selected.EquipmentLoadout;
+            if (equipment != null)
+            {
+                builder.Append("\n\n장비");
+                if (equipment.TryGetArmorState(out ArmorDefinition armor, out int remaining, out int maximum))
+                    builder.Append("\n방어구  ").Append(armor.DisplayName).Append("  ").Append(remaining).Append("/").Append(maximum);
+                else
+                    builder.Append("\n방어구  미장착");
+                builder.Append("\n추가장비  ").Append(equipment.BuildAdditionalEquipmentSummary());
+            }
+
             ShotEvaluation shot = selected.CurrentShotEvaluation;
-            Combatant target = selected.CurrentTarget;
+            ShootableTarget target = selected.CurrentTarget;
             string state = !selected.IsAlive ? "전투 불능" : selected.IsMoving ? "이동 중" : "대기";
             builder.Append("\n\n전술 상태")
                 .Append("\n상태  ").Append(state)
                 .Append("   셀  ").Append(selected.CurrentCell)
                 .Append("\n대상  ").Append(target != null && target.IsAlive ? target.DisplayName : "없음")
                 .Append("   엄폐 회피  ").Append(shot.CoverEvasionPercent.ToString("0")).Append("%")
+                .Append("   아군 오사  ").Append(shot.FriendlyFireRiskPercent.ToString("0")).Append("%")
                 .Append("\n사격  ").Append(shot.CanShoot ? "가능" : shot.FailureReason)
                 .Append("   명중률  ").Append(shot.HitChancePercent.ToString("0")).Append("%");
 
@@ -498,6 +624,67 @@ namespace GridSquad
             return builder.ToString();
         }
 
+        private void EnsureArmorDurabilityVisuals()
+        {
+            foreach (RosterCardView card in rosterCards)
+            {
+                if (card == null || card.ArmorDurabilityFill != null || card.Button == null)
+                    continue;
+                card.ArmorDurabilityFill = CreateArmorDurabilityFill(
+                    "ArmorDurability",
+                    card.Button.transform,
+                    new Vector2(0.08f, 0.03f),
+                    new Vector2(0.92f, 0.07f));
+            }
+            if (selectedArmorDurabilityFill == null && selectedUnitPanel != null)
+            {
+                selectedArmorDurabilityFill = CreateArmorDurabilityFill(
+                    "SelectedArmorDurability",
+                    selectedUnitPanel,
+                    new Vector2(0.06f, 0.015f),
+                    new Vector2(0.94f, 0.03f));
+            }
+        }
+
+        private static Image CreateArmorDurabilityFill(
+            string objectName,
+            Transform parent,
+            Vector2 anchorMin,
+            Vector2 anchorMax)
+        {
+            GameObject fillObject = new(objectName, typeof(RectTransform), typeof(Image));
+            fillObject.transform.SetParent(parent, false);
+            Image fill = fillObject.GetComponent<Image>();
+            fill.type = Image.Type.Filled;
+            fill.fillMethod = Image.FillMethod.Horizontal;
+            RectTransform rect = fill.rectTransform;
+            rect.anchorMin = anchorMin;
+            rect.anchorMax = anchorMax;
+            rect.offsetMin = rect.offsetMax = Vector2.zero;
+            return fill;
+        }
+
+        private static void RefreshArmorDurabilityFill(Image fill, Combatant combatant)
+        {
+            if (fill == null)
+                return;
+            int remaining = 0;
+            int maximum = 0;
+            bool hasArmor = combatant != null
+                && combatant.EquipmentLoadout != null
+                && combatant.EquipmentLoadout.TryGetArmorState(
+                    out ArmorDefinition armor,
+                    out remaining,
+                    out maximum);
+            fill.gameObject.SetActive(hasArmor);
+            if (!hasArmor)
+                return;
+            fill.fillAmount = maximum > 0 ? Mathf.Clamp01(remaining / (float)maximum) : 0f;
+            fill.color = remaining <= 0
+                ? new Color(0.9f, 0.08f, 0.08f, 1f)
+                : new Color(0.15f, 0.72f, 0.95f, 1f);
+        }
+
         private static CombatActionController GetActionController(Combatant selected)
         {
             UnitTacticalBehaviorController behavior = selected != null
@@ -506,15 +693,8 @@ namespace GridSquad
             return behavior != null ? behavior.ActionController : null;
         }
 
-        private static CombatActionKind ConvertToCombatActionKind(SelectedHudActionSlot slot)
-            => slot switch
-            {
-                SelectedHudActionSlot.Grenade => CombatActionKind.Grenade,
-                SelectedHudActionSlot.Stim => CombatActionKind.Stim,
-                SelectedHudActionSlot.Dash => CombatActionKind.Dash,
-                SelectedHudActionSlot.SwitchWeapon => CombatActionKind.SwitchWeapon,
-                _ => CombatActionKind.BasicAttack
-            };
+        private static int GetPlayerActionSlotIndex(SelectedHudActionSlot slot)
+            => (int)slot - (int)SelectedHudActionSlot.PlayerAction1;
 
         private static string GetControlModeLabel(CombatControlMode mode)
             => mode switch
@@ -525,6 +705,14 @@ namespace GridSquad
             };
 
 #if UNITY_EDITOR
+        public void SetEditorActionButtonPrefab(
+            Transform newContainer,
+            CombatActionButtonView newPrefab)
+        {
+            playerActionButtonContainer = newContainer;
+            playerActionButtonPrefab = newPrefab;
+        }
+
         public void SetEditorReferences(
             CombatDirector newDirector,
             TacticalInputController newInputController,

@@ -524,7 +524,7 @@ MonoBehaviour:
   DebugActive: 0
   InScriptDrivenPause: 0
   FeedbacksList:
-  - rid: 5381438108644147982
+  - rid: 5381438118567608495
   KeepPlayModeChanges: 0
   PerformanceMode: 0
   RestoreInitialValuesOnDisable: 0
@@ -536,11 +536,11 @@ MonoBehaviour:
   references:
     version: 2
     RefIds:
-    - rid: 5381438108644147982
+    - rid: 5381438118567608495
       type: {class: MMF_Particles, ns: MoreMountains.Feedbacks, asm: MoreMountains.Tools}
       data:
         Active: 1
-        UniqueID: -1011572824
+        UniqueID: -857110270
         Label: "\uCD1D\uAD6C \uC12C\uAD11"
         OriginalLabel: 
         ChannelMode: 0

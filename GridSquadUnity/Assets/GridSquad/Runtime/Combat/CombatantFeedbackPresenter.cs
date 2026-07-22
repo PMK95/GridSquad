@@ -16,6 +16,7 @@ namespace GridSquad
         [SerializeField] private MMF_Player hitFeedbacks;
         [SerializeField] private MMF_Player damageTextFeedbacks;
         [SerializeField] private MMF_Player missTextFeedbacks;
+        [SerializeField] private MMF_Player blockTextFeedbacks;
 
         [Header("사망 연출")]
         [SerializeField] private MMF_Player deathVisualFeedbacks;
@@ -53,6 +54,29 @@ namespace GridSquad
             missTextFeedbacks?.PlayFeedbacks(worldPosition);
         }
 
+        public void PlayBlockFeedback(Vector3 worldPosition)
+        {
+            hitFeedbacks?.PlayFeedbacks(worldPosition);
+            if (blockTextFeedbacks != null)
+            {
+                blockTextFeedbacks.PlayFeedbacks(worldPosition);
+                return;
+            }
+            if (missTextFeedbacks == null)
+                return;
+            // 기존 프리팹도 즉시 BLOCK을 표시하도록 MISS 피드백 값을 한 번만 교체합니다.
+            foreach (MMF_Feedback feedback in missTextFeedbacks.FeedbacksList)
+            {
+                if (feedback is not MMF_FloatingText floatingText)
+                    continue;
+                string previousValue = floatingText.Value;
+                floatingText.Value = "BLOCK";
+                missTextFeedbacks.PlayFeedbacks(worldPosition);
+                floatingText.Value = previousValue;
+                return;
+            }
+        }
+
         public void PlayDeathFeedback(BattleResult battleResult, Vector3 worldPosition)
         {
             deathVisualFeedbacks?.PlayFeedbacks(worldPosition);
@@ -69,6 +93,7 @@ namespace GridSquad
             MMF_Player newHitFeedbacks,
             MMF_Player newDamageTextFeedbacks,
             MMF_Player newMissTextFeedbacks,
+            MMF_Player newBlockTextFeedbacks,
             MMF_Player newDeathVisualFeedbacks,
             MMF_Player newDeathShakeFeedbacks,
             MMF_Player newDefeatShakeFeedbacks)
@@ -78,6 +103,7 @@ namespace GridSquad
             hitFeedbacks = newHitFeedbacks;
             damageTextFeedbacks = newDamageTextFeedbacks;
             missTextFeedbacks = newMissTextFeedbacks;
+            blockTextFeedbacks = newBlockTextFeedbacks;
             deathVisualFeedbacks = newDeathVisualFeedbacks;
             deathShakeFeedbacks = newDeathShakeFeedbacks;
             defeatShakeFeedbacks = newDefeatShakeFeedbacks;

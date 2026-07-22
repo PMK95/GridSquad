@@ -22,6 +22,7 @@ namespace GridSquad
         [SerializeField] private AnimationClip throwClip;
         [SerializeField] private AnimationClip useItemClip;
         [SerializeField] private AnimationClip dashClip;
+        [SerializeField] private AnimationClip meleeAttackClip;
 
         [Header("전환")]
         [SerializeField, Min(0f)] private float crossFadeDuration = 0.12f;
@@ -145,6 +146,16 @@ namespace GridSquad
             currentClip = shootClip;
         }
 
+        public void PlayWeaponAttack(WeaponAttackMode attackMode)
+        {
+            if (attackMode == WeaponAttackMode.Melee && meleeAttackClip != null)
+            {
+                PlayActionClip(meleeAttackClip);
+                return;
+            }
+            PlayShot();
+        }
+
         public void BeginReload(float duration, float normalizedProgress = 0f)
         {
             if (dead)
@@ -255,5 +266,10 @@ namespace GridSquad
             state.Speed = 1f;
             currentClip = clip;
         }
+
+#if UNITY_EDITOR
+        public void SetEditorMeleeAttackClip(AnimationClip clip)
+            => meleeAttackClip = clip;
+#endif
     }
 }

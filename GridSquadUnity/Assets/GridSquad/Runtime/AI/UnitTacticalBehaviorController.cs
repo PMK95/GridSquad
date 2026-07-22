@@ -1,18 +1,15 @@
-using System.Collections.Generic;
 using Unity.Behavior;
 using UnityEngine;
 
 namespace GridSquad
 {
+    [DisallowMultipleComponent]
+    [RequireComponent(
+        typeof(CombatCommandState),
+        typeof(CombatActionController),
+        typeof(CombatDecisionCoordinator))]
     public sealed class UnitTacticalBehaviorController : MonoBehaviour
     {
-        private enum MovementIntent
-        {
-            None,
-            PlayerCommand,
-            Autonomous
-        }
-
         [SerializeField] private Combatant combatant;
         [SerializeField] private GridMap gridMap;
         [SerializeField] private ShotEvaluator shotEvaluator;
@@ -22,36 +19,26 @@ namespace GridSquad
         [SerializeField] private BehaviorGraphAgent behaviorAgent;
         [SerializeField] private bool autonomousMovementDefault;
         [SerializeField] private bool automaticPeekDefault = true;
+        [SerializeField] private CombatCommandState commandState;
         [SerializeField] private CombatActionController actionController;
+        [SerializeField] private CombatDecisionCoordinator decisionCoordinator;
 
-        private readonly List<TacticalCellChoice> debugChoices = new();
-        private MovementIntent movementIntent;
-        private bool autonomousMovementAllowed;
-        private bool automaticPeekAllowed;
-        private bool moveCommandPending;
-        private Vector3 moveDestinationWorld;
-        private Combatant priorityTarget;
-        private float nextTacticalEvaluationTime;
-        private float nextMovementTime;
-        private float nextShotEvaluationTime;
-        private CombatControlMode controlMode;
-
-        public bool AutonomousMovementAllowed => autonomousMovementAllowed;
-        public bool AutomaticPeekAllowed => automaticPeekAllowed;
-        public bool MoveCommandPending => moveCommandPending;
-        public Vector3 MoveDestinationWorld => moveDestinationWorld;
-        public Combatant PriorityTarget => priorityTarget;
-        public Combatant CurrentTarget => combatant != null ? combatant.CurrentTarget : null;
+        public bool AutonomousMovementAllowed => CombatControlPolicy.Create(
+            combatant != null ? combatant.Team : Team.Ally,
+            commandState != null ? commandState.ControlMode : default).AllowsAutomaticMovement;
+        public bool AutomaticPeekAllowed => commandState != null && commandState.AutomaticPeekAllowed;
+        public bool MoveCommandPending => commandState != null && commandState.HasPendingMove;
+        public ShootableTarget PriorityTarget => commandState != null ? commandState.PriorityTarget : null;
+        public ShootableTarget CurrentTarget => combatant != null ? combatant.CurrentTarget : null;
         public BehaviorGraphAgent BehaviorAgent => behaviorAgent;
         public CombatActionController ActionController => actionController;
-        public CombatControlMode ControlMode => controlMode;
+        public CombatControlMode ControlMode => commandState != null
+            ? CombatControlPolicy.Create(combatant.Team, commandState.ControlMode).Mode
+            : default;
 
         private void Awake()
         {
-            if (actionController == null)
-                actionController = GetComponent<CombatActionController>();
-            if (actionController == null)
-                actionController = gameObject.AddComponent<CombatActionController>();
+            EnsureAbilityComponents();
             actionController.ConfigureRuntime(
                 combatant,
                 gridMap,
@@ -59,6 +46,12 @@ namespace GridSquad
                 director,
                 positionEvaluator,
                 tuning);
+            decisionCoordinator.ConfigureRuntime(
+                combatant,
+                director,
+                tuning,
+                commandState,
+                actionController);
         }
 
         private void OnEnable()
@@ -75,44 +68,39 @@ namespace GridSquad
                     ? CombatControlMode.FullAutomatic
                     : CombatControlMode.PlayerMovementAutomaticActions);
             SetAutomaticPeekAllowed(automaticPeekDefault);
-            WriteBlackboardValue("MoveCommandPending", false);
-            WriteBlackboardValue<GameObject>("PriorityTarget", null);
-            WriteBlackboardValue<GameObject>("CurrentTarget", null);
         }
 
         private void OnDisable()
         {
             if (combatant != null)
                 combatant.Died -= HandleCombatantDied;
+            decisionCoordinator?.InterruptCurrentIntent(CombatActionInterruptReason.CombatEnded);
         }
 
         public void QueueMoveCommand(GridCoordinate destination)
         {
             if (combatant == null || !combatant.IsAlive || gridMap == null)
                 return;
-
-            moveDestinationWorld = gridMap.GridToWorld(destination);
-            moveCommandPending = true;
-            WriteBlackboardValue("MoveDestination", moveDestinationWorld);
-            WriteBlackboardValue("MoveCommandPending", true);
+            commandState.QueueMove(destination);
+            combatant.RequestStopMovementAfterCurrentCell();
         }
 
-        public void SetPriorityTargetCommand(Combatant target)
+        public void SetPriorityTargetCommand(ShootableTarget target)
         {
-            priorityTarget = IsValidEnemy(target) ? target : null;
-            combatant.SetBehaviorTarget(priorityTarget);
-            WriteBlackboardValue(
-                "PriorityTarget",
-                priorityTarget != null ? priorityTarget.gameObject : null);
+            ShootableTarget validTarget = IsValidPriorityTarget(target) ? target : null;
+            commandState.SetPriorityTarget(validTarget);
+            if (validTarget != null)
+            {
+                combatant.SetBehaviorTarget(validTarget);
+                combatant.RequestStopMovementAfterCurrentCell();
+            }
         }
 
         public void SetAutomaticPeekAllowed(bool allowed)
         {
-            automaticPeekAllowed = allowed;
-            WriteBlackboardValue("AutomaticPeekAllowed", allowed);
+            commandState.SetAutomaticPeekAllowed(allowed);
             if (!allowed)
                 combatant.SetPeekEnabled(false);
-            nextTacticalEvaluationTime = 0f;
         }
 
         public void SetAutonomousMovementAllowed(bool allowed)
@@ -124,330 +112,101 @@ namespace GridSquad
 
         public void SetControlMode(CombatControlMode mode)
         {
-            CombatControlMode previousMode = controlMode;
-            controlMode = combatant != null && combatant.Team == Team.Enemy
-                ? CombatControlMode.FullAutomatic
-                : mode;
-            autonomousMovementAllowed = controlMode == CombatControlMode.FullAutomatic;
-            WriteBlackboardValue("AutonomousMovementAllowed", autonomousMovementAllowed);
+            CombatControlMode normalizedMode = CombatControlPolicy.Create(
+                combatant != null ? combatant.Team : Team.Ally,
+                mode).Mode;
+            CombatControlMode previousMode = commandState.ControlMode;
+            commandState.SetControlMode(normalizedMode);
+            if (previousMode == normalizedMode)
+                return;
+            decisionCoordinator.InterruptCurrentIntent(CombatActionInterruptReason.ControlModeChanged);
             if (previousMode == CombatControlMode.FullAutomatic
-                && controlMode != CombatControlMode.FullAutomatic)
+                && normalizedMode != CombatControlMode.FullAutomatic)
             {
-                actionController?.RequestAutomaticMovementStopAfterCellArrival();
-                CancelAutonomousMovement();
+                combatant.RequestStopMovementAfterCurrentCell();
             }
-            nextTacticalEvaluationTime = 0f;
         }
 
         public void CancelAutonomousMovement()
         {
-            if (movementIntent != MovementIntent.Autonomous)
+            if (AutonomousMovementAllowed)
                 return;
-
-            if (combatant.IsMoving)
-            {
-                actionController?.RequestAutomaticMovementStopAfterCellArrival();
-                combatant.RequestStopMovementAfterCurrentCell();
-                return;
-            }
-            movementIntent = MovementIntent.None;
+            decisionCoordinator.InterruptCurrentIntent(CombatActionInterruptReason.ControlModeChanged);
+            combatant.RequestStopMovementAfterCurrentCell();
         }
 
         public void StopBehaviorForDeath()
         {
+            decisionCoordinator?.InterruptCurrentIntent(CombatActionInterruptReason.OwnerDied);
+            commandState?.ClearAllCommands();
             behaviorAgent?.End();
-            debugChoices.Clear();
-            moveCommandPending = false;
-            movementIntent = MovementIntent.None;
         }
 
         public void StartBehaviorForBattle()
         {
-            nextTacticalEvaluationTime = 0f;
-            nextMovementTime = 0f;
-            nextShotEvaluationTime = 0f;
-            moveCommandPending = false;
-            movementIntent = MovementIntent.None;
+            decisionCoordinator?.ResetForBattle();
             behaviorAgent?.Restart();
         }
 
-        public void TickTacticalDecisionFromBehavior(
-            bool requestedAutonomousMovement,
-            bool requestedAutomaticPeek,
-            bool requestedMovePending,
-            Vector3 requestedMoveDestination,
-            GameObject requestedPriorityTarget)
+        public bool TrySelectCombatIntentFromBehavior()
         {
-            if (combatant == null || !combatant.IsAlive || director == null || !director.BattleStarted || director.BattleFinished)
-                return;
-
-            autonomousMovementAllowed = controlMode == CombatControlMode.FullAutomatic;
-            automaticPeekAllowed = requestedAutomaticPeek;
-            moveCommandPending |= requestedMovePending;
-            if (requestedMovePending)
-                moveDestinationWorld = requestedMoveDestination;
-
-            Combatant requestedTarget = requestedPriorityTarget != null
-                ? requestedPriorityTarget.GetComponent<Combatant>()
-                : null;
-            priorityTarget = IsValidEnemy(requestedTarget) ? requestedTarget : null;
-
-            if (moveCommandPending)
-            {
-                if (combatant.IsReloading || combatant.IsHitReacting)
-                    return;
-                ProcessPendingMoveCommand();
-                return;
-            }
-
-            if (movementIntent == MovementIntent.PlayerCommand)
-            {
-                if (combatant.IsMoving)
-                    return;
-                movementIntent = MovementIntent.None;
-            }
-            else if (movementIntent == MovementIntent.Autonomous && !combatant.IsMoving)
-            {
-                movementIntent = MovementIntent.None;
-            }
-
-            if (combatant.IsMoving
-                || combatant.IsReloading
-                || combatant.IsHitReacting
-                || actionController.IsPerformingExclusiveAction
-                || Time.time < nextTacticalEvaluationTime)
-                return;
-
-            nextTacticalEvaluationTime = Time.time + (
-                autonomousMovementAllowed
-                    ? tuning.AiEvaluationInterval
-                    : tuning.EvaluationRefreshInterval);
-
-            SelectCombatIntentForCurrentMode();
+            return decisionCoordinator != null && decisionCoordinator.TrySelectNextIntent();
         }
 
-        public void TickCombatExecutionFromBehavior(GameObject requestedCurrentTarget)
+        public bool TryBeginSelectedCombatIntentFromBehavior(out string failureReason)
         {
-            if (combatant == null || !combatant.IsAlive || director == null || !director.BattleStarted || director.BattleFinished)
+            if (decisionCoordinator == null)
             {
-                combatant?.ResetBehaviorFireCycle();
-                return;
+                failureReason = "전투 판단 컴포넌트가 없습니다.";
+                return false;
             }
-
-            Combatant blackboardTarget = requestedCurrentTarget != null
-                ? requestedCurrentTarget.GetComponent<Combatant>()
-                : null;
-            if (blackboardTarget != null
-                && blackboardTarget.IsAlive
-                && blackboardTarget.Team != combatant.Team
-                && blackboardTarget != combatant.CurrentTarget)
-            {
-                combatant.SetBehaviorTarget(blackboardTarget);
-            }
-
-            if (Time.time >= nextShotEvaluationTime)
-            {
-                nextShotEvaluationTime = Time.time + tuning.EvaluationRefreshInterval;
-                combatant.RefreshShotEvaluationForCurrentTarget();
-            }
-            actionController.TickActionExecutionFromBehavior();
+            return decisionCoordinator.TryBeginSelectedIntent(out failureReason);
         }
 
-        private void ProcessPendingMoveCommand()
+        public CombatActionExecutionStatus TickSelectedCombatIntentFromBehavior()
         {
-            GridCoordinate destination = gridMap.WorldToGrid(moveDestinationWorld);
-            if (actionController.TryStartPlayerReposition(destination, out _))
-            {
-                movementIntent = MovementIntent.PlayerCommand;
-                combatant.SetPeekEnabled(false);
-            }
-
-            moveCommandPending = false;
-            WriteBlackboardValue("MoveCommandPending", false);
-            nextTacticalEvaluationTime = 0f;
+            return decisionCoordinator != null
+                ? decisionCoordinator.TickSelectedIntent()
+                : CombatActionExecutionStatus.Failed;
         }
 
-        private void SelectCombatIntentForCurrentMode()
+        public void InterruptSelectedCombatIntentFromBehavior()
         {
-            if (controlMode == CombatControlMode.PlayerMovementPlayerActions)
-            {
-                actionController.EnsureManualBasicAttackTarget(
-                    priorityTarget,
-                    automaticPeekAllowed);
-            }
-            else
-            {
-                actionController.SelectAndStartAutomaticAction(
-                    controlMode,
-                    priorityTarget,
-                    automaticPeekAllowed);
-            }
-
-            WriteCurrentTargetToBlackboard();
+            decisionCoordinator?.InterruptCurrentIntent(CombatActionInterruptReason.ControlModeChanged);
         }
 
-        private void RefreshCommandModeCombatIntent()
+        public void InterruptSelectedCombatIntent(CombatActionInterruptReason reason)
         {
-            List<TacticalCellChoice> choices = positionEvaluator.EvaluateCurrentCellFiringChoices(
-                combatant,
-                automaticPeekAllowed,
-                priorityTarget);
-            SetDebugChoices(choices);
-
-            Combatant target = priorityTarget;
-            if (target == null)
-                target = director.FindClosestShootableEnemy(combatant, automaticPeekAllowed);
-
-            combatant.SetBehaviorTarget(target);
-            combatant.UpdateAutomaticPeekForCurrentTarget(automaticPeekAllowed);
-            combatant.RefreshShotEvaluationForCurrentTarget();
-            WriteCurrentTargetToBlackboard();
+            decisionCoordinator?.InterruptCurrentIntent(reason);
         }
 
-        private void ChooseAutonomousCombatIntent()
+        private bool IsValidPriorityTarget(ShootableTarget target)
         {
-            List<TacticalCellChoice> allChoices = positionEvaluator.EvaluateReachableFiringCells(
-                combatant,
-                automaticPeekAllowed,
-                priorityTarget);
-            if (allChoices.Count == 0)
-            {
-                debugChoices.Clear();
-                combatant.SetBehaviorTarget(priorityTarget);
-                combatant.SetPeekEnabled(false);
-                combatant.RefreshShotEvaluationForCurrentTarget();
-                WriteCurrentTargetToBlackboard();
-                return;
-            }
-
-            bool hasCoveredFiringPosition =
-                allChoices.Exists(choice => choice.IsCoveredFiringPosition);
-            List<TacticalCellChoice> movementChoices = hasCoveredFiringPosition
-                ? allChoices.FindAll(choice => choice.IsCoveredFiringPosition)
-                : allChoices;
-            SetDebugChoices(movementChoices);
-
-            TacticalCellChoice? currentMovementChoice =
-                FindBestCurrentCellChoice(movementChoices);
-            TacticalCellChoice? currentFiringChoice =
-                FindBestCurrentCellChoice(allChoices);
-            bool canMove = !combatant.IsMoving && Time.time >= nextMovementTime;
-            if (canMove)
-            {
-                bool enteringCoverTier = hasCoveredFiringPosition
-                    && (!currentMovementChoice.HasValue
-                        || !currentMovementChoice.Value.IsCoveredFiringPosition);
-                foreach (TacticalCellChoice choice in movementChoices)
-                {
-                    if (choice.Cell == combatant.CurrentCell)
-                        continue;
-                    if (!enteringCoverTier
-                        && currentMovementChoice.HasValue
-                        && choice.Score
-                            < currentMovementChoice.Value.Score + tuning.AiMinimumImprovement)
-                    {
-                        continue;
-                    }
-                    if (!combatant.SetMoveDestination(choice.Cell))
-                        continue;
-
-                    combatant.SetBehaviorTarget(choice.Target);
-                    combatant.SetPeekEnabled(false);
-                    movementIntent = MovementIntent.Autonomous;
-                    nextMovementTime = Time.time + tuning.AiMovementCooldown;
-                    WriteCurrentTargetToBlackboard();
-                    return;
-                }
-            }
-
-            if (currentFiringChoice.HasValue)
-            {
-                combatant.SetBehaviorTarget(currentFiringChoice.Value.Target);
-                combatant.SetPeekEnabled(
-                    automaticPeekAllowed
-                    && currentFiringChoice.Value.Evaluation.UsesPeekPosition);
-            }
-            else
-            {
-                combatant.SetBehaviorTarget(priorityTarget);
-                combatant.SetPeekEnabled(false);
-            }
-            combatant.RefreshShotEvaluationForCurrentTarget();
-            WriteCurrentTargetToBlackboard();
+            return target != null
+                && target != combatant.ShootableTarget
+                && target.IsAlive
+                && target.TargetTeam != combatant.Team;
         }
 
-        private TacticalCellChoice? FindBestCurrentCellChoice(
-            List<TacticalCellChoice> choices)
+        private void EnsureAbilityComponents()
         {
-            foreach (TacticalCellChoice choice in choices)
-            {
-                if (choice.Cell == combatant.CurrentCell)
-                    return choice;
-            }
-            return null;
-        }
-
-        private void SetDebugChoices(List<TacticalCellChoice> choices)
-        {
-            debugChoices.Clear();
-            for (int index = 0; index < Mathf.Min(3, choices.Count); index++)
-                debugChoices.Add(choices[index]);
-        }
-
-        private bool IsValidEnemy(Combatant target)
-            => target != null && target.IsAlive && target.Team != combatant.Team;
-
-        private void WriteCurrentTargetToBlackboard()
-        {
-            Combatant target = combatant.CurrentTarget;
-            WriteBlackboardValue(
-                "CurrentTarget",
-                target != null && target.IsAlive ? target.gameObject : null);
-        }
-
-        private void WriteBlackboardValue<TValue>(string variableName, TValue value)
-        {
-            if (behaviorAgent != null)
-                behaviorAgent.SetVariableValue(variableName, value);
+            if (commandState == null)
+                commandState = GetComponent<CombatCommandState>();
+            if (commandState == null)
+                commandState = gameObject.AddComponent<CombatCommandState>();
+            if (actionController == null)
+                actionController = GetComponent<CombatActionController>();
+            if (actionController == null)
+                actionController = gameObject.AddComponent<CombatActionController>();
+            if (decisionCoordinator == null)
+                decisionCoordinator = GetComponent<CombatDecisionCoordinator>();
+            if (decisionCoordinator == null)
+                decisionCoordinator = gameObject.AddComponent<CombatDecisionCoordinator>();
         }
 
         private void HandleCombatantDied(Combatant deadCombatant)
         {
             StopBehaviorForDeath();
-        }
-
-        private void OnDrawGizmos()
-        {
-            if (director == null || gridMap == null || !director.DebugVisible)
-                return;
-
-            for (int index = 0; index < debugChoices.Count; index++)
-            {
-                TacticalCellChoice choice = debugChoices[index];
-                Gizmos.color = index == 0
-                    ? Color.magenta
-                    : new Color(1f, 0.45f, 1f, 0.65f);
-                Vector3 position = gridMap.GridToWorld(choice.Cell)
-                    + Vector3.up * (0.1f + index * 0.08f);
-                Gizmos.DrawWireCube(
-                    position,
-                    new Vector3(
-                        gridMap.CellSize * 0.8f,
-                        0.08f,
-                        gridMap.CellSize * 0.8f));
-#if UNITY_EDITOR
-                string positionType =
-                    choice.IsCoveredFiringPosition ? "COVER" : "EXPOSED";
-                string shotType =
-                    choice.Evaluation.UsesPeekPosition ? "PEEK" : "DIRECT";
-                string coverAngle = choice.IncomingCover.AngleDegrees >= 0f
-                    ? $"{choice.IncomingCover.AngleDegrees:0}deg"
-                    : "-";
-                UnityEditor.Handles.Label(
-                    position + Vector3.up * 0.25f,
-                    $"#{index + 1} {positionType} {choice.Target.name} {shotType} ANG {coverAngle} HIT {choice.Evaluation.HitChancePercent:0}% SCORE {choice.Score:0}");
-#endif
-            }
         }
 
 #if UNITY_EDITOR
@@ -471,6 +230,7 @@ namespace GridSquad
             behaviorAgent = newBehaviorAgent;
             autonomousMovementDefault = newAutonomousMovementDefault;
             automaticPeekDefault = newAutomaticPeekDefault;
+            EnsureAbilityComponents();
         }
 #endif
     }

@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using UnityEngine;
 
 namespace GridSquad
@@ -8,119 +7,62 @@ namespace GridSquad
         [SerializeField] private GridMap gridMap;
         [SerializeField] private CombatTuning tuning;
 
-        public ShotEvaluation EvaluateShot(Combatant shooter, Combatant target)
+        private ShotGeometryEvaluator geometryEvaluator;
+        private ShotImpactCalculator impactCalculator;
+
+        private void Awake()
+        {
+            BuildEvaluationServices();
+        }
+
+        public ShotEvaluation EvaluateShot(Combatant shooter, ShootableTarget target)
             => EvaluateShotWithWeapon(shooter, target, shooter != null ? shooter.Weapon : null);
 
         public ShotEvaluation EvaluateShotWithWeapon(
             Combatant shooter,
-            Combatant target,
+            ShootableTarget target,
             WeaponDefinition weapon)
         {
-            GridCoordinate originCell = shooter.CurrentCell;
-            if (weapon == null)
-            {
-                return CreateCannotShoot(
-                    ShotFailureReason.NoTarget,
-                    shooter,
-                    originCell,
-                    originCell,
-                    shooter.transform.position,
-                    true);
-            }
-            if (target == null)
-            {
-                return CreateCannotShoot(
-                    ShotFailureReason.NoTarget,
-                    shooter,
-                    originCell,
-                    originCell,
-                    shooter.transform.position,
-                    true);
-            }
-            if (!target.IsAlive)
-            {
-                return CreateCannotShoot(
-                    ShotFailureReason.TargetDead,
-                    shooter,
-                    originCell,
-                    target.CurrentExposureCell,
-                    target.CurrentExposureCenter,
-                    true);
-            }
-
-            GridCoordinate targetExposureCell = target.CurrentExposureCell;
-            ShotEvaluation direct = EvaluateFromCells(
-                shooter,
-                originCell,
-                target.CurrentCell,
-                targetExposureCell,
-                target.CurrentExposureCenter,
-                false,
-                true,
-                weapon);
-            if (!shooter.PeekEnabled)
-                return direct;
-
-            if (!TryFindBestPeekShot(shooter, target, originCell, weapon, out ShotEvaluation peek))
-                return direct;
-
-            if (peek.CanShoot && (!direct.CanShoot || peek.HitChancePercent > direct.HitChancePercent))
-                return peek;
-            return direct;
+            EnsureEvaluationServices();
+            return geometryEvaluator.EvaluateShot(shooter, target, weapon);
         }
 
         public ShotEvaluation EvaluateShotFromCell(
             Combatant shooter,
-            Combatant target,
+            ShootableTarget target,
             GridCoordinate shooterCell,
             bool allowPeek)
             => EvaluateShotFromCellWithWeapon(shooter, target, shooterCell, allowPeek, shooter.Weapon);
 
         public ShotEvaluation EvaluateShotFromCellWithWeapon(
             Combatant shooter,
-            Combatant target,
+            ShootableTarget target,
             GridCoordinate shooterCell,
             bool allowPeek,
             WeaponDefinition weapon)
         {
-            if (target == null || !target.IsAlive)
-            {
-                return CreateCannotShoot(
-                    ShotFailureReason.NoTarget,
-                    shooter,
-                    shooterCell,
-                    shooterCell,
-                    gridMap.GridToWorld(shooterCell),
-                    false);
-            }
-
-            GridCoordinate targetExposureCell = target.CurrentExposureCell;
-            ShotEvaluation direct = EvaluateFromCells(
+            EnsureEvaluationServices();
+            return geometryEvaluator.EvaluateShotFromCell(
                 shooter,
+                target,
                 shooterCell,
-                target.CurrentCell,
-                targetExposureCell,
-                target.CurrentExposureCenter,
-                false,
-                false,
+                allowPeek,
                 weapon);
-            if (!allowPeek)
-                return direct;
+        }
 
-            if (TryFindBestPeekShot(shooter, target, shooterCell, weapon, out ShotEvaluation peek)
-                && peek.CanShoot
-                && (!direct.CanShoot || peek.HitChancePercent > direct.HitChancePercent))
-            {
-                return peek;
-            }
-            return direct;
+        public ShotImpactResult CalculateShotImpact(
+            Combatant shooter,
+            ShootableTarget intendedTarget,
+            ShotEvaluation evaluation)
+        {
+            EnsureEvaluationServices();
+            return impactCalculator.Calculate(shooter, intendedTarget, evaluation);
         }
 
         public CoverEvaluation EvaluateIncomingCover(Combatant attacker, GridCoordinate targetCell)
         {
-            if (attacker == null || !attacker.IsAlive)
-                return CoverEvaluation.None;
-            return EvaluateCoverFromCells(attacker.CurrentIndicatorShotOriginCell, targetCell);
+            EnsureEvaluationServices();
+            return geometryEvaluator.EvaluateIncomingCover(attacker, targetCell);
         }
 
         public float EvaluateIncomingCoverAtCell(Combatant attacker, GridCoordinate targetCell)
@@ -130,207 +72,31 @@ namespace GridSquad
             Combatant shooter,
             GridCoordinate targetCell,
             GridCoordinate shotOriginCell)
-            => GetShootingRangeFailure(shooter, targetCell, shotOriginCell) == ShotFailureReason.None;
+        {
+            EnsureEvaluationServices();
+            return geometryEvaluator.IsCellInsideShootingView(shooter, targetCell, shotOriginCell);
+        }
 
         public ShotEvaluation EvaluateShotAtCell(
             Combatant shooter,
             GridCoordinate targetCell,
             GridCoordinate shotOriginCell)
         {
-            Vector3 targetCenter = gridMap.GridToWorld(targetCell) + Vector3.up * 1.1f;
-            return EvaluateFromCells(
-                shooter,
-                shotOriginCell,
-                targetCell,
-                targetCell,
-                targetCenter,
-                false,
-                false,
-                shooter.Weapon);
+            EnsureEvaluationServices();
+            return geometryEvaluator.EvaluateShotAtCell(shooter, targetCell, shotOriginCell);
         }
 
-        private bool TryFindBestPeekShot(
-            Combatant shooter,
-            Combatant target,
-            GridCoordinate shooterCell,
-            WeaponDefinition weapon,
-            out ShotEvaluation best)
+        private void EnsureEvaluationServices()
         {
-            best = default;
-            bool found = false;
-            HashSet<GridCoordinate> evaluatedOrigins = new();
-            GridCoordinate targetExposureCell = target.CurrentExposureCell;
-            foreach (GridCoordinate coverCell in gridMap.GetAdjacentBlockedCells(shooterCell))
-            {
-                if (!gridMap.IsBlockedCellOnLineBetween(
-                        shooterCell,
-                        targetExposureCell,
-                        coverCell))
-                {
-                    continue;
-                }
-
-                GridCoordinate coverDirection = new(
-                    coverCell.X - shooterCell.X,
-                    coverCell.Z - shooterCell.Z);
-                GridCoordinate[] sideDirections =
-                {
-                    new(-coverDirection.Z, coverDirection.X),
-                    new(coverDirection.Z, -coverDirection.X)
-                };
-
-                foreach (GridCoordinate sideDirection in sideDirections)
-                {
-                    GridCoordinate candidateCell = shooterCell + sideDirection;
-                    if (!evaluatedOrigins.Add(candidateCell)
-                        || !gridMap.IsAvailablePeekCell(candidateCell, shooter))
-                    {
-                        continue;
-                    }
-
-                    ShotEvaluation candidate = EvaluateFromCells(
-                        shooter,
-                        candidateCell,
-                        target.CurrentCell,
-                        targetExposureCell,
-                        target.CurrentExposureCenter,
-                        true,
-                        false,
-                        weapon);
-                    if (!found
-                        || candidate.CanShoot && !best.CanShoot
-                        || candidate.CanShoot == best.CanShoot
-                            && candidate.HitChancePercent > best.HitChancePercent)
-                    {
-                        found = true;
-                        best = candidate;
-                    }
-                }
-            }
-            return found;
+            if (geometryEvaluator == null || impactCalculator == null)
+                BuildEvaluationServices();
         }
 
-        private ShotEvaluation EvaluateFromCells(
-            Combatant shooter,
-            GridCoordinate originCell,
-            GridCoordinate targetPhysicalCell,
-            GridCoordinate targetExposureCell,
-            Vector3 targetWorldCenter,
-            bool usesPeekPosition,
-            bool useLiveMuzzle,
-            WeaponDefinition weapon)
+        private void BuildEvaluationServices()
         {
-            Vector3 shotOrigin = useLiveMuzzle && !usesPeekPosition
-                ? shooter.MuzzlePosition
-                : gridMap.GridToWorld(originCell) + Vector3.up * shooter.MuzzleHeight;
-            ShotFailureReason rangeFailure = GetShootingRangeFailure(weapon, targetExposureCell, originCell);
-            if (rangeFailure != ShotFailureReason.None)
-            {
-                return ShotEvaluation.CannotShoot(
-                    rangeFailure,
-                    originCell,
-                    targetExposureCell,
-                    shotOrigin,
-                    targetWorldCenter);
-            }
-
-            if (!gridMap.HasClearCellLine(originCell, targetExposureCell))
-            {
-                return ShotEvaluation.CannotShoot(
-                    ShotFailureReason.FullyBlocked,
-                    originCell,
-                    targetExposureCell,
-                    shotOrigin,
-                    targetWorldCenter);
-            }
-
-            CoverEvaluation cover = EvaluateCoverFromCells(originCell, targetPhysicalCell);
-            float hitChance = Mathf.Clamp(
-                weapon.BaseHitChancePercent
-                    + (shooter != null ? shooter.HitChanceBonusPercent : 0f)
-                    - cover.EvasionPercent,
-                tuning.MinimumHitChancePercent,
-                tuning.MaximumHitChancePercent);
-            return new ShotEvaluation
-            {
-                CanShoot = true,
-                UsesPeekPosition = usesPeekPosition,
-                ShotOriginCell = originCell,
-                TargetExposureCell = targetExposureCell,
-                CoverAngleDegrees = cover.AngleDegrees,
-                CoverEvasionPercent = cover.EvasionPercent,
-                HitChancePercent = hitChance,
-                ShotOrigin = shotOrigin,
-                TargetCenter = targetWorldCenter,
-                FailureReason = ShotFailureReason.None
-            };
-        }
-
-        private CoverEvaluation EvaluateCoverFromCells(
-            GridCoordinate attackerOriginCell,
-            GridCoordinate targetPhysicalCell)
-        {
-            Vector2 attackDirection = new(
-                attackerOriginCell.X - targetPhysicalCell.X,
-                attackerOriginCell.Z - targetPhysicalCell.Z);
-            if (attackDirection.sqrMagnitude <= 0.0001f)
-                return CoverEvaluation.None;
-            attackDirection.Normalize();
-
-            float minimumAngle = float.PositiveInfinity;
-            foreach (GridCoordinate coverCell in gridMap.GetAdjacentBlockedCells(targetPhysicalCell))
-            {
-                Vector2 coverDirection = new(
-                    coverCell.X - targetPhysicalCell.X,
-                    coverCell.Z - targetPhysicalCell.Z);
-                float angle = Vector2.Angle(attackDirection, coverDirection.normalized);
-                minimumAngle = Mathf.Min(minimumAngle, angle);
-            }
-            if (float.IsPositiveInfinity(minimumAngle))
-                return CoverEvaluation.None;
-
-            float coverRatio = Mathf.Clamp01(1f - minimumAngle / 90f);
-            return new CoverEvaluation(
-                minimumAngle,
-                coverRatio * tuning.MaximumCoverEvasionPercent);
-        }
-
-        private ShotFailureReason GetShootingRangeFailure(
-            Combatant shooter,
-            GridCoordinate targetCell,
-            GridCoordinate originCell)
-            => GetShootingRangeFailure(shooter.Weapon, targetCell, originCell);
-
-        private static ShotFailureReason GetShootingRangeFailure(
-            WeaponDefinition weapon,
-            GridCoordinate targetCell,
-            GridCoordinate originCell)
-        {
-            if (weapon == null)
-                return ShotFailureReason.OutOfRange;
-            Vector2 cellDifference = new(targetCell.X - originCell.X, targetCell.Z - originCell.Z);
-            return cellDifference.magnitude > weapon.RangeInCells
-                ? ShotFailureReason.OutOfRange
-                : ShotFailureReason.None;
-        }
-
-        private ShotEvaluation CreateCannotShoot(
-            ShotFailureReason reason,
-            Combatant shooter,
-            GridCoordinate originCell,
-            GridCoordinate targetExposureCell,
-            Vector3 targetCenter,
-            bool useLiveMuzzle)
-        {
-            Vector3 origin = useLiveMuzzle
-                ? shooter.MuzzlePosition
-                : gridMap.GridToWorld(originCell) + Vector3.up * shooter.MuzzleHeight;
-            return ShotEvaluation.CannotShoot(
-                reason,
-                originCell,
-                targetExposureCell,
-                origin,
-                targetCenter);
+            FriendlyFireEvaluator friendlyFireEvaluator = new(gridMap, tuning);
+            geometryEvaluator = new ShotGeometryEvaluator(gridMap, tuning, friendlyFireEvaluator);
+            impactCalculator = new ShotImpactCalculator(gridMap, friendlyFireEvaluator);
         }
 
 #if UNITY_EDITOR
@@ -338,6 +104,7 @@ namespace GridSquad
         {
             gridMap = newGridMap;
             tuning = newTuning;
+            BuildEvaluationServices();
         }
 #endif
     }

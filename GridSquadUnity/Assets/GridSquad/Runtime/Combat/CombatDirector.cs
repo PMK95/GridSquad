@@ -11,7 +11,6 @@ namespace GridSquad
         [SerializeField] private ShotEvaluator shotEvaluator;
         [SerializeField] private CombatHudController hud;
         [SerializeField] private MMTimeManager timeManager;
-        [SerializeField] private WeaponLoadoutPanel weaponLoadoutPanel;
 
         private bool debugVisible;
         private bool battleFinished;
@@ -31,13 +30,11 @@ namespace GridSquad
                 timeManager = FindFirstObjectByType<MMTimeManager>();
         }
 
-        private void Start()
+        private IEnumerator Start()
         {
             SetAllyControlMode(CombatControlMode.PlayerMovementAutomaticActions);
-            if (weaponLoadoutPanel != null)
-                weaponLoadoutPanel.Show();
-            else
-                StartBattleWithCurrentLoadouts();
+            yield return null;
+            StartBattleWithCurrentLoadouts();
         }
 
         public void StartBattleWithCurrentLoadouts()
@@ -51,14 +48,14 @@ namespace GridSquad
                     continue;
                 if (!combatant.InitializeWeaponLoadoutForBattle(out string failureReason))
                 {
+                    string message = $"전투 시작 실패: {combatant.DisplayName} - {failureReason}";
                     Debug.LogError($"[전투 준비] {combatant.name}: {failureReason}");
-                    weaponLoadoutPanel?.SetStatusMessage(failureReason);
+                    hud?.SetActionMessage(message);
                     return;
                 }
             }
 
             battleStarted = true;
-            weaponLoadoutPanel?.Hide();
             SetAllyControlMode(allyControlMode);
             foreach (Combatant combatant in combatants)
             {
@@ -72,22 +69,27 @@ namespace GridSquad
         {
             Combatant best = null;
             float bestDistance = float.PositiveInfinity;
+            bool bestIsFriendlyFireSafe = false;
             foreach (Combatant candidate in combatants)
             {
                 if (candidate == null || !candidate.IsAlive || candidate.Team == requester.Team)
                     continue;
                 ShotEvaluation evaluation = shotEvaluator.EvaluateShotFromCell(
                     requester,
-                    candidate,
+                    candidate.ShootableTarget,
                     requester.CurrentCell,
                     allowPeek);
                 if (!evaluation.CanShoot)
                     continue;
+                bool candidateIsFriendlyFireSafe = evaluation.FriendlyFireRiskPercent <= 0.01f;
                 float distance = (candidate.transform.position - requester.transform.position).sqrMagnitude;
-                if (distance < bestDistance)
+                if (best == null
+                    || candidateIsFriendlyFireSafe && !bestIsFriendlyFireSafe
+                    || candidateIsFriendlyFireSafe == bestIsFriendlyFireSafe && distance < bestDistance)
                 {
                     best = candidate;
                     bestDistance = distance;
+                    bestIsFriendlyFireSafe = candidateIsFriendlyFireSafe;
                 }
             }
             return best;
@@ -220,10 +222,6 @@ namespace GridSquad
             timeManager = newTimeManager;
         }
 
-        public void SetEditorWeaponLoadoutPanel(WeaponLoadoutPanel newWeaponLoadoutPanel)
-        {
-            weaponLoadoutPanel = newWeaponLoadoutPanel;
-        }
 #endif
     }
 }

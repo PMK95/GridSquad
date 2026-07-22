@@ -12,28 +12,16 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8902b82866e050b47b51d1dab1451d0a, type: 3}
   m_Name: StimAction
   m_EditorClassIdentifier: Assembly-CSharp::GridSquad.CombatActionDefinition
-  kind: 3
+  actionId: stim
   displayName: "\uC790\uADF9\uC81C"
   description: "\uC989\uC2DC \uD68C\uBCF5\uD558\uACE0 \uC7A0\uC2DC \uC804\uD22C \uB2A5\uB825\uC744
     \uAC15\uD654\uD569\uB2C8\uB2E4."
   icon: {fileID: 21300000, guid: 59a79975357305c47b9c677340bb3b34, type: 3}
-  targetType: 1
+  behavior: {fileID: 11400000, guid: a1ac8179f79e41b39e2bfcdfe8885f4c, type: 2}
   automaticInFullAuto: 1
   automaticInSemiAuto: 1
-  startingCharges: 1
+  startingCharges: -1
   cooldownSeconds: 0
   windupSeconds: 0.5
-  grenadeRangeCells: 5
-  grenadeRadiusCells: 1
-  grenadeDamage: 40
-  grenadeTravelSeconds: 0.4
-  grenadeFuseSeconds: 1.5
-  grenadeCameraShakeDuration: 0.28
-  grenadeCameraShakeAmplitude: 1.4
-  grenadeCameraShakeFrequency: 24
-  stimDurationSeconds: 8
-  stimMovementSpeedMultiplier: 1.35
-  stimFireIntervalMultiplier: 0.75
-  dashMaximumCells: 3
-  dashMovementSpeedMultiplier: 3
-  dashMinimumPositionImprovement: 15
+  playerSlotOrder: 200
+  displayKind: 0

@@ -61,6 +61,38 @@ namespace GridSquad
         OutOfAmmo
     }
 
+    public enum ShotImpactKind
+    {
+        CannotFire,
+        IntendedTargetHit,
+        AccidentalTargetHit,
+        Missed
+    }
+
+    public readonly struct ShotImpactResult
+    {
+        public readonly ShotImpactKind Kind;
+        public readonly ShootableTarget ImpactTarget;
+        public readonly Vector3 ImpactPoint;
+
+        public bool Fired => Kind != ShotImpactKind.CannotFire;
+        public bool AppliedDamage => Kind == ShotImpactKind.IntendedTargetHit
+            || Kind == ShotImpactKind.AccidentalTargetHit;
+
+        public ShotImpactResult(
+            ShotImpactKind kind,
+            ShootableTarget impactTarget,
+            Vector3 impactPoint)
+        {
+            Kind = kind;
+            ImpactTarget = impactTarget;
+            ImpactPoint = impactPoint;
+        }
+
+        public static ShotImpactResult CannotFire(Vector3 impactPoint)
+            => new(ShotImpactKind.CannotFire, null, impactPoint);
+    }
+
     [Serializable]
     public readonly struct CoverEvaluation
     {
@@ -88,6 +120,7 @@ namespace GridSquad
         public float CoverAngleDegrees;
         public float CoverEvasionPercent;
         public float HitChancePercent;
+        public float FriendlyFireRiskPercent;
         public Vector3 ShotOrigin;
         public Vector3 TargetCenter;
         public ShotFailureReason FailureReason;
@@ -108,6 +141,7 @@ namespace GridSquad
                 CoverAngleDegrees = -1f,
                 CoverEvasionPercent = 0f,
                 HitChancePercent = 0f,
+                FriendlyFireRiskPercent = 0f,
                 ShotOrigin = origin,
                 TargetCenter = targetCenter,
                 FailureReason = reason

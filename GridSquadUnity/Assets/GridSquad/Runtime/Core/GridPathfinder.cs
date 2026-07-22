@@ -8,7 +8,7 @@ namespace GridSquad
             GridMap grid,
             GridCoordinate start,
             GridCoordinate goal,
-            Combatant requester,
+            TacticalEntity requester,
             bool avoidDynamicBlockers = false)
         {
             if (start == goal)

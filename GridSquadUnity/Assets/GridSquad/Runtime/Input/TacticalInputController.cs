@@ -21,39 +21,73 @@ namespace GridSquad
         [SerializeField] private MMTimeManager timeManager;
         [SerializeField] private LayerMask groundLayerMask;
         [SerializeField] private LayerMask unitLayerMask;
+        [SerializeField] private LayerMask coverLayerMask;
+        [SerializeField] private ContextFloatingMenuController contextMenu;
+        [SerializeField] private SelectionDetailWindowController detailWindow;
 
         private readonly List<Vector3> pathPoints = new();
         private InputActionMap tacticalMap;
+        private TacticalEntity selectedEntity;
         private Combatant selectedCombatant;
+        private Combatant lastSelectedAllyCombatant;
         private bool targetingMode;
-        private CombatActionKind? targetingActionKind;
+        private CombatActionDefinition targetingActionDefinition;
+        private string targetingActionRuntimeKey;
         private bool paused;
         private float activeTimeScale = 1f;
 
         public bool Paused => paused;
         public float ActiveTimeScale => activeTimeScale;
+        public TacticalEntity SelectedEntity => selectedEntity;
         public Combatant SelectedCombatant => selectedCombatant;
-        public bool IsTargetCommandActive => targetingMode && !targetingActionKind.HasValue;
-        public CombatActionKind? TargetingActionKind => targetingActionKind;
+        public bool IsTargetCommandActive => targetingMode && targetingActionDefinition == null;
+        public CombatActionDefinition TargetingActionDefinition => targetingActionDefinition;
 
         private void Awake()
         {
             if (timeManager == null)
                 timeManager = FindFirstObjectByType<MMTimeManager>();
+            if (contextMenu == null)
+                contextMenu = FindFirstObjectByType<ContextFloatingMenuController>();
+            if (detailWindow == null)
+                detailWindow = FindFirstObjectByType<SelectionDetailWindowController>();
+            if (coverLayerMask.value == 0)
+            {
+                int coverLayer = LayerMask.NameToLayer("Cover");
+                if (coverLayer >= 0)
+                    coverLayerMask = 1 << coverLayer;
+            }
             tacticalMap = inputActions.FindActionMap("Tactical", true);
             EnsureRuntimeCombatInputActions();
             hud.SetTimeScaleDisplay(activeTimeScale, false);
             hud.SetTargetingState(false);
             hud.SetDebugState(false);
-            hud.SetSelectedCombatant(null);
+            hud.SetSelectedEntity(null);
             gridCombatIndicator.SetSelectedCombatant(null);
         }
 
-        private void OnEnable() => tacticalMap?.Enable();
+        private void OnEnable()
+        {
+            tacticalMap?.Enable();
+            if (selectedEntity != null)
+            {
+                selectedEntity.BecameUnavailable -= HandleSelectedEntityUnavailable;
+                selectedEntity.BecameUnavailable += HandleSelectedEntityUnavailable;
+            }
+            if (selectedCombatant != null)
+            {
+                selectedCombatant.Died -= HandleSelectedCombatantDied;
+                selectedCombatant.Died += HandleSelectedCombatantDied;
+            }
+        }
 
         private void OnDisable()
         {
             selectedCombatant?.ClearManualTargetHoverPreview();
+            if (selectedEntity != null)
+                selectedEntity.BecameUnavailable -= HandleSelectedEntityUnavailable;
+            if (selectedCombatant != null)
+                selectedCombatant.Died -= HandleSelectedCombatantDied;
             tacticalMap?.Disable();
         }
 
@@ -87,14 +121,14 @@ namespace GridSquad
                 BeginSelectedTargetCommandFromHud();
             if (ActionPressed("CycleControlMode"))
                 director.CycleAllyControlMode();
-            if (ActionPressed("Grenade"))
-                BeginSelectedActionFromHud(CombatActionKind.Grenade);
-            if (ActionPressed("Stim"))
-                BeginSelectedActionFromHud(CombatActionKind.Stim);
-            if (ActionPressed("Dash"))
-                BeginSelectedActionFromHud(CombatActionKind.Dash);
-            if (ActionPressed("SwitchWeapon"))
-                BeginSelectedActionFromHud(CombatActionKind.SwitchWeapon);
+            if (ActionPressed("ActionSlot1"))
+                BeginSelectedActionFromHud(0);
+            if (ActionPressed("ActionSlot2"))
+                BeginSelectedActionFromHud(1);
+            if (ActionPressed("ActionSlot3"))
+                BeginSelectedActionFromHud(2);
+            if (ActionPressed("ActionSlot4"))
+                BeginSelectedActionFromHud(3);
             if (ActionPressed("TogglePeek"))
                 ToggleSelectedAutomaticPeekFromHud();
             if (ActionPressed("TogglePause"))
@@ -125,10 +159,10 @@ namespace GridSquad
         private void EnsureRuntimeCombatInputActions()
         {
             EnsureRuntimeButtonAction("CycleControlMode", "<Keyboard>/tab");
-            EnsureRuntimeButtonAction("Grenade", "<Keyboard>/g");
-            EnsureRuntimeButtonAction("Stim", "<Keyboard>/v");
-            EnsureRuntimeButtonAction("Dash", "<Keyboard>/x");
-            EnsureRuntimeButtonAction("SwitchWeapon", "<Keyboard>/c");
+            EnsureRuntimeButtonAction("ActionSlot1", "<Keyboard>/g");
+            EnsureRuntimeButtonAction("ActionSlot2", "<Keyboard>/v");
+            EnsureRuntimeButtonAction("ActionSlot3", "<Keyboard>/x");
+            EnsureRuntimeButtonAction("ActionSlot4", "<Keyboard>/c");
         }
 
         private void EnsureRuntimeButtonAction(string actionName, string bindingPath)
@@ -163,40 +197,42 @@ namespace GridSquad
             if (IsPointerOverHud())
                 return;
 
-            if (targetingActionKind.HasValue)
+            if (targetingActionDefinition != null)
             {
-                TryExecuteTargetedAction();
-                return;
-            }
-
-            if (!TryRaycastUnit(out Combatant clicked))
-            {
-                if (!targetingMode)
-                    SetSelectedCombatant(null);
+                if (targetingActionDefinition.TargetingMode == CombatActionTargetingMode.ShootableTarget)
+                    TryExecuteShootableTargetedAction();
+                else
+                    TryExecuteCellTargetedAction();
                 return;
             }
 
             if (targetingMode)
             {
-                if (selectedCombatant != null && clicked.Team != selectedCombatant.Team)
+                if (selectedCombatant != null
+                    && TryRaycastShootableTarget(out ShootableTarget target)
+                    && IsValidTargetCommand(target))
                 {
                     UnitTacticalBehaviorController behaviorController =
                         selectedCombatant.GetComponent<UnitTacticalBehaviorController>();
-                    behaviorController?.SetPriorityTargetCommand(clicked);
+                    behaviorController?.SetPriorityTargetCommand(target);
                     CancelTargeting();
                 }
                 return;
             }
 
-            SetSelectedCombatant(clicked);
+            if (!TryRaycastSelectableEntity(out TacticalEntity clicked))
+            {
+                SetSelectedEntity(null);
+                return;
+            }
+
+            SetSelectedEntity(clicked);
         }
 
         private void HandleMoveCommand()
         {
-            if (selectedCombatant == null
-                || selectedCombatant.Team != Team.Ally
-                || targetingMode
-                || targetingActionKind.HasValue)
+            if (targetingMode
+                || targetingActionDefinition != null)
                 return;
             if (IsPointerOverHud())
                 return;
@@ -204,26 +240,80 @@ namespace GridSquad
             Ray ray = sceneCamera.ScreenPointToRay(pointer);
             if (!Physics.Raycast(ray, out RaycastHit hit, 500f, groundLayerMask, QueryTriggerInteraction.Ignore))
                 return;
+            GridCoordinate clickedCell = gridMap.WorldToGrid(hit.point);
+            List<ContextCommand> commands = new();
+            Combatant commandActor = selectedCombatant != null && selectedCombatant.Team == Team.Ally
+                ? selectedCombatant
+                : lastSelectedAllyCombatant;
+            TacticalEntity targetEntity = TryRaycastSelectableEntity(out TacticalEntity pointedEntity)
+                ? pointedEntity
+                : null;
+            ContextCommandQuery query = new(commandActor, targetEntity, detailWindow, hud);
+            if (targetEntity != null)
+            {
+                foreach (IContextCommandProvider provider in targetEntity.GetComponents<IContextCommandProvider>())
+                    provider.CollectAvailableContextCommands(query, commands);
+            }
+            foreach (WorldItemPickup pickup in WorldItemPickup.GetItemsAt(clickedCell))
+            {
+                if (pickup != null && pickup != targetEntity?.GetComponent<WorldItemPickup>())
+                    pickup.CollectAvailableContextCommands(query, commands);
+            }
+            if (commands.Count > 0 && contextMenu != null)
+            {
+                contextMenu.ShowContextCommandsAtPointer(pointer, commands);
+                return;
+            }
+            if (selectedCombatant == null || selectedCombatant.Team != Team.Ally)
+                return;
             UnitTacticalBehaviorController behaviorController =
                 selectedCombatant.GetComponent<UnitTacticalBehaviorController>();
-            behaviorController?.QueueMoveCommand(gridMap.WorldToGrid(hit.point));
+            behaviorController?.QueueMoveCommand(clickedCell);
         }
 
         private static bool IsPointerOverHud()
             => EventSystem.current != null && EventSystem.current.IsPointerOverGameObject();
 
-        private bool TryRaycastUnit(out Combatant combatant)
+        private bool TryRaycastSelectableEntity(out TacticalEntity entity)
         {
             Vector2 pointer = tacticalMap.FindAction("PointerPosition", true).ReadValue<Vector2>();
             Ray ray = sceneCamera.ScreenPointToRay(pointer);
-            if (Physics.Raycast(ray, out RaycastHit hit, 500f, unitLayerMask, QueryTriggerInteraction.Ignore))
+            RaycastHit[] hits = Physics.RaycastAll(
+                ray,
+                500f,
+                ~0,
+                QueryTriggerInteraction.Collide);
+            System.Array.Sort(hits, (left, right) => left.distance.CompareTo(right.distance));
+            foreach (RaycastHit hit in hits)
             {
-                combatant = hit.collider.GetComponentInParent<Combatant>();
-                return combatant != null && combatant.IsAlive;
+                entity = hit.collider.GetComponentInParent<TacticalEntity>();
+                if (entity != null && entity.IsAvailable && entity.IsSelectable)
+                    return true;
             }
-            combatant = null;
+            entity = null;
             return false;
         }
+
+        private bool TryRaycastShootableTarget(out ShootableTarget target)
+        {
+            Vector2 pointer = tacticalMap.FindAction("PointerPosition", true).ReadValue<Vector2>();
+            Ray ray = sceneCamera.ScreenPointToRay(pointer);
+            int targetLayerMask = unitLayerMask.value | coverLayerMask.value;
+            if (Physics.Raycast(ray, out RaycastHit hit, 500f, targetLayerMask, QueryTriggerInteraction.Ignore))
+            {
+                target = hit.collider.GetComponentInParent<ShootableTarget>();
+                return target != null && target.IsAlive;
+            }
+            target = null;
+            return false;
+        }
+
+        private bool IsValidTargetCommand(ShootableTarget target)
+            => selectedCombatant != null
+                && target != null
+                && target != selectedCombatant.ShootableTarget
+                && target.IsAlive
+                && target.TargetTeam != selectedCombatant.Team;
 
         public void SelectCombatantFromRoster(Combatant combatant)
         {
@@ -234,12 +324,12 @@ namespace GridSquad
                 return;
             }
 
-            SetSelectedCombatant(combatant);
+            SetSelectedEntity(combatant.Entity);
         }
 
         public void BeginSelectedTargetCommandFromHud()
         {
-            SetEnemyTargetingMode(!targetingMode || targetingActionKind.HasValue);
+            SetEnemyTargetingMode(!targetingMode || targetingActionDefinition != null);
         }
 
         public void ToggleSelectedAutomaticPeekFromHud()
@@ -265,39 +355,76 @@ namespace GridSquad
                     : "자동 엄폐 해제");
         }
 
-        public void BeginSelectedActionFromHud(CombatActionKind kind)
+        public void BeginSelectedActionFromHud(int slotIndex)
         {
-            switch (kind)
+            CombatActionController actionController = GetSelectedAllyActionController();
+            if (actionController == null)
+                return;
+            CombatActionRuntimeState actionState = actionController.GetPlayerActionRuntimeState(slotIndex);
+            if (!actionState.IsEquipped || !actionState.IsInteractable || actionState.Definition == null)
             {
-                case CombatActionKind.Grenade:
-                case CombatActionKind.Dash:
-                    BeginActionCellTargeting(kind);
-                    break;
-                case CombatActionKind.Stim:
-                    TryUseStim();
-                    break;
-                case CombatActionKind.SwitchWeapon:
-                    TrySwitchWeapon();
-                    break;
+                hud.SetActionMessage(actionState.StatusText);
+                return;
             }
+
+            CombatActionDefinition definition = actionState.Definition;
+            if (definition.TargetingMode is CombatActionTargetingMode.GridCell
+                or CombatActionTargetingMode.ShootableTarget)
+            {
+                BeginActionTargeting(actionState.RuntimeKey, definition, actionController);
+                return;
+            }
+
+            CombatActionTargetSelection selection = definition.TargetingMode == CombatActionTargetingMode.Self
+                ? CombatActionTargetSelection.Self(selectedCombatant.CurrentCell)
+                : CombatActionTargetSelection.None();
+            if (!actionController.TryQueuePlayerAction(actionState.RuntimeKey, selection, out string failureReason))
+                hud.SetActionMessage(failureReason);
+            else
+                hud.SetActionMessage($"{definition.DisplayName} 시작");
+            CancelTargeting();
         }
 
         private void SetSelectedCombatant(Combatant combatant)
         {
-            if (selectedCombatant == combatant)
+            SetSelectedEntity(combatant != null ? combatant.Entity : null);
+        }
+
+        private void SetSelectedEntity(TacticalEntity entity)
+        {
+            if (selectedEntity == entity)
                 return;
 
+            if (selectedEntity != null)
+                selectedEntity.BecameUnavailable -= HandleSelectedEntityUnavailable;
             if (selectedCombatant != null)
                 selectedCombatant.Died -= HandleSelectedCombatantDied;
             selectedCombatant?.ClearManualTargetHoverPreview();
-            selectedCombatant?.SetSelected(false);
-            selectedCombatant = combatant;
-            selectedCombatant?.SetSelected(true);
+            selectedEntity?.SetSelected(false);
+            selectedEntity = entity != null && entity.IsAvailable && entity.IsSelectable
+                ? entity
+                : null;
+            selectedCombatant = selectedEntity != null ? selectedEntity.Combatant : null;
+            if (selectedCombatant != null && selectedCombatant.Team == Team.Ally)
+                lastSelectedAllyCombatant = selectedCombatant;
+            selectedEntity?.SetSelected(true);
+            if (selectedEntity != null)
+                selectedEntity.BecameUnavailable += HandleSelectedEntityUnavailable;
             if (selectedCombatant != null)
                 selectedCombatant.Died += HandleSelectedCombatantDied;
-            hud.SetSelectedCombatant(selectedCombatant);
+            hud.SetSelectedEntity(selectedEntity);
+            contextMenu?.HideMenu();
             gridCombatIndicator.SetSelectedCombatant(selectedCombatant);
             CancelTargeting();
+        }
+
+        private void HandleSelectedEntityUnavailable(TacticalEntity unavailableEntity)
+        {
+            if (unavailableEntity == null || unavailableEntity != selectedEntity)
+                return;
+            if (unavailableEntity.Combatant != null)
+                return;
+            SetSelectedEntity(null);
         }
 
         private void HandleSelectedCombatantDied(Combatant deadCombatant)
@@ -328,84 +455,69 @@ namespace GridSquad
         {
             selectedCombatant?.ClearManualTargetHoverPreview();
             targetingMode = value && selectedCombatant != null && selectedCombatant.Team == Team.Ally;
-            targetingActionKind = null;
+            targetingActionDefinition = null;
+            targetingActionRuntimeKey = null;
             gridCombatIndicator.SetActionTargeting(null, null);
             hud.SetTargetingState(targetingMode);
         }
 
-        private void BeginActionCellTargeting(CombatActionKind kind)
+        private void BeginActionTargeting(
+            string runtimeKey,
+            CombatActionDefinition definition,
+            CombatActionController actionController)
         {
-            CombatActionController actionController = GetSelectedAllyActionController();
-            if (actionController == null)
-                return;
-
-            CombatActionRuntimeState actionState = actionController.GetActionRuntimeState(kind);
-            if (!actionState.IsEquipped || !actionState.IsInteractable)
-            {
-                hud.SetActionMessage(actionState.StatusText);
-                return;
-            }
-
             targetingMode = false;
-            targetingActionKind = kind;
+            targetingActionDefinition = definition;
+            targetingActionRuntimeKey = runtimeKey;
             selectedCombatant?.ClearManualTargetHoverPreview();
-            gridCombatIndicator.SetActionTargeting(kind, actionController);
-            hud.SetActionTargetingState(kind);
+            gridCombatIndicator.SetActionTargeting(definition, actionController);
+            hud.SetActionTargetingState(definition);
         }
 
-        private void TryUseStim()
-        {
-            CombatActionController actionController = GetSelectedAllyActionController();
-            if (actionController == null)
-                return;
-
-            if (!actionController.TryStartPlayerStim(out string failureReason))
-                hud.SetActionMessage(failureReason);
-            else
-                hud.SetActionMessage("자극제 사용");
-            CancelTargeting();
-        }
-
-        private void TrySwitchWeapon()
-        {
-            CombatActionController actionController = GetSelectedAllyActionController();
-            if (actionController == null)
-                return;
-
-            if (!actionController.TryStartPlayerWeaponSwap(out string failureReason))
-                hud.SetActionMessage(failureReason);
-            else
-                hud.SetActionMessage("무기 교체 시작");
-            CancelTargeting();
-        }
-
-        private void TryExecuteTargetedAction()
+        private void TryExecuteCellTargetedAction()
         {
             CombatActionController actionController = GetSelectedAllyActionController();
             if (actionController == null || !TryRaycastGroundCell(out GridCoordinate targetCell))
                 return;
 
-            bool started;
-            string failureReason;
-            if (targetingActionKind == CombatActionKind.Grenade)
-                started = actionController.TryStartPlayerGrenade(targetCell, out failureReason);
-            else
-                started = actionController.TryStartPlayerDash(targetCell, out failureReason);
-            if (!started)
+            if (!actionController.TryQueuePlayerAction(
+                    targetingActionRuntimeKey,
+                    CombatActionTargetSelection.Cell(targetCell),
+                    out string failureReason))
             {
                 hud.SetActionMessage(failureReason);
                 return;
             }
 
-            hud.SetActionMessage(targetingActionKind == CombatActionKind.Grenade
-                ? "수류탄 투척"
-                : "돌진 시작");
+            hud.SetActionMessage($"{targetingActionDefinition.DisplayName} 시작");
+            CancelTargeting();
+        }
+
+        private void TryExecuteShootableTargetedAction()
+        {
+            CombatActionController actionController = GetSelectedAllyActionController();
+            if (actionController == null
+                || !TryRaycastShootableTarget(out ShootableTarget target))
+            {
+                return;
+            }
+            if (!actionController.TryQueuePlayerAction(
+                    targetingActionRuntimeKey,
+                    CombatActionTargetSelection.Shootable(target),
+                    out string failureReason))
+            {
+                hud.SetActionMessage(failureReason);
+                return;
+            }
+            hud.SetActionMessage($"{targetingActionDefinition.DisplayName} 시작");
             CancelTargeting();
         }
 
         private void RefreshActionTargetPreview()
         {
-            if (!targetingActionKind.HasValue || IsPointerOverHud())
+            if (targetingActionDefinition == null
+                || targetingActionDefinition.TargetingMode != CombatActionTargetingMode.GridCell
+                || IsPointerOverHud())
                 return;
             if (TryRaycastGroundCell(out GridCoordinate targetCell))
                 gridCombatIndicator.SetActionPreviewCell(targetCell);
@@ -417,14 +529,14 @@ namespace GridSquad
                 || selectedCombatant == null
                 || !selectedCombatant.IsAlive
                 || IsPointerOverHud()
-                || !TryRaycastUnit(out Combatant hoveredCombatant)
-                || hoveredCombatant.Team == selectedCombatant.Team)
+                || !TryRaycastShootableTarget(out ShootableTarget hoveredTarget)
+                || !IsValidTargetCommand(hoveredTarget))
             {
                 selectedCombatant?.ClearManualTargetHoverPreview();
                 return;
             }
 
-            selectedCombatant.SetManualTargetHoverPreview(hoveredCombatant);
+            selectedCombatant.SetManualTargetHoverPreview(hoveredTarget);
         }
 
         private bool TryRaycastGroundCell(out GridCoordinate cell)
@@ -459,7 +571,8 @@ namespace GridSquad
         {
             selectedCombatant?.ClearManualTargetHoverPreview();
             targetingMode = false;
-            targetingActionKind = null;
+            targetingActionDefinition = null;
+            targetingActionRuntimeKey = null;
             gridCombatIndicator.SetActionTargeting(null, null);
             hud.SetTargetingState(false);
         }
@@ -547,6 +660,14 @@ namespace GridSquad
                 selectedPathLine.SetPositions(pathPoints.ToArray());
         }
 
+        public void SetRuntimeContextUi(
+            ContextFloatingMenuController newContextMenu,
+            SelectionDetailWindowController newDetailWindow)
+        {
+            contextMenu = newContextMenu;
+            detailWindow = newDetailWindow;
+        }
+
 #if UNITY_EDITOR
         public void SetEditorReferences(
             InputActionAsset newInputActions,
@@ -558,7 +679,8 @@ namespace GridSquad
             GridCombatIndicator newGridCombatIndicator,
             MMTimeManager newTimeManager,
             LayerMask newGroundLayerMask,
-            LayerMask newUnitLayerMask)
+            LayerMask newUnitLayerMask,
+            LayerMask newCoverLayerMask)
         {
             inputActions = newInputActions;
             sceneCamera = newSceneCamera;
@@ -570,11 +692,20 @@ namespace GridSquad
             timeManager = newTimeManager;
             groundLayerMask = newGroundLayerMask;
             unitLayerMask = newUnitLayerMask;
+            coverLayerMask = newCoverLayerMask;
         }
 
         public void SetEditorGridCombatIndicator(GridCombatIndicator newGridCombatIndicator)
         {
             gridCombatIndicator = newGridCombatIndicator;
+        }
+
+
+        public void SetEditorContextUi(
+            ContextFloatingMenuController newContextMenu,
+            SelectionDetailWindowController newDetailWindow)
+        {
+            SetRuntimeContextUi(newContextMenu, newDetailWindow);
         }
 #endif
     }

@@ -16,7 +16,13 @@ MonoBehaviour:
   description: "\uCCB4\uB825 100\uC744 \uD76C\uC0DD\uD574 \uC774\uB3D9\uC774 25%
     \uBE68\uB77C\uC9C0\uACE0 \uD53C\uD574\uAC00 5% \uAC10\uC18C\uD569\uB2C8\uB2E4."
   icon: {fileID: 0}
-  maximumHealthDelta: -100
-  movementSpeedMultiplierDelta: 0.25
-  hitChanceBonusPercent: 0
-  damageMultiplierDelta: -0.05
+  modifiers:
+  - definition: {fileID: 11400000, guid: d6148edf0b514418b78b4e24153b352a, type: 2}
+    operation: 0
+    value: -100
+  - definition: {fileID: 11400000, guid: 5334004fe7134e3bbf45984a145712cb, type: 2}
+    operation: 0
+    value: 0.25
+  - definition: {fileID: 11400000, guid: 7b106af550824e58b6ad9afa06890461, type: 2}
+    operation: 0
+    value: -0.05

@@ -4,6 +4,16 @@ using UnityEngine;
 
 namespace GridSquad
 {
+    [DisallowMultipleComponent]
+    [RequireComponent(
+        typeof(TacticalEntity),
+        typeof(EntityHealth),
+        typeof(ShootableTarget))]
+    [RequireComponent(typeof(GridMovementController), typeof(RangedAttackController))]
+    [RequireComponent(
+        typeof(CombatantHitReactionController),
+        typeof(CombatantStatusEffectController),
+        typeof(CombatantFacingController))]
     public sealed class Combatant : MonoBehaviour
     {
         [Header("전투 설정")]
@@ -12,6 +22,7 @@ namespace GridSquad
         [SerializeField] private int maximumHealth = 100;
         [SerializeField] private WeaponDefinition weapon;
         [SerializeField] private CombatTuning tuning;
+        [SerializeField] private UnitStatCatalog statCatalog;
 
         [Header("씬 참조")]
         [SerializeField] private GridMap gridMap;
@@ -25,44 +36,31 @@ namespace GridSquad
         [SerializeField] private UnitAnimationController animationController;
         [SerializeField] private CombatantFeedbackPresenter feedbackPresenter;
         [SerializeField] private WeaponLoadout weaponLoadout;
+        [SerializeField] private EquipmentLoadout equipmentLoadout;
+        [SerializeField] private UnitInventory inventory;
+        [SerializeField] private UnitItemInteractionController itemInteractionController;
 
-        private readonly List<GridCoordinate> movementPath = new();
-        private int movementIndex;
-        private GridCoordinate movementDestination;
-        private bool hasMovementDestination;
-        private bool hasTransitReservation;
-        private float blockedMovementSeconds;
-        private int currentHealth;
-        private GridCoordinate currentCell;
-        private Combatant currentTarget;
-        private Combatant manualTargetHoverPreview;
-        private ShotEvaluation currentShotEvaluation;
-        private FireCycleState fireCycleState;
-        private float fireStateRemainingSeconds;
-        private Combatant aimingTarget;
-        private int currentMagazineAmmo;
-        private int reserveAmmo;
-        private int pendingReloadAmmo;
-        private float reloadElapsedSeconds;
-        private bool reloadAnimationStarted;
-        private float hitReactionRemainingSeconds;
-        private bool peekEnabled;
-        private bool selected;
+        [Header("능력 컴포넌트")]
+        [SerializeField] private TacticalEntity entity;
+        [SerializeField] private EntityHealth health;
+        [SerializeField] private ShootableTarget shootableTarget;
+        [SerializeField] private GridMovementController movementController;
+        [SerializeField] private RangedAttackController rangedAttackController;
+        [SerializeField] private CombatantHitReactionController hitReactionController;
+        [SerializeField] private CombatantStatusEffectController statusEffectController;
+        [SerializeField] private CombatantFacingController facingController;
+
         private bool debugVisible;
-        private Vector3 activePeekOffset;
-        private bool stopMovementAfterCellArrival;
-        private float temporaryMovementSpeedMultiplier = 1f;
-        private float stimMovementSpeedMultiplier = 1f;
-        private float stimFireIntervalMultiplier = 1f;
-        private float stimRemainingSeconds;
-        private UnitStatBlock effectiveStats;
+        private readonly UnitRuntimeStatCollection effectiveStats = new();
 
         public event Action<Combatant> Died;
 
         public Team Team => team;
         public UnitDefinition UnitDefinition => unitDefinition;
         public string DisplayName => unitDefinition != null ? unitDefinition.DisplayName : name;
-        public string RoleName => unitDefinition != null ? unitDefinition.RoleName : (team == Team.Ally ? "아군" : "적군");
+        public string RoleName => unitDefinition != null
+            ? unitDefinition.RoleName
+            : team == Team.Ally ? "아군" : "적군";
         public string Description => unitDefinition != null ? unitDefinition.Description : string.Empty;
         public Sprite Portrait => unitDefinition != null ? unitDefinition.Portrait : null;
         public Color AccentColor => unitDefinition != null
@@ -73,110 +71,168 @@ namespace GridSquad
         public IReadOnlyList<UnitTraitDefinition> Traits => unitDefinition != null
             ? unitDefinition.Traits
             : Array.Empty<UnitTraitDefinition>();
-        public UnitStatBlock EffectiveStats => effectiveStats;
-        public float HitChanceBonusPercent => effectiveStats.HitChanceBonusPercent;
+        public IReadOnlyList<UnitRuntimeStatEntry> EffectiveStats => effectiveStats.Entries;
+        public float HitChanceBonusPercent => GetCoreStatValue(
+            statCatalog != null ? statCatalog.HitChanceBonusPercent : null,
+            0f);
         public int EffectiveWeaponDamage => Weapon != null
-            ? Mathf.Max(1, Mathf.RoundToInt(Weapon.Damage * effectiveStats.DamageMultiplier))
+            ? Mathf.Max(1, Mathf.RoundToInt(
+                Weapon.AttackDamage * GetCoreStatValue(
+                    statCatalog != null ? statCatalog.DamageMultiplier : null,
+                    1f)))
             : 0;
-        public bool IsAlive => currentHealth > 0;
-        public bool IsMoving => movementIndex < movementPath.Count;
-        public bool IsSelected => selected;
-        public bool PeekEnabled => peekEnabled;
-        public int CurrentHealth => currentHealth;
-        public int MaximumHealth => maximumHealth;
-        public GridCoordinate CurrentCell => currentCell;
+        public bool IsAlive => health != null && health.IsAlive;
+        public bool IsMoving => movementController != null && movementController.IsMoving;
+        public bool IsSelected => entity != null && entity.IsSelected;
+        public bool PeekEnabled => rangedAttackController != null && rangedAttackController.PeekEnabled;
+        public int CurrentHealth => health != null ? health.CurrentHealth : 0;
+        public int MaximumHealth => health != null ? health.MaximumHealth : Mathf.Max(1, maximumHealth);
+        public GridCoordinate CurrentCell => entity != null ? entity.CurrentCell : default;
         public WeaponDefinition Weapon => weaponLoadout != null && weaponLoadout.ActiveDefinition != null
             ? weaponLoadout.ActiveDefinition
             : weapon;
         public WeaponLoadout WeaponLoadout => weaponLoadout;
+        public EquipmentLoadout EquipmentLoadout => equipmentLoadout;
+        public UnitInventory Inventory => inventory;
+        public UnitItemInteractionController ItemInteractionController => itemInteractionController;
+        public float CarryCapacity => GetCoreStatValue(
+            statCatalog != null ? statCatalog.CarryCapacity : null,
+            30f);
         public int ActiveWeaponSlotIndex => weaponLoadout != null ? weaponLoadout.ActiveSlotIndex : 0;
-        public Combatant CurrentTarget => currentTarget;
-        public ShotEvaluation CurrentShotEvaluation => currentShotEvaluation;
-        public FireCycleState FireState => fireCycleState;
-        public float FireStateRemainingSeconds => IsReloading && reloadAnimationStarted
-            ? Mathf.Max(0f, Weapon.ReloadDuration - reloadElapsedSeconds)
-            : Mathf.Max(0f, fireStateRemainingSeconds);
-        public Transform AimCenterTransform => aimCenter != null ? aimCenter : transform;
-        public int CurrentMagazineAmmo => currentMagazineAmmo;
-        public int ReserveAmmo => reserveAmmo;
-        public int MagazineCapacity => Weapon != null ? Mathf.Max(1, Weapon.MagazineCapacity) : 1;
-        public float ReloadProgress => IsReloading && reloadAnimationStarted
-            ? Mathf.Clamp01(reloadElapsedSeconds / Mathf.Max(0.01f, Weapon.ReloadDuration))
+        public ShootableTarget CurrentTarget => rangedAttackController != null
+            ? rangedAttackController.CurrentTarget
+            : null;
+        public ShotEvaluation CurrentShotEvaluation => rangedAttackController != null
+            ? rangedAttackController.CurrentShotEvaluation
+            : default;
+        public FireCycleState FireState => rangedAttackController != null
+            ? rangedAttackController.FireState
+            : FireCycleState.WaitingForAim;
+        public float FireStateRemainingSeconds => rangedAttackController != null
+            ? rangedAttackController.FireStateRemainingSeconds
             : 0f;
-        public float MagazineFillRatio
-        {
-            get
-            {
-                float displayedAmmo = currentMagazineAmmo;
-                if (IsReloading && reloadAnimationStarted)
-                    displayedAmmo += pendingReloadAmmo * ReloadProgress;
-                return Mathf.Clamp01(displayedAmmo / MagazineCapacity);
-            }
-        }
-        public bool IsReloading => fireCycleState == FireCycleState.Reloading;
-        public bool IsOutOfAmmo => fireCycleState == FireCycleState.OutOfAmmo;
-        public bool IsHitReacting => hitReactionRemainingSeconds > 0f;
-        public bool IsStimActive => stimRemainingSeconds > 0f;
-        public float StimRemainingSeconds => Mathf.Max(0f, stimRemainingSeconds);
-        public float MuzzleHeight => muzzle != null ? muzzle.position.y - transform.position.y : 1.25f;
-        public Vector3 MuzzlePosition => muzzle != null ? muzzle.position : transform.position + Vector3.up * 1.25f;
-        public Vector3 CurrentAimCenter => aimCenter != null ? aimCenter.position : transform.position + Vector3.up * 1.1f;
-        public GridCoordinate CurrentIndicatorShotOriginCell
-            => peekEnabled && currentShotEvaluation.UsesPeekPosition ? currentShotEvaluation.ShotOriginCell : currentCell;
-        public GridCoordinate CurrentExposureCell
-            => peekEnabled && currentShotEvaluation.UsesPeekPosition ? currentShotEvaluation.ShotOriginCell : currentCell;
-        public Vector3 CurrentIndicatorShotOrigin
-            => peekEnabled && currentShotEvaluation.UsesPeekPosition ? currentShotEvaluation.ShotOrigin : MuzzlePosition;
-        public Vector3 CurrentExposureCenter
-        {
-            get
-            {
-                Vector3 exposureCenter = gridMap.GridToWorld(CurrentExposureCell);
-                exposureCenter.y = CurrentAimCenter.y;
-                return exposureCenter;
-            }
-        }
+        public Transform AimCenterTransform => aimCenter != null ? aimCenter : transform;
+        public int CurrentMagazineAmmo => rangedAttackController != null
+            ? rangedAttackController.CurrentMagazineAmmo
+            : 0;
+        public int ReserveAmmo => rangedAttackController != null
+            ? rangedAttackController.ReserveAmmo
+            : 0;
+        public int MagazineCapacity => rangedAttackController != null
+            ? rangedAttackController.MagazineCapacity
+            : 1;
+        public float ReloadProgress => rangedAttackController != null
+            ? rangedAttackController.ReloadProgress
+            : 0f;
+        public float MagazineFillRatio => rangedAttackController != null
+            ? rangedAttackController.MagazineFillRatio
+            : 0f;
+        public bool IsReloading => rangedAttackController != null && rangedAttackController.IsReloading;
+        public bool IsOutOfAmmo => rangedAttackController != null && rangedAttackController.IsOutOfAmmo;
+        public bool IsHitReacting => hitReactionController != null && hitReactionController.IsReacting;
+        public bool IsStimActive => statusEffectController != null && statusEffectController.IsStimActive;
+        public bool IsStunned => statusEffectController != null && statusEffectController.IsStunned;
+        public float StimRemainingSeconds => statusEffectController != null
+            ? statusEffectController.StimRemainingSeconds
+            : 0f;
+        public float MuzzleHeight => rangedAttackController != null
+            ? rangedAttackController.MuzzleHeight
+            : 1.25f;
+        public Vector3 MuzzlePosition => rangedAttackController != null
+            ? rangedAttackController.MuzzlePosition
+            : transform.position + Vector3.up * 1.25f;
+        public Vector3 CurrentAimCenter => aimCenter != null
+            ? aimCenter.position
+            : transform.position + Vector3.up * 1.1f;
+        public GridCoordinate CurrentIndicatorShotOriginCell => rangedAttackController != null
+            ? rangedAttackController.CurrentIndicatorShotOriginCell
+            : CurrentCell;
+        public GridCoordinate CurrentExposureCell => rangedAttackController != null
+            ? rangedAttackController.CurrentExposureCell
+            : CurrentCell;
+        public Vector3 CurrentIndicatorShotOrigin => rangedAttackController != null
+            ? rangedAttackController.CurrentIndicatorShotOrigin
+            : MuzzlePosition;
+        public Vector3 CurrentExposureCenter => rangedAttackController != null
+            ? rangedAttackController.CurrentExposureCenter
+            : CurrentAimCenter;
+        public TacticalEntity Entity => entity;
+        public EntityHealth Health => health;
+        public ShootableTarget ShootableTarget => shootableTarget;
+        public GridMap GridMap => gridMap;
+        internal float CurrentMovementSpeedMultiplier => GetCoreStatValue(
+                statCatalog != null ? statCatalog.MovementSpeedMultiplier : null,
+                1f)
+            * (statusEffectController != null ? statusEffectController.MovementSpeedMultiplier : 1f);
 
-        public void AppendRemainingPathWorldPoints(List<Vector3> points)
-        {
-            points.Add(transform.position + Vector3.up * 0.08f);
-            for (int index = movementIndex; index < movementPath.Count; index++)
-                points.Add(gridMap.GridToWorld(movementPath[index]) + Vector3.up * 0.08f);
-        }
+        public float GetStatValue(UnitStatDefinition definition)
+            => effectiveStats.GetValue(definition);
 
         private void Awake()
         {
+            EnsureAbilityComponents();
             if (weaponLoadout == null)
                 weaponLoadout = GetComponent<WeaponLoadout>();
+            if (animationController == null)
+                animationController = GetComponentInChildren<UnitAnimationController>(true);
+            if (feedbackPresenter == null)
+                feedbackPresenter = GetComponentInChildren<CombatantFeedbackPresenter>(true);
 
             if (unitDefinition != null)
             {
-                effectiveStats = unitDefinition.CalculateEffectiveStats();
-                maximumHealth = effectiveStats.MaximumHealth;
-                weaponLoadout?.ApplyUnitDefinitionDefaults(unitDefinition);
+                effectiveStats.Rebuild(statCatalog, unitDefinition.BaseStatValues, unitDefinition.Traits);
+                if (statCatalog != null && statCatalog.MaximumHealth != null)
+                {
+                    maximumHealth = Mathf.Max(
+                        1,
+                        Mathf.RoundToInt(effectiveStats.GetValue(statCatalog.MaximumHealth)));
+                }
+                inventory?.ApplyUnitDefinitionDefaults(unitDefinition);
                 CombatActionLoadout actionLoadout = GetComponent<CombatActionLoadout>();
                 actionLoadout?.ApplyUnitDefinitionDefaults(unitDefinition);
                 GetComponent<CombatActionController>()?.RefreshRuntimeActionsFromLoadout();
             }
             else
             {
-                effectiveStats = new UnitStatBlock(maximumHealth, 1f, 0f, 1f);
-                Debug.LogWarning($"[유닛 데이터] {name}에 UnitDefinition이 없어 기존 직렬화 값을 사용합니다.", this);
+                effectiveStats.Rebuild(statCatalog, null, null);
+                Debug.LogWarning(
+                    $"[유닛 데이터] {name}에 UnitDefinition이 없어 기존 직렬화 값을 사용합니다.",
+                    this);
             }
 
-            currentHealth = maximumHealth;
-            currentMagazineAmmo = MagazineCapacity;
-            reserveAmmo = Weapon != null ? Mathf.Max(0, Weapon.StartingReserveAmmo) : 0;
-            currentCell = gridMap.WorldToGrid(transform.position);
-            transform.position = gridMap.GridToWorld(currentCell);
-            gridMap.RegisterOccupant(this, currentCell);
-            if (animationController == null)
-                animationController = GetComponentInChildren<UnitAnimationController>(true);
-            if (feedbackPresenter == null)
-                feedbackPresenter = GetComponentInChildren<CombatantFeedbackPresenter>(true);
+            GridCoordinate initialCell = gridMap != null
+                ? gridMap.WorldToGrid(transform.position)
+                : default;
+            entity.ConfigureRuntime(DisplayName, team, initialCell);
+            health.Initialize(maximumHealth, true);
+            shootableTarget.ConfigureRuntime(
+                entity,
+                health,
+                this,
+                AimCenterTransform,
+                selectionCollider,
+                false);
+            movementController.Initialize(this, entity, gridMap, tuning);
+            rangedAttackController.Initialize(
+                this,
+                shootableTarget,
+                shotEvaluator,
+                tuning,
+                animationController,
+                feedbackPresenter,
+                weaponLoadout,
+                muzzle);
+            hitReactionController.Initialize(this, tuning, animationController, rangedAttackController);
+            statusEffectController.Initialize(rangedAttackController);
+            facingController.Initialize(this, movementController, tuning, visualRoot);
+            equipmentLoadout.EquipmentChanged += HandleEquipmentChanged;
+
+            health.DamageApplied += HandleDamageApplied;
+            health.HealthDepleted += HandleHealthDepleted;
+            entity.SelectionStateChanged += HandleSelectionStateChanged;
             animationController?.Initialize();
-            worldUi.Initialize(this);
-            worldUi.SetSelected(false);
+            worldUi?.Initialize(this);
+            worldUi?.SetSelected(false);
         }
 
         private void Update()
@@ -184,184 +240,93 @@ namespace GridSquad
             if (!IsAlive)
                 return;
 
-            UpdateHitReaction();
-            UpdateStimEffect();
-            bool movedThisFrame = MoveAlongPath();
-            RotateTowardMovementOrTarget();
+            hitReactionController.Tick();
+            statusEffectController.Tick();
+            bool movedThisFrame = movementController.TickMovement(CurrentMovementSpeedMultiplier);
+            facingController.Tick(IsHitReacting);
             animationController?.SetMovementState(movedThisFrame && !IsReloading && !IsHitReacting);
-            Combatant presentationTarget = manualTargetHoverPreview;
-            if (presentationTarget != null
-                && (!presentationTarget.IsAlive || presentationTarget.Team == team))
-            {
-                manualTargetHoverPreview = null;
-                presentationTarget = null;
-            }
 
-            ShotEvaluation presentationEvaluation = currentShotEvaluation;
-            if (presentationTarget != null)
-                presentationEvaluation = shotEvaluator.EvaluateShot(this, presentationTarget);
-            else
-                presentationTarget = currentTarget;
-
-            worldUi.Refresh(presentationTarget, presentationEvaluation, selected, debugVisible);
+            rangedAttackController.GetPresentationTarget(
+                out ShootableTarget presentationTarget,
+                out ShotEvaluation presentationEvaluation);
+            worldUi?.Refresh(
+                presentationTarget,
+                presentationEvaluation,
+                IsSelected,
+                debugVisible);
         }
 
         private void OnDestroy()
         {
-            if (gridMap != null)
-                gridMap.UnregisterOccupant(this, currentCell);
+            if (health != null)
+            {
+                health.DamageApplied -= HandleDamageApplied;
+                health.HealthDepleted -= HandleHealthDepleted;
+            }
+            if (entity != null)
+                entity.SelectionStateChanged -= HandleSelectionStateChanged;
+            if (equipmentLoadout != null)
+                equipmentLoadout.EquipmentChanged -= HandleEquipmentChanged;
+        }
+
+        public void AppendRemainingPathWorldPoints(List<Vector3> points)
+        {
+            movementController?.AppendRemainingPathWorldPoints(points);
         }
 
         public bool SetMoveDestination(GridCoordinate destination)
         {
-            if (!IsAlive || IsReloading)
-                return false;
-            if (destination == currentCell)
-            {
-                movementPath.Clear();
-                movementIndex = 0;
-                gridMap.ReleaseReservation(this);
-                gridMap.ReleaseTransitReservation(this);
-                hasMovementDestination = false;
-                hasTransitReservation = false;
-                blockedMovementSeconds = 0f;
-                ResetFireCycle();
-                return true;
-            }
-            List<GridCoordinate> path = GridPathfinder.FindPath(gridMap, currentCell, destination, this);
-            if (path == null || !gridMap.TryReserveCell(this, destination))
+            bool accepted = movementController != null
+                && movementController.SetMoveDestination(destination);
+            if (!accepted)
                 return false;
 
-            gridMap.ReleaseTransitReservation(this);
-            movementPath.Clear();
-            movementPath.AddRange(path);
-            movementIndex = 0;
-            movementDestination = destination;
-            hasMovementDestination = true;
-            hasTransitReservation = false;
-            stopMovementAfterCellArrival = false;
-            blockedMovementSeconds = 0f;
-            peekEnabled = false;
-            SetActivePeekOffset(Vector3.zero);
-            ResetFireCycle();
+            rangedAttackController.SetPeekEnabled(false);
+            rangedAttackController.ResetBehaviorFireCycle();
             return true;
         }
 
-        public void SetBehaviorTarget(Combatant target)
+        public void SetBehaviorTarget(ShootableTarget target)
         {
-            Combatant newTarget = target != null && target.Team != team && target.IsAlive ? target : null;
-            if (currentTarget != newTarget)
-                ResetFireCycle();
-            currentTarget = newTarget;
+            rangedAttackController?.SetBehaviorTarget(target);
         }
 
-        public void SetPriorityTarget(Combatant target) => SetBehaviorTarget(target);
+        public void SetPriorityTarget(ShootableTarget target)
+        {
+            SetBehaviorTarget(target);
+        }
 
         public void SetPeekEnabled(bool enabled)
         {
-            if (peekEnabled == enabled)
-                return;
-            peekEnabled = enabled;
-            if (!enabled)
-                SetActivePeekOffset(Vector3.zero);
-            ResetFireCycle();
+            rangedAttackController?.SetPeekEnabled(enabled);
         }
 
         public void StopMovementAtCurrentCell()
         {
-            movementPath.Clear();
-            movementIndex = 0;
-            gridMap.ReleaseReservation(this);
-            gridMap.ReleaseTransitReservation(this);
-            hasMovementDestination = false;
-            hasTransitReservation = false;
-            blockedMovementSeconds = 0f;
-            stopMovementAfterCellArrival = false;
-            ResetFireCycle();
+            movementController?.StopMovementAtCurrentCell();
+            rangedAttackController?.ResetBehaviorFireCycle();
         }
 
         public void RequestStopMovementAfterCurrentCell()
         {
-            if (!IsMoving)
-            {
-                StopMovementAtCurrentCell();
-                return;
-            }
-
-            stopMovementAfterCellArrival = true;
+            movementController?.RequestStopMovementAfterCurrentCell();
         }
 
         public void PrepareForExclusiveCombatAction()
         {
-            ResetFireCycle(true);
+            rangedAttackController?.PrepareForExclusiveCombatAction();
         }
 
         public bool InitializeWeaponLoadoutForBattle(out string failureReason)
         {
-            failureReason = string.Empty;
-            if (weaponLoadout == null)
+            equipmentLoadout?.InitializeForBattle();
+            GetComponent<CombatActionController>()?.RefreshRuntimeActionsFromLoadout();
+            if (rangedAttackController == null)
+            {
+                failureReason = string.Empty;
                 return true;
-            if (!weaponLoadout.InitializeForBattle(out failureReason))
-                return false;
-
-            LoadActiveWeaponRuntimeState();
-            return true;
-        }
-
-        public bool CanSwitchToWeaponSlot(int slotIndex, out string failureReason)
-        {
-            failureReason = string.Empty;
-            if (!IsAlive)
-            {
-                failureReason = "사망한 유닛은 무기를 교체할 수 없습니다.";
-                return false;
             }
-            if (weaponLoadout == null || !weaponLoadout.IsBattleInitialized)
-            {
-                failureReason = "무기 로드아웃이 준비되지 않았습니다.";
-                return false;
-            }
-            if (slotIndex == weaponLoadout.ActiveSlotIndex)
-            {
-                failureReason = "이미 장착한 무기입니다.";
-                return false;
-            }
-            if (weaponLoadout.GetDefinition(slotIndex) == null)
-            {
-                failureReason = "교체할 슬롯에 무기가 없습니다.";
-                return false;
-            }
-            return true;
-        }
-
-        public void BeginWeaponSwap()
-        {
-            StopMovementAtCurrentCell();
-            ResetFireCycle(true);
-            weaponLoadout?.Mount?.LowerAimForWeaponSwap();
-        }
-
-        public bool CommitWeaponSwap(int slotIndex, out string failureReason)
-        {
-            if (!CanSwitchToWeaponSlot(slotIndex, out failureReason))
-                return false;
-
-            weaponLoadout.StoreActiveAmmo(currentMagazineAmmo, reserveAmmo);
-            if (!weaponLoadout.EquipSlot(slotIndex, out failureReason))
-                return false;
-
-            LoadActiveWeaponRuntimeState();
-            ResetFireCycle(true);
-            return true;
-        }
-
-        private void LoadActiveWeaponRuntimeState()
-        {
-            weapon = weaponLoadout.ActiveDefinition;
-            WeaponAmmoState ammoState = weaponLoadout.GetAmmoState(weaponLoadout.ActiveSlotIndex);
-            currentMagazineAmmo = ammoState.MagazineAmmo;
-            reserveAmmo = ammoState.ReserveAmmo;
-            muzzle = weaponLoadout.Mount != null ? weaponLoadout.Mount.ActiveMuzzle : muzzle;
+            return rangedAttackController.InitializeWeaponLoadoutForBattle(out failureReason);
         }
 
         public void ApplyStim(
@@ -369,17 +334,15 @@ namespace GridSquad
             float movementSpeedMultiplier,
             float fireIntervalMultiplier)
         {
-            if (IsStimActive)
-                return;
-
-            stimRemainingSeconds = Mathf.Max(0f, durationSeconds);
-            stimMovementSpeedMultiplier = Mathf.Max(1f, movementSpeedMultiplier);
-            stimFireIntervalMultiplier = Mathf.Clamp(fireIntervalMultiplier, 0.1f, 1f);
+            statusEffectController?.ApplyStim(
+                durationSeconds,
+                movementSpeedMultiplier,
+                fireIntervalMultiplier);
         }
 
         public void SetTemporaryMovementSpeedMultiplier(float multiplier)
         {
-            temporaryMovementSpeedMultiplier = Mathf.Max(0.01f, multiplier);
+            statusEffectController?.SetTemporaryMovementSpeedMultiplier(multiplier);
         }
 
         public float PlayThrowAnimation()
@@ -393,58 +356,65 @@ namespace GridSquad
 
         public void ApplyDamage(int damage)
         {
-            if (!IsAlive)
-                return;
-            int previousHealth = currentHealth;
-            currentHealth = Mathf.Max(0, currentHealth - Mathf.Max(0, damage));
-            int appliedDamage = previousHealth - currentHealth;
-            if (appliedDamage <= 0)
-                return;
-
-            worldUi.RefreshHealth();
-            feedbackPresenter?.PlayDamageFeedback(appliedDamage, CurrentAimCenter);
-            if (currentHealth == 0)
-            {
-                EnterDeadState();
-                return;
-            }
-
-            if (!ShouldInterruptCurrentActionForHit())
-                return;
-
-            float hitDuration = animationController != null
-                ? animationController.PlayHitReaction()
-                : 0f;
-            if (hitDuration > 0f)
-                hitReactionRemainingSeconds = hitDuration;
+            ApplyDamage(new CombatDamageRequest(null, null, damage));
         }
 
-        private bool ShouldInterruptCurrentActionForHit()
+        public CombatDamageResult ApplyDamage(CombatDamageRequest request)
         {
-            float chancePercent = tuning != null
-                ? tuning.HitReactionInterruptChancePercent
-                : 0f;
-            return UnityEngine.Random.value < chancePercent / 100f;
+            int requestedDamage = Mathf.Max(0, request.Damage);
+            if (requestedDamage > 0
+                && equipmentLoadout != null
+                && equipmentLoadout.TryBlockDamage(
+                    out AdditionalEquipmentDefinition plate,
+                    out int remaining,
+                    out int maximum))
+            {
+                feedbackPresenter?.PlayBlockFeedback(CurrentAimCenter);
+                Debug.Log($"[장비 방어] {DisplayName}의 {plate.DisplayName}이 피해를 방어했습니다. 충전 {remaining}/{maximum}");
+                return new CombatDamageResult(requestedDamage, 0, true);
+            }
+            int applied = health != null ? health.ApplyDamage(requestedDamage) : 0;
+            return new CombatDamageResult(requestedDamage, applied, false);
+        }
+
+        public int RestoreHealth(int amount)
+        {
+            return health != null ? health.RestoreHealth(amount) : 0;
+        }
+
+        public void ApplyStun(float durationSeconds)
+        {
+            if (!IsAlive)
+                return;
+            statusEffectController?.ApplyStun(durationSeconds);
+            movementController?.RequestStopMovementAfterCurrentCell();
+            GetComponent<UnitTacticalBehaviorController>()
+                ?.InterruptSelectedCombatIntent(CombatActionInterruptReason.Stunned);
+            Debug.Log($"[상태 효과] {DisplayName} 기절 {durationSeconds:0.0}초 적용");
+        }
+
+        public bool TryApplyKnockback(GridCoordinate sourceCell, int distanceCells)
+        {
+            if (!IsAlive || movementController == null)
+                return false;
+            GetComponent<UnitTacticalBehaviorController>()
+                ?.InterruptSelectedCombatIntent(CombatActionInterruptReason.PlayerCommand);
+            return movementController.TryApplyForcedDisplacement(sourceCell, distanceCells);
         }
 
         public void SetSelected(bool value)
         {
-            selected = value && IsAlive;
-            worldUi.SetSelected(selected);
+            entity?.SetSelected(value);
         }
 
-        public void SetManualTargetHoverPreview(Combatant target)
+        public void SetManualTargetHoverPreview(ShootableTarget target)
         {
-            manualTargetHoverPreview = target != null
-                && target.IsAlive
-                && target.Team != team
-                    ? target
-                    : null;
+            rangedAttackController?.SetManualTargetHoverPreview(target);
         }
 
         public void ClearManualTargetHoverPreview()
         {
-            manualTargetHoverPreview = null;
+            rangedAttackController?.ClearManualTargetHoverPreview();
         }
 
         public void SetDebugVisible(bool value)
@@ -452,396 +422,24 @@ namespace GridSquad
             debugVisible = value;
         }
 
-        private bool MoveAlongPath()
-        {
-            if (movementIndex >= movementPath.Count || IsReloading || IsHitReacting)
-                return false;
-
-            GridCoordinate nextCell = movementPath[movementIndex];
-            if (!hasTransitReservation)
-            {
-                if (!gridMap.TryReserveTransitCell(this, nextCell))
-                {
-                    TryRebuildPathAroundBlockingUnit();
-                    return false;
-                }
-                hasTransitReservation = true;
-            }
-            Vector3 destination = gridMap.GridToWorld(nextCell);
-            float movementSpeed = tuning.MovementSpeed
-                * effectiveStats.MovementSpeedMultiplier
-                * temporaryMovementSpeedMultiplier
-                * stimMovementSpeedMultiplier;
-            transform.position = Vector3.MoveTowards(
-                transform.position,
-                destination,
-                movementSpeed * Time.deltaTime);
-            if ((transform.position - destination).sqrMagnitude > 0.0001f)
-                return true;
-
-            GridCoordinate previous = currentCell;
-            currentCell = nextCell;
-            gridMap.MoveOccupant(this, previous, currentCell);
-            hasTransitReservation = false;
-            blockedMovementSeconds = 0f;
-            movementIndex++;
-            if (stopMovementAfterCellArrival)
-            {
-                movementPath.Clear();
-                movementIndex = 0;
-                gridMap.ReleaseReservation(this);
-                gridMap.ReleaseTransitReservation(this);
-                hasMovementDestination = false;
-                hasTransitReservation = false;
-                stopMovementAfterCellArrival = false;
-                return true;
-            }
-            if (movementIndex >= movementPath.Count)
-            {
-                movementPath.Clear();
-                gridMap.ReleaseReservation(this);
-                hasMovementDestination = false;
-            }
-            return true;
-        }
-
-        private void TryRebuildPathAroundBlockingUnit()
-        {
-            if (!hasMovementDestination)
-                return;
-
-            blockedMovementSeconds += Time.deltaTime;
-            float retryDelay = 0.12f + Mathf.Abs(GetInstanceID() % 4) * 0.03f;
-            if (blockedMovementSeconds < retryDelay)
-                return;
-
-            blockedMovementSeconds = 0f;
-            List<GridCoordinate> alternatePath = GridPathfinder.FindPath(
-                gridMap,
-                currentCell,
-                movementDestination,
-                this,
-                true);
-            if (alternatePath == null || alternatePath.Count == 0)
-                return;
-
-            gridMap.ReleaseTransitReservation(this);
-            hasTransitReservation = false;
-            movementPath.Clear();
-            movementPath.AddRange(alternatePath);
-            movementIndex = 0;
-        }
-
-        private void RotateTowardMovementOrTarget()
-        {
-            if (IsHitReacting)
-                return;
-
-            Vector3 lookDirection = Vector3.zero;
-            if (movementIndex < movementPath.Count)
-                lookDirection = gridMap.GridToWorld(movementPath[movementIndex]) - transform.position;
-            else if (currentTarget != null && currentTarget.IsAlive)
-                lookDirection = currentTarget.CurrentExposureCenter - transform.position;
-
-            lookDirection.y = 0f;
-            if (lookDirection.sqrMagnitude < 0.0001f)
-                return;
-
-            Quaternion desiredRotation = Quaternion.LookRotation(lookDirection.normalized, Vector3.up);
-            transform.rotation = Quaternion.RotateTowards(
-                transform.rotation,
-                desiredRotation,
-                tuning.CharacterRotationSpeed * Time.deltaTime);
-
-            ApplyPeekVisualLean();
-        }
-
         public void RefreshShotEvaluationForCurrentTarget()
         {
-            if (currentTarget != null && !currentTarget.IsAlive)
-                SetBehaviorTarget(null);
-            currentShotEvaluation = shotEvaluator.EvaluateShot(this, currentTarget);
-            Vector3 unshiftedMuzzlePosition = transform.position + Vector3.up * MuzzleHeight;
-            Vector3 desiredOffset = currentShotEvaluation.UsesPeekPosition
-                ? currentShotEvaluation.ShotOrigin - unshiftedMuzzlePosition
-                : Vector3.zero;
-            SetActivePeekOffset(desiredOffset);
+            rangedAttackController?.RefreshShotEvaluationForCurrentTarget();
         }
 
         public void UpdateAutomaticPeekForCurrentTarget(bool allowed)
         {
-            if (!allowed || IsMoving || currentTarget == null || !currentTarget.IsAlive)
-            {
-                SetPeekEnabled(false);
-                return;
-            }
-
-            ShotEvaluation direct = shotEvaluator.EvaluateShotFromCell(
-                this,
-                currentTarget,
-                currentCell,
-                false);
-            ShotEvaluation bestWithPeek = shotEvaluator.EvaluateShotFromCell(
-                this,
-                currentTarget,
-                currentCell,
-                true);
-            bool shouldPeek = bestWithPeek.CanShoot
-                && bestWithPeek.UsesPeekPosition
-                && (!direct.CanShoot || bestWithPeek.HitChancePercent > direct.HitChancePercent);
-            if (peekEnabled == shouldPeek)
-                return;
-            peekEnabled = shouldPeek;
-            ResetFireCycle();
+            rangedAttackController?.UpdateAutomaticPeekForCurrentTarget(allowed);
         }
 
         public void TickAutomaticFireCycleFromBehavior()
         {
-            if (IsHitReacting)
-                return;
-
-            if (IsReloading)
-            {
-                TickReload();
-                return;
-            }
-
-            if (IsMoving || currentTarget == null || !currentTarget.IsAlive || !currentShotEvaluation.CanShoot)
-            {
-                ResetFireCycle();
-                return;
-            }
-
-            switch (fireCycleState)
-            {
-                case FireCycleState.WaitingForAim:
-                    if (currentMagazineAmmo <= 0)
-                    {
-                        BeginReload(0f);
-                        return;
-                    }
-                    aimingTarget = currentTarget;
-                    fireCycleState = FireCycleState.Aiming;
-                    float aimEnterDuration = Weapon.AimEnterDuration * stimFireIntervalMultiplier;
-                    fireStateRemainingSeconds = aimEnterDuration;
-                    animationController?.BeginAimingAt(
-                        currentTarget.AimCenterTransform,
-                        aimEnterDuration);
-                    return;
-
-                case FireCycleState.Aiming:
-                    if (aimingTarget != currentTarget)
-                    {
-                        ResetFireCycle();
-                        return;
-                    }
-                    fireStateRemainingSeconds = Mathf.Max(
-                        0f,
-                        fireStateRemainingSeconds - Time.deltaTime);
-                    if (fireStateRemainingSeconds > 0f)
-                        return;
-                    if (!IsAimAlignedWithCurrentTarget())
-                        return;
-                    if (animationController != null && !animationController.IsAimReady)
-                        return;
-                    if (!FireCurrentShot())
-                    {
-                        ResetFireCycle();
-                        return;
-                    }
-                    fireCycleState = FireCycleState.AimedFiring;
-                    fireStateRemainingSeconds = Weapon.AimedShotInterval * stimFireIntervalMultiplier;
-                    if (currentMagazineAmmo <= 0)
-                        BeginReload(CalculatePostShotReloadDelay());
-                    return;
-
-                case FireCycleState.AimedFiring:
-                    fireStateRemainingSeconds = Mathf.Max(
-                        0f,
-                        fireStateRemainingSeconds - Time.deltaTime);
-                    if (fireStateRemainingSeconds > 0f)
-                        return;
-                    if (!IsAimAlignedWithCurrentTarget())
-                        return;
-                    if (animationController != null && !animationController.IsAimReady)
-                        return;
-                    if (!FireCurrentShot())
-                    {
-                        ResetFireCycle();
-                        return;
-                    }
-                    fireStateRemainingSeconds = Weapon.AimedShotInterval * stimFireIntervalMultiplier;
-                    if (currentMagazineAmmo <= 0)
-                        BeginReload(CalculatePostShotReloadDelay());
-                    return;
-
-                case FireCycleState.OutOfAmmo:
-                    return;
-            }
+            rangedAttackController?.TickAutomaticFireCycleFromBehavior();
         }
 
-        private bool FireCurrentShot()
+        public void ResetBehaviorFireCycle()
         {
-            if (IsMoving || currentTarget == null || !currentTarget.IsAlive || !IsAimAlignedWithCurrentTarget())
-                return false;
-
-            currentShotEvaluation = shotEvaluator.EvaluateShot(this, currentTarget);
-            if (!currentShotEvaluation.CanShoot)
-                return false;
-
-            weaponLoadout?.Mount?.ActivePresentation?.PlayFireFeedback();
-            feedbackPresenter?.PlayShotTracer(
-                currentShotEvaluation.ShotOrigin,
-                currentShotEvaluation.TargetCenter);
-
-            if (UnityEngine.Random.value * 100f <= currentShotEvaluation.HitChancePercent)
-                currentTarget.ApplyDamage(EffectiveWeaponDamage);
-            else
-                currentTarget.PlayMissFeedback();
-            currentMagazineAmmo = Mathf.Max(0, currentMagazineAmmo - 1);
-            weaponLoadout?.StoreActiveAmmo(currentMagazineAmmo, reserveAmmo);
-            animationController?.PlayShot();
-            return true;
-        }
-
-        private bool IsAimAlignedWithCurrentTarget()
-        {
-            if (currentTarget == null || !currentTarget.IsAlive)
-                return false;
-
-            Vector3 aimDirection = currentTarget.CurrentExposureCenter - transform.position;
-            aimDirection.y = 0f;
-            if (aimDirection.sqrMagnitude <= 0.0001f)
-                return true;
-            return Vector3.Angle(transform.forward, aimDirection) <= tuning.FireAimToleranceDegrees;
-        }
-
-        private float CalculatePostShotReloadDelay()
-        {
-            float shotAnimationDuration = animationController != null
-                ? animationController.ShotDuration
-                : 0f;
-            return Mathf.Max(Weapon.AimedShotInterval, shotAnimationDuration);
-        }
-
-        public void ResetBehaviorFireCycle() => ResetFireCycle(true);
-
-        private void ResetFireCycle(bool cancelReload = false)
-        {
-            if (IsReloading && !cancelReload)
-                return;
-
-            fireCycleState = FireCycleState.WaitingForAim;
-            fireStateRemainingSeconds = 0f;
-            aimingTarget = null;
-            pendingReloadAmmo = 0;
-            reloadElapsedSeconds = 0f;
-            reloadAnimationStarted = false;
-            animationController?.StopAiming();
-            if (cancelReload)
-                animationController?.CompleteReload();
-        }
-
-        private void BeginReload(float shotAnimationDelay)
-        {
-            if (currentMagazineAmmo >= MagazineCapacity)
-            {
-                fireCycleState = FireCycleState.WaitingForAim;
-                return;
-            }
-            if (reserveAmmo <= 0)
-            {
-                fireCycleState = FireCycleState.OutOfAmmo;
-                fireStateRemainingSeconds = 0f;
-                animationController?.StopAiming();
-                return;
-            }
-
-            pendingReloadAmmo = Mathf.Min(MagazineCapacity - currentMagazineAmmo, reserveAmmo);
-            reloadElapsedSeconds = 0f;
-            reloadAnimationStarted = false;
-            fireCycleState = FireCycleState.Reloading;
-            fireStateRemainingSeconds = Mathf.Max(0f, shotAnimationDelay);
-            if (fireStateRemainingSeconds <= 0f)
-                StartReloadAnimation();
-        }
-
-        private void TickReload()
-        {
-            if (!reloadAnimationStarted)
-            {
-                fireStateRemainingSeconds = Mathf.Max(
-                    0f,
-                    fireStateRemainingSeconds - Time.deltaTime);
-                if (fireStateRemainingSeconds > 0f)
-                    return;
-                StartReloadAnimation();
-                return;
-            }
-
-            reloadElapsedSeconds += Time.deltaTime;
-            if (reloadElapsedSeconds < Weapon.ReloadDuration)
-                return;
-
-            currentMagazineAmmo += pendingReloadAmmo;
-            reserveAmmo -= pendingReloadAmmo;
-            weaponLoadout?.StoreActiveAmmo(currentMagazineAmmo, reserveAmmo);
-            pendingReloadAmmo = 0;
-            reloadElapsedSeconds = 0f;
-            reloadAnimationStarted = false;
-            fireCycleState = currentMagazineAmmo > 0
-                ? FireCycleState.WaitingForAim
-                : FireCycleState.OutOfAmmo;
-            animationController?.CompleteReload();
-        }
-
-        private void StartReloadAnimation()
-        {
-            reloadAnimationStarted = true;
-            reloadElapsedSeconds = 0f;
-            fireStateRemainingSeconds = 0f;
-            animationController?.StopAiming();
-            animationController?.BeginReload(Weapon.ReloadDuration);
-        }
-
-        private void UpdateHitReaction()
-        {
-            if (!IsHitReacting)
-                return;
-
-            hitReactionRemainingSeconds = Mathf.Max(
-                0f,
-                hitReactionRemainingSeconds - Time.deltaTime);
-            if (hitReactionRemainingSeconds > 0f)
-                return;
-
-            if (IsReloading && reloadAnimationStarted)
-            {
-                animationController?.BeginReload(Weapon.ReloadDuration, ReloadProgress);
-                return;
-            }
-            if ((fireCycleState == FireCycleState.Aiming
-                    || fireCycleState == FireCycleState.AimedFiring)
-                && currentTarget != null
-                && currentTarget.IsAlive)
-            {
-                animationController?.BeginAimingAt(
-                    currentTarget.AimCenterTransform,
-                    Weapon.AimEnterDuration);
-            }
-        }
-
-        private void UpdateStimEffect()
-        {
-            if (!IsStimActive)
-                return;
-
-            stimRemainingSeconds = Mathf.Max(0f, stimRemainingSeconds - Time.deltaTime);
-            if (stimRemainingSeconds > 0f)
-                return;
-
-            stimMovementSpeedMultiplier = 1f;
-            stimFireIntervalMultiplier = 1f;
+            rangedAttackController?.ResetBehaviorFireCycle();
         }
 
         public void PlayMissFeedback()
@@ -850,75 +448,124 @@ namespace GridSquad
                 feedbackPresenter?.PlayMissFeedback(CurrentAimCenter);
         }
 
-        private void SetActivePeekOffset(Vector3 worldOffset)
-        {
-            activePeekOffset = worldOffset;
-            ApplyPeekVisualLean();
-        }
-
-        private void ApplyPeekVisualLean()
-        {
-            if (visualRoot == null)
-                return;
-            visualRoot.localPosition = Vector3.zero;
-            Vector3 localOffset = transform.InverseTransformVector(activePeekOffset);
-            localOffset.y = 0f;
-            if (localOffset.sqrMagnitude < 0.0001f)
-            {
-                visualRoot.localRotation = Quaternion.identity;
-                return;
-            }
-            Vector3 leanAxis = Vector3.Cross(Vector3.up, localOffset.normalized);
-            visualRoot.localRotation = Quaternion.AngleAxis(tuning.PeekVisualLeanAngle, leanAxis);
-        }
-
-        private void EnterDeadState()
-        {
-            hitReactionRemainingSeconds = 0f;
-            ResetFireCycle(true);
-            gridMap.UnregisterOccupant(this, currentCell);
-            gridMap.ReleaseReservation(this);
-            gridMap.ReleaseTransitReservation(this);
-            movementPath.Clear();
-            hasMovementDestination = false;
-            hasTransitReservation = false;
-            blockedMovementSeconds = 0f;
-            stopMovementAfterCellArrival = false;
-            temporaryMovementSpeedMultiplier = 1f;
-            stimMovementSpeedMultiplier = 1f;
-            stimFireIntervalMultiplier = 1f;
-            stimRemainingSeconds = 0f;
-            SetActivePeekOffset(Vector3.zero);
-            if (selectionCollider != null)
-                selectionCollider.enabled = false;
-            float deathAnimationDuration = animationController != null
-                ? animationController.PlayDeath()
-                : 0f;
-            worldUi.SetDead();
-            Died?.Invoke(this);
-            BattleResult battleResult = director.NotifyCombatantDied(
-                this,
-                deathAnimationDuration);
-            feedbackPresenter?.PlayDeathFeedback(battleResult, CurrentAimCenter);
-        }
-
         public void PrepareForBattleResult()
         {
             if (!IsAlive)
                 return;
 
-            movementPath.Clear();
-            movementIndex = 0;
-            gridMap.ReleaseReservation(this);
-            gridMap.ReleaseTransitReservation(this);
-            hasMovementDestination = false;
-            hasTransitReservation = false;
-            blockedMovementSeconds = 0f;
-            stopMovementAfterCellArrival = false;
-            temporaryMovementSpeedMultiplier = 1f;
-            SetBehaviorTarget(null);
-            ResetFireCycle(true);
-            hitReactionRemainingSeconds = 0f;
+            movementController?.PrepareForBattleResult();
+            rangedAttackController?.PrepareForBattleResult();
+            hitReactionController?.ResetState();
+            statusEffectController?.ResetState();
+        }
+
+        internal void SetLegacyWeaponDefinition(WeaponDefinition definition)
+        {
+            weapon = definition;
+        }
+
+        internal void SetActivePeekOffset(Vector3 worldOffset)
+        {
+            facingController?.SetPeekOffset(worldOffset);
+        }
+
+        private void EnsureAbilityComponents()
+        {
+            entity = entity != null ? entity : GetComponent<TacticalEntity>();
+            if (entity == null)
+                entity = gameObject.AddComponent<TacticalEntity>();
+            health = health != null ? health : GetComponent<EntityHealth>();
+            if (health == null)
+                health = gameObject.AddComponent<EntityHealth>();
+            shootableTarget = shootableTarget != null ? shootableTarget : GetComponent<ShootableTarget>();
+            if (shootableTarget == null)
+                shootableTarget = gameObject.AddComponent<ShootableTarget>();
+            movementController = movementController != null
+                ? movementController
+                : GetComponent<GridMovementController>();
+            if (movementController == null)
+                movementController = gameObject.AddComponent<GridMovementController>();
+            rangedAttackController = rangedAttackController != null
+                ? rangedAttackController
+                : GetComponent<RangedAttackController>();
+            if (rangedAttackController == null)
+                rangedAttackController = gameObject.AddComponent<RangedAttackController>();
+            hitReactionController = hitReactionController != null
+                ? hitReactionController
+                : GetComponent<CombatantHitReactionController>();
+            if (hitReactionController == null)
+                hitReactionController = gameObject.AddComponent<CombatantHitReactionController>();
+            statusEffectController = statusEffectController != null
+                ? statusEffectController
+                : GetComponent<CombatantStatusEffectController>();
+            if (statusEffectController == null)
+                statusEffectController = gameObject.AddComponent<CombatantStatusEffectController>();
+            equipmentLoadout = equipmentLoadout != null
+                ? equipmentLoadout
+                : GetComponent<EquipmentLoadout>();
+            if (equipmentLoadout == null)
+                equipmentLoadout = gameObject.AddComponent<EquipmentLoadout>();
+            inventory = inventory != null ? inventory : GetComponent<UnitInventory>();
+            if (inventory == null)
+                inventory = gameObject.AddComponent<UnitInventory>();
+            itemInteractionController = itemInteractionController != null
+                ? itemInteractionController
+                : GetComponent<UnitItemInteractionController>();
+            if (itemInteractionController == null)
+                itemInteractionController = gameObject.AddComponent<UnitItemInteractionController>();
+            if (GetComponent<CombatantContextCommandProvider>() == null)
+                gameObject.AddComponent<CombatantContextCommandProvider>();
+            if (GetComponent<CombatantItemContextCommandProvider>() == null)
+                gameObject.AddComponent<CombatantItemContextCommandProvider>();
+            facingController = facingController != null
+                ? facingController
+                : GetComponent<CombatantFacingController>();
+            if (facingController == null)
+                facingController = gameObject.AddComponent<CombatantFacingController>();
+        }
+
+        private void HandleDamageApplied(EntityHealth source, int appliedDamage)
+        {
+            worldUi?.RefreshHealth();
+            feedbackPresenter?.PlayDamageFeedback(appliedDamage, CurrentAimCenter);
+            hitReactionController?.TryStart(source);
+        }
+
+        private void HandleHealthDepleted(EntityHealth source)
+        {
+            EnterDeadState();
+        }
+
+        private void HandleSelectionStateChanged(TacticalEntity changedEntity, bool selected)
+        {
+            worldUi?.SetSelected(selected);
+        }
+
+        private void HandleEquipmentChanged()
+        {
+            weaponLoadout?.RefreshEquippedWeapon();
+            rangedAttackController?.RefreshEquippedWeapon();
+            GetComponent<CombatActionController>()?.RefreshRuntimeActionsFromLoadout();
+        }
+
+        private void EnterDeadState()
+        {
+            hitReactionController?.ResetState();
+            rangedAttackController?.PrepareForEntityRemoval();
+            movementController?.PrepareForEntityRemoval();
+            statusEffectController?.ResetState();
+            if (selectionCollider != null)
+                selectionCollider.enabled = false;
+            float deathAnimationDuration = animationController != null
+                ? animationController.PlayDeath()
+                : 0f;
+            worldUi?.SetDead();
+            entity?.MarkUnavailable();
+            Died?.Invoke(this);
+            BattleResult battleResult = director != null
+                ? director.NotifyCombatantDied(this, deathAnimationDuration)
+                : BattleResult.None;
+            feedbackPresenter?.PlayDeathFeedback(battleResult, CurrentAimCenter);
         }
 
 #if UNITY_EDITOR
@@ -955,12 +602,39 @@ namespace GridSquad
             selectionCollider = newSelectionCollider;
             worldUi = newWorldUi;
             feedbackPresenter = newFeedbackPresenter;
+            EnsureAbilityComponents();
+            health.SetEditorMaximumHealth(newMaximumHealth);
+            shootableTarget.SetEditorConfiguration(newAimCenter, newSelectionCollider, false);
         }
 
         public void SetEditorWeaponLoadout(WeaponLoadout newWeaponLoadout)
         {
             weaponLoadout = newWeaponLoadout;
         }
+
+        public void SetEditorStatCatalog(UnitStatCatalog newStatCatalog)
+        {
+            statCatalog = newStatCatalog;
+        }
+
+        public void SetEditorAbilityComponents(
+            TacticalEntity newEntity,
+            EntityHealth newHealth,
+            ShootableTarget newShootableTarget,
+            GridMovementController newMovementController,
+            RangedAttackController newRangedAttackController)
+        {
+            entity = newEntity;
+            health = newHealth;
+            shootableTarget = newShootableTarget;
+            movementController = newMovementController;
+            rangedAttackController = newRangedAttackController;
+            EnsureAbilityComponents();
+        }
 #endif
+        private float GetCoreStatValue(UnitStatDefinition definition, float fallback)
+        {
+            return definition != null ? effectiveStats.GetValue(definition) : fallback;
+        }
     }
 }

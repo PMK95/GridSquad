@@ -6,7 +6,7 @@ namespace GridSquad
     public readonly struct TacticalCellChoice
     {
         public readonly GridCoordinate Cell;
-        public readonly Combatant Target;
+        public readonly ShootableTarget Target;
         public readonly ShotEvaluation Evaluation;
         public readonly CoverEvaluation IncomingCover;
         public readonly bool IsCoveredFiringPosition;
@@ -16,7 +16,7 @@ namespace GridSquad
 
         public TacticalCellChoice(
             GridCoordinate cell,
-            Combatant target,
+            ShootableTarget target,
             ShotEvaluation evaluation,
             CoverEvaluation incomingCover,
             bool isCoveredFiringPosition,
@@ -42,35 +42,26 @@ namespace GridSquad
         [SerializeField] private CombatDirector director;
         [SerializeField] private CombatTuning tuning;
 
+        private TacticalPositionCandidateCollector candidateCollector;
+
+        private void Awake()
+        {
+            BuildEvaluationServices();
+        }
+
         public List<TacticalCellChoice> EvaluateReachableFiringCells(
             Combatant requester,
             bool allowPeek,
-            Combatant requiredTarget = null)
+            ShootableTarget requiredTarget = null)
         {
             List<TacticalCellChoice> choices = new();
-            GridCoordinate origin = requester.CurrentCell;
-            for (int x = 0; x < gridMap.Width; x++)
-            {
-                for (int z = 0; z < gridMap.Height; z++)
-                {
-                    GridCoordinate cell = new(x, z);
-                    if (origin.ManhattanDistance(cell) > tuning.AiCandidatePathDistance)
-                        continue;
-
-                    List<GridCoordinate> path = GridPathfinder.FindPath(gridMap, origin, cell, requester);
-                    if (path == null || path.Count > tuning.AiCandidatePathDistance)
-                        continue;
-
-                    AddTargetChoicesAtCell(
-                        choices,
-                        requester,
-                        cell,
-                        path.Count,
-                        CalculateMovementExposurePenalty(requester, path),
-                        allowPeek,
-                        requiredTarget);
-                }
-            }
+            EnsureEvaluationServices();
+            candidateCollector.CollectReachableChoices(
+                choices,
+                requester,
+                allowPeek,
+                requiredTarget);
+            KeepFriendlyFireSafeChoicesWhenAvailable(choices);
             choices.Sort(CompareChoicesByScore);
             return choices;
         }
@@ -78,89 +69,44 @@ namespace GridSquad
         public List<TacticalCellChoice> EvaluateCurrentCellFiringChoices(
             Combatant requester,
             bool allowPeek,
-            Combatant requiredTarget = null)
+            ShootableTarget requiredTarget = null)
         {
             List<TacticalCellChoice> choices = new();
-            AddTargetChoicesAtCell(
+            EnsureEvaluationServices();
+            candidateCollector.CollectCurrentCellChoices(
                 choices,
                 requester,
-                requester.CurrentCell,
-                0,
-                0f,
                 allowPeek,
                 requiredTarget);
+            KeepFriendlyFireSafeChoicesWhenAvailable(choices);
             choices.Sort(CompareChoicesByScore);
             return choices;
         }
 
-        private void AddTargetChoicesAtCell(
-            List<TacticalCellChoice> choices,
-            Combatant requester,
-            GridCoordinate cell,
-            int pathCost,
-            float movementExposurePenalty,
-            bool allowPeek,
-            Combatant requiredTarget)
+        private static void KeepFriendlyFireSafeChoicesWhenAvailable(List<TacticalCellChoice> choices)
         {
-            bool isAdjacentToCover = gridMap.IsCoverPosition(cell);
-            foreach (Combatant target in director.GetLivingEnemies(requester.Team))
-            {
-                if (requiredTarget != null && target != requiredTarget)
-                    continue;
+            bool hasSafeChoice = choices.Exists(
+                choice => choice.Evaluation.FriendlyFireRiskPercent <= 0.01f);
+            if (!hasSafeChoice)
+                return;
 
-                ShotEvaluation shot = shotEvaluator.EvaluateShotFromCell(
-                    requester,
-                    target,
-                    cell,
-                    allowPeek);
-                if (!shot.CanShoot)
-                    continue;
-
-                CoverEvaluation incomingCover = shotEvaluator.EvaluateIncomingCover(target, cell);
-                bool isCoveredFiringPosition = isAdjacentToCover && incomingCover.HasCover;
-                int distance = cell.ManhattanDistance(target.CurrentCell);
-                float score = tuning.AiShootableScore
-                    + shot.HitChancePercent
-                    + incomingCover.EvasionPercent
-                    - pathCost * tuning.AiPathCostWeight
-                    - movementExposurePenalty
-                    - Mathf.Abs(distance - tuning.AiIdealRangeCells) * tuning.AiRangeDifferenceWeight;
-                choices.Add(new TacticalCellChoice(
-                    cell,
-                    target,
-                    shot,
-                    incomingCover,
-                    isCoveredFiringPosition,
-                    score,
-                    pathCost,
-                    movementExposurePenalty));
-            }
+            choices.RemoveAll(choice => choice.Evaluation.FriendlyFireRiskPercent > 0.01f);
         }
 
-        private float CalculateMovementExposurePenalty(
-            Combatant requester,
-            IReadOnlyList<GridCoordinate> path)
+        private void EnsureEvaluationServices()
         {
-            float penalty = 0f;
-            foreach (GridCoordinate pathCell in path)
-            {
-                float highestIncomingHitChance = 0f;
-                foreach (Combatant enemy in director.GetLivingEnemies(requester.Team))
-                {
-                    ShotEvaluation incomingShot = shotEvaluator.EvaluateShotAtCell(
-                        enemy,
-                        pathCell,
-                        enemy.CurrentIndicatorShotOriginCell);
-                    if (incomingShot.CanShoot)
-                    {
-                        highestIncomingHitChance = Mathf.Max(
-                            highestIncomingHitChance,
-                            incomingShot.HitChancePercent);
-                    }
-                }
-                penalty += highestIncomingHitChance * 0.08f;
-            }
-            return penalty;
+            if (candidateCollector == null)
+                BuildEvaluationServices();
+        }
+
+        private void BuildEvaluationServices()
+        {
+            TacticalPositionScorer scorer = new(shotEvaluator, director, tuning);
+            candidateCollector = new TacticalPositionCandidateCollector(
+                gridMap,
+                director,
+                tuning,
+                scorer);
         }
 
         public static int CompareChoicesByScore(TacticalCellChoice left, TacticalCellChoice right)
@@ -186,6 +132,7 @@ namespace GridSquad
             shotEvaluator = newShotEvaluator;
             director = newDirector;
             tuning = newTuning;
+            BuildEvaluationServices();
         }
 #endif
     }

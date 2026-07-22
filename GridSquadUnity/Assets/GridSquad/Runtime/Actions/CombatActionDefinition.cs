@@ -11,22 +11,24 @@ namespace GridSquad
         PlayerMovementPlayerActions
     }
 
-    public enum CombatActionKind
-    {
-        BasicAttack,
-        Reposition,
-        Grenade,
-        Stim,
-        Dash,
-        SwitchWeapon
-    }
-
-    public enum CombatActionTargetType
+    public enum CombatActionTargetingMode
     {
         None,
         Self,
-        Combatant,
-        GridCell
+        GridCell,
+        ShootableTarget
+    }
+
+    [Flags]
+    public enum CombatActionCapabilityFlags
+    {
+        None = 0,
+        DefaultAttack = 1 << 0,
+        ChangesPosition = 1 << 1,
+        AllowedWithForcedTarget = 1 << 2,
+        Exclusive = 1 << 3,
+        PlayerVisible = 1 << 4,
+        MovementCommand = 1 << 5
     }
 
     public enum CombatActionSelectionSource
@@ -40,126 +42,104 @@ namespace GridSquad
         Idle,
         Running,
         Completed,
-        Failed
+        Failed,
+        Interrupted
+    }
+
+    public enum CombatActionDisplayKind
+    {
+        Active,
+        Passive
+    }
+
+    public enum CombatActionInterruptReason
+    {
+        None,
+        PlayerCommand,
+        ControlModeChanged,
+        TargetInvalid,
+        CombatEnded,
+        OwnerDied,
+        Stunned
     }
 
     [CreateAssetMenu(menuName = "GridSquad/Combat Action Definition", fileName = "CombatActionDefinition")]
     public sealed class CombatActionDefinition : ScriptableObject
     {
-        [SerializeField] private CombatActionKind kind;
+        [SerializeField] private string actionId = "action";
         [SerializeField] private string displayName = "ACTION";
         [SerializeField, TextArea(2, 4)] private string description;
         [SerializeField] private Sprite icon;
-        [SerializeField] private CombatActionTargetType targetType;
+        [SerializeField] private CombatActionBehaviorDefinition behavior;
         [SerializeField] private bool automaticInFullAuto = true;
         [SerializeField] private bool automaticInSemiAuto = true;
         [SerializeField, Min(-1)] private int startingCharges = -1;
         [SerializeField, Min(0f)] private float cooldownSeconds;
         [SerializeField, Min(0f)] private float windupSeconds = 0.5f;
+        [SerializeField] private int playerSlotOrder = 100;
+        [SerializeField] private CombatActionDisplayKind displayKind;
 
-        [Header("수류탄")]
-        [SerializeField, Min(1)] private int grenadeRangeCells = 5;
-        [SerializeField, Min(0)] private int grenadeRadiusCells = 1;
-        [SerializeField, Min(1)] private int grenadeDamage = 40;
-        [SerializeField, Min(0.05f)] private float grenadeTravelSeconds = 0.4f;
-        [SerializeField, Min(0.1f)] private float grenadeFuseSeconds = 1.5f;
-        [SerializeField, Min(0.01f)] private float grenadeCameraShakeDuration = 0.28f;
-        [SerializeField, Min(0f)] private float grenadeCameraShakeAmplitude = 1.4f;
-        [SerializeField, Min(0f)] private float grenadeCameraShakeFrequency = 24f;
-
-        [Header("자극제")]
-        [SerializeField, Min(0.1f)] private float stimDurationSeconds = 8f;
-        [SerializeField, Min(1f)] private float stimMovementSpeedMultiplier = 1.35f;
-        [SerializeField, Range(0.1f, 1f)] private float stimFireIntervalMultiplier = 0.75f;
-
-        [Header("돌진")]
-        [SerializeField, Min(1)] private int dashMaximumCells = 3;
-        [SerializeField, Min(1f)] private float dashMovementSpeedMultiplier = 3f;
-        [SerializeField, Min(0f)] private float dashMinimumPositionImprovement = 15f;
-
-        public CombatActionKind Kind => kind;
-        public string DisplayName => displayName;
+        public string ActionId => actionId;
+        public string DisplayName => string.IsNullOrWhiteSpace(displayName) ? name : displayName;
         public string Description => description;
         public Sprite Icon => icon;
-        public CombatActionTargetType TargetType => targetType;
+        public CombatActionBehaviorDefinition Behavior => behavior;
+        public CombatActionTargetingMode TargetingMode => behavior != null
+            ? behavior.TargetingMode
+            : CombatActionTargetingMode.None;
+        public CombatActionCapabilityFlags Capabilities => behavior != null
+            ? behavior.Capabilities
+            : CombatActionCapabilityFlags.None;
         public bool AutomaticInFullAuto => automaticInFullAuto;
         public bool AutomaticInSemiAuto => automaticInSemiAuto;
         public int StartingCharges => startingCharges;
         public float CooldownSeconds => cooldownSeconds;
         public float WindupSeconds => windupSeconds;
-        public int GrenadeRangeCells => grenadeRangeCells;
-        public int GrenadeRadiusCells => grenadeRadiusCells;
-        public int GrenadeDamage => grenadeDamage;
-        public float GrenadeTravelSeconds => grenadeTravelSeconds;
-        public float GrenadeFuseSeconds => grenadeFuseSeconds;
-        public float GrenadeCameraShakeDuration => grenadeCameraShakeDuration;
-        public float GrenadeCameraShakeAmplitude => grenadeCameraShakeAmplitude;
-        public float GrenadeCameraShakeFrequency => grenadeCameraShakeFrequency;
-        public float StimDurationSeconds => stimDurationSeconds;
-        public float StimMovementSpeedMultiplier => stimMovementSpeedMultiplier;
-        public float StimFireIntervalMultiplier => stimFireIntervalMultiplier;
-        public int DashMaximumCells => dashMaximumCells;
-        public float DashMovementSpeedMultiplier => dashMovementSpeedMultiplier;
-        public float DashMinimumPositionImprovement => dashMinimumPositionImprovement;
+        public int PlayerSlotOrder => playerSlotOrder;
+        public CombatActionDisplayKind DisplayKind => displayKind;
 
-        public static CombatActionDefinition CreateRuntimeDefault(CombatActionKind actionKind)
+        public bool HasCapability(CombatActionCapabilityFlags capability)
+            => (Capabilities & capability) != 0;
+
+        internal CombatActionRuntime CreateRuntime(
+            CombatActionController owner,
+            CombatActionGrant grant)
         {
-            CombatActionDefinition definition = CreateInstance<CombatActionDefinition>();
-            definition.kind = actionKind;
-            definition.displayName = actionKind switch
-            {
-                CombatActionKind.Grenade => "수류탄",
-                CombatActionKind.Stim => "자극제",
-                CombatActionKind.Dash => "돌진",
-                _ => actionKind.ToString()
-            };
-            if (actionKind == CombatActionKind.SwitchWeapon)
-                definition.displayName = "무기 교체";
-            definition.targetType = actionKind switch
-            {
-                CombatActionKind.Stim => CombatActionTargetType.Self,
-                CombatActionKind.Grenade => CombatActionTargetType.GridCell,
-                CombatActionKind.Dash => CombatActionTargetType.GridCell,
-                CombatActionKind.SwitchWeapon => CombatActionTargetType.None,
-                _ => CombatActionTargetType.None
-            };
-            definition.startingCharges = actionKind is CombatActionKind.Dash or CombatActionKind.SwitchWeapon ? -1 : 1;
-            definition.cooldownSeconds = actionKind switch
-            {
-                CombatActionKind.Dash => 6f,
-                CombatActionKind.SwitchWeapon => 2f,
-                _ => 0f
-            };
-            definition.windupSeconds = actionKind switch
-            {
-                CombatActionKind.Dash => 0f,
-                CombatActionKind.SwitchWeapon => 0.6f,
-                _ => 0.5f
-            };
-            definition.automaticInSemiAuto = actionKind != CombatActionKind.Dash;
-            return definition;
+            if (behavior == null)
+                return null;
+
+            CombatActionRuntime runtime = new(grant);
+            CombatActionRuntimeParts parts = behavior.CreateRuntimeParts(owner, runtime);
+            if (parts.CandidateProvider == null || parts.Executor == null)
+                return null;
+            runtime.Attach(parts.CandidateProvider, parts.Executor);
+            return runtime;
         }
+
+
+        internal CombatActionRuntime CreateRuntime(CombatActionController owner)
+            => CreateRuntime(
+                owner,
+                new CombatActionGrant(
+                    $"legacy:{ActionId}",
+                    DisplayName,
+                    this,
+                    null));
 
 #if UNITY_EDITOR
-        public void SetEditorPresentation(string newDescription, Sprite newIcon)
-        {
-            description = newDescription;
-            icon = newIcon;
-        }
-
         public void SetEditorConfiguration(
-            CombatActionKind newKind,
+            string newActionId,
             string newDisplayName,
-            CombatActionTargetType newTargetType,
+            CombatActionBehaviorDefinition newBehavior,
             bool newAutomaticInFullAuto,
             bool newAutomaticInSemiAuto,
             int newStartingCharges,
             float newCooldownSeconds,
             float newWindupSeconds)
         {
-            kind = newKind;
+            actionId = newActionId;
             displayName = newDisplayName;
-            targetType = newTargetType;
+            behavior = newBehavior;
             automaticInFullAuto = newAutomaticInFullAuto;
             automaticInSemiAuto = newAutomaticInSemiAuto;
             startingCharges = newStartingCharges;
@@ -167,46 +147,121 @@ namespace GridSquad
             windupSeconds = newWindupSeconds;
         }
 
-        public void SetEditorGrenadeConfiguration(
-            int rangeCells,
-            int radiusCells,
-            int damage,
-            float travelSeconds,
-            float fuseSeconds,
-            float cameraShakeDuration,
-            float cameraShakeAmplitude,
-            float cameraShakeFrequency)
+        public void SetEditorPresentation(string newDescription, Sprite newIcon)
         {
-            grenadeRangeCells = rangeCells;
-            grenadeRadiusCells = radiusCells;
-            grenadeDamage = damage;
-            grenadeTravelSeconds = travelSeconds;
-            grenadeFuseSeconds = fuseSeconds;
-            grenadeCameraShakeDuration = cameraShakeDuration;
-            grenadeCameraShakeAmplitude = cameraShakeAmplitude;
-            grenadeCameraShakeFrequency = cameraShakeFrequency;
-        }
-
-        public void SetEditorStimConfiguration(
-            float durationSeconds,
-            float movementMultiplier,
-            float fireIntervalMultiplier)
-        {
-            stimDurationSeconds = durationSeconds;
-            stimMovementSpeedMultiplier = movementMultiplier;
-            stimFireIntervalMultiplier = fireIntervalMultiplier;
-        }
-
-        public void SetEditorDashConfiguration(
-            int maximumCells,
-            float movementMultiplier,
-            float minimumPositionImprovement)
-        {
-            dashMaximumCells = maximumCells;
-            dashMovementSpeedMultiplier = movementMultiplier;
-            dashMinimumPositionImprovement = minimumPositionImprovement;
+            description = newDescription;
+            icon = newIcon;
         }
 #endif
+    }
+
+    public abstract class CombatActionBehaviorDefinition : ScriptableObject
+    {
+        public abstract CombatActionTargetingMode TargetingMode { get; }
+        public abstract CombatActionCapabilityFlags Capabilities { get; }
+
+        internal abstract CombatActionRuntimeParts CreateRuntimeParts(
+            CombatActionController owner,
+            CombatActionRuntime runtime);
+
+        internal virtual void CollectValidTargetCells(
+            CombatActionController owner,
+            CombatActionRuntime runtime,
+            HashSet<GridCoordinate> results)
+        {
+        }
+
+        internal virtual void BuildTargetPreview(
+            CombatActionController owner,
+            CombatActionRuntime runtime,
+            CombatActionTargetSelection selection,
+            CombatActionPreview preview)
+        {
+        }
+
+        internal virtual CombatActionCandidate CreatePlayerCandidate(
+            CombatActionController owner,
+            CombatActionRuntime runtime,
+            CombatActionTargetSelection selection)
+        {
+            GridCoordinate cell = selection.HasTargetCell
+                ? selection.TargetCell
+                : owner.OwnerCombatant.CurrentCell;
+            return new CombatActionCandidate(
+                runtime.Definition,
+                selection.Target,
+                cell,
+                selection.HasTargetCell,
+                new UtilityScoreBreakdown().Add("플레이어 명령", 100f));
+        }
+
+        internal virtual string GetRuntimeStatusText(
+            CombatActionController owner,
+            CombatActionRuntime runtime)
+            => string.Empty;
+    }
+
+    internal readonly struct CombatActionRuntimeParts
+    {
+        public readonly ICombatActionCandidateProvider CandidateProvider;
+        public readonly ICombatActionExecutor Executor;
+
+        public CombatActionRuntimeParts(
+            ICombatActionCandidateProvider candidateProvider,
+            ICombatActionExecutor executor)
+        {
+            CandidateProvider = candidateProvider;
+            Executor = executor;
+        }
+    }
+
+    public readonly struct CombatActionTargetSelection
+    {
+        public readonly ShootableTarget Target;
+        public readonly GridCoordinate TargetCell;
+        public readonly bool HasTargetCell;
+
+        public CombatActionTargetSelection(
+            ShootableTarget target,
+            GridCoordinate targetCell,
+            bool hasTargetCell)
+        {
+            Target = target;
+            TargetCell = targetCell;
+            HasTargetCell = hasTargetCell;
+        }
+
+        public static CombatActionTargetSelection None()
+            => new(null, default, false);
+
+        public static CombatActionTargetSelection Self(GridCoordinate cell)
+            => new(null, cell, false);
+
+        public static CombatActionTargetSelection Cell(GridCoordinate cell)
+            => new(null, cell, true);
+
+        public static CombatActionTargetSelection Shootable(ShootableTarget target)
+            => new(target, target != null ? target.CurrentCell : default, false);
+    }
+
+    public sealed class CombatActionPreview
+    {
+        private readonly List<GridCoordinate> affectedCells = new();
+
+        public IReadOnlyList<GridCoordinate> AffectedCells => affectedCells;
+        public Color Color { get; private set; } = new(0.2f, 0.9f, 1f, 0.55f);
+
+        public void Reset(Color color)
+        {
+            affectedCells.Clear();
+            Color = color;
+        }
+
+        public void AddAffectedCell(GridCoordinate cell)
+        {
+            if (!affectedCells.Contains(cell))
+                affectedCells.Add(cell);
+        }
     }
 
     public sealed class UtilityScoreBreakdown
@@ -229,43 +284,65 @@ namespace GridSquad
 
     public readonly struct CombatActionCandidate
     {
-        public readonly CombatActionKind Kind;
-        public readonly Combatant Target;
+        public readonly CombatActionDefinition Definition;
+        public readonly ShootableTarget Target;
         public readonly GridCoordinate TargetCell;
         public readonly bool HasTargetCell;
         public readonly float UtilityScore;
         public readonly UtilityScoreBreakdown Breakdown;
-        public readonly int TargetWeaponSlotIndex;
+        public readonly string RuntimeKey;
 
         public CombatActionCandidate(
-            CombatActionKind kind,
-            Combatant target,
+            CombatActionDefinition definition,
+            ShootableTarget target,
             GridCoordinate targetCell,
             bool hasTargetCell,
             UtilityScoreBreakdown breakdown,
-            int targetWeaponSlotIndex = -1)
+            string runtimeKey = null)
         {
-            Kind = kind;
+            Definition = definition;
             Target = target;
             TargetCell = targetCell;
             HasTargetCell = hasTargetCell;
             Breakdown = breakdown;
             UtilityScore = Mathf.Clamp(breakdown?.Total ?? 0f, 0f, 100f);
-            TargetWeaponSlotIndex = targetWeaponSlotIndex;
+            RuntimeKey = runtimeKey;
         }
+
+        public CombatActionCandidate WithRuntimeKey(string runtimeKey)
+            => new(
+                Definition,
+                Target,
+                TargetCell,
+                HasTargetCell,
+                Breakdown,
+                runtimeKey);
     }
 
     public readonly struct CombatActionIntent
     {
         public readonly CombatActionCandidate Candidate;
         public readonly CombatActionSelectionSource Source;
+        public readonly float ExecutionDurationSeconds;
 
         public CombatActionIntent(
             CombatActionCandidate candidate,
-            CombatActionSelectionSource source)
+            CombatActionSelectionSource source,
+            float executionDurationSeconds = 0f)
         {
             Candidate = candidate;
             Source = source;
+            ExecutionDurationSeconds = Mathf.Max(0f, executionDurationSeconds);
+        }
+    }
+
+    public readonly struct CombatActionCommand
+    {
+        public readonly CombatActionCandidate Candidate;
+
+        public CombatActionCommand(CombatActionCandidate candidate)
+        {
+            Candidate = candidate;
         }
     }
 
@@ -277,7 +354,7 @@ namespace GridSquad
         public readonly ShotEvaluator ShotEvaluator;
         public readonly TacticalPositionEvaluator PositionEvaluator;
         public readonly CombatControlMode ControlMode;
-        public readonly Combatant PriorityTarget;
+        public readonly ShootableTarget PriorityTarget;
         public readonly bool AutomaticPeekAllowed;
 
         public CombatActionContext(
@@ -287,7 +364,7 @@ namespace GridSquad
             ShotEvaluator shotEvaluator,
             TacticalPositionEvaluator positionEvaluator,
             CombatControlMode controlMode,
-            Combatant priorityTarget,
+            ShootableTarget priorityTarget,
             bool automaticPeekAllowed)
         {
             Actor = actor;
@@ -301,13 +378,18 @@ namespace GridSquad
         }
     }
 
-    public interface ICombatAction
+    public interface ICombatActionCandidateProvider
     {
-        CombatActionKind Kind { get; }
-        void CollectAutomaticCandidates(CombatActionContext context, List<CombatActionCandidate> results);
-        bool CanStart(CombatActionCandidate candidate, out string failureReason);
-        bool Start(CombatActionIntent intent);
+        CombatActionDefinition Definition { get; }
+        void CollectCandidates(CombatActionContext context, List<CombatActionCandidate> results);
+    }
+
+    public interface ICombatActionExecutor
+    {
+        CombatActionDefinition Definition { get; }
+        bool CanBegin(CombatActionCandidate candidate, out string failureReason);
+        bool Begin(CombatActionIntent intent, out string failureReason);
         CombatActionExecutionStatus Tick(float deltaTime);
-        void RequestStop();
+        void Interrupt(CombatActionInterruptReason reason);
     }
 }

@@ -8,14 +8,19 @@ namespace GridSquad
 
         public IReadOnlyList<CombatActionCandidate> Candidates => candidates;
 
-        public bool TrySelectHighestUtilityAction(
+        internal bool TrySelectHighestUtilityAction(
             CombatActionContext context,
-            IReadOnlyList<ICombatAction> actions,
+            IReadOnlyList<CombatActionRuntime> actions,
             out CombatActionCandidate selected)
         {
             candidates.Clear();
-            foreach (ICombatAction action in actions)
-                action.CollectAutomaticCandidates(context, candidates);
+            foreach (CombatActionRuntime action in actions)
+            {
+                int startIndex = candidates.Count;
+                action.CandidateProvider.CollectCandidates(context, candidates);
+                for (int index = startIndex; index < candidates.Count; index++)
+                    candidates[index] = candidates[index].WithRuntimeKey(action.RuntimeKey);
+            }
 
             candidates.Sort(CompareCandidates);
             if (candidates.Count == 0)
@@ -35,7 +40,9 @@ namespace GridSquad
             int scoreComparison = right.UtilityScore.CompareTo(left.UtilityScore);
             if (scoreComparison != 0)
                 return scoreComparison;
-            return left.Kind.CompareTo(right.Kind);
+            string leftId = left.Definition != null ? left.Definition.ActionId : string.Empty;
+            string rightId = right.Definition != null ? right.Definition.ActionId : string.Empty;
+            return string.CompareOrdinal(leftId, rightId);
         }
     }
 }

@@ -12,8 +12,21 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: bac09dc4e36b5d84fa11bceed50de763, type: 3}
   m_Name: WeaponDefinition
   m_EditorClassIdentifier: Assembly-CSharp::GridSquad.WeaponDefinition
-  DisplayName: "\uC18C\uCD1D"
+  equipmentId: rifle
+  displayName: "\uC18C\uCD1D"
+  description: "\uADE0\uD615 \uC7A1\uD78C \uC81C\uC2DD \uC18C\uCD1D"
+  icon: {fileID: 21300000, guid: 03f090865adf48b46af5a43e79cdb420, type: 3}
+  weight: 4
+  maximumStack: 1
+  actionGrants:
+  - action: {fileID: 11400000, guid: 130616886d6849efbe74b4a114078b34, type: 2}
+    availability: 0
+  - action: {fileID: 11400000, guid: 85d322d0da956394bab29cc2da1f36f9, type: 2}
+    availability: 0
+  handedness: 1
   PresentationPrefab: {fileID: 4585488919674010619, guid: 51b96286a59fe2f468b5df6a020f02db, type: 3}
+  attackBehavior: {fileID: 11400000, guid: d549c996a01aa5146aca60341ad7fe24, type: 2}
+  hitEffects: []
   Damage: 30
   AimEnterDuration: 0.6
   AimedShotInterval: 0.65

@@ -1,0 +1,37 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bac09dc4e36b5d84fa11bceed50de763, type: 3}
+  m_Name: Shotgun
+  m_EditorClassIdentifier: Assembly-CSharp::GridSquad.WeaponDefinition
+  equipmentId: shotgun
+  displayName: "\uC0F7\uAC74"
+  description: "5\uBC1C \uC0B0\uD0C4\uACFC 1\uCE78 \uBC00\uCE58\uAE30\uB97C \uC81C\uACF5\uD558\uB294
+    \uADFC\uAC70\uB9AC \uD654\uAE30"
+  icon: {fileID: 21300000, guid: 13aeca0b316b8754c9959803b7b517c9, type: 3}
+  weight: 5
+  maximumStack: 1
+  actionGrants:
+  - action: {fileID: 11400000, guid: 130616886d6849efbe74b4a114078b34, type: 2}
+    availability: 0
+  handedness: 1
+  PresentationPrefab: {fileID: 4136576311536928184, guid: f0c783c7984646c43994a84f5aa23ed9, type: 3}
+  attackBehavior: {fileID: 11400000, guid: 8b535942c1ff9334a9b45373598c23c5, type: 2}
+  hitEffects:
+  - {fileID: 11400000, guid: 33305fbe0e561274b9cd60b06d604b8d, type: 2}
+  Damage: 45
+  AimEnterDuration: 0.45
+  AimedShotInterval: 1.05
+  MagazineCapacity: 6
+  StartingReserveAmmo: 24
+  ReloadDuration: 1.8
+  RangeInCells: 4
+  BaseHitChancePercent: 72

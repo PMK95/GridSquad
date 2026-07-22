@@ -1,0 +1,26 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 906f863fe8221dd45bdb5099c7c37e11, type: 3}
+  m_Name: RecoveryArmor
+  m_EditorClassIdentifier: Assembly-CSharp::GridSquad.ArmorDefinition
+  equipmentId: rapid_recovery_armor
+  displayName: "\uAE09\uC18D\uD68C\uBCF5 \uC0C1\uC758"
+  description: "\uCC29\uC6A9 \uC911 \uAE09\uC18D \uD68C\uBCF5 \uD589\uB3D9\uC744
+    \uC81C\uACF5\uD569\uB2C8\uB2E4."
+  icon: {fileID: 0}
+  weight: 6
+  maximumStack: 1
+  actionGrants:
+  - action: {fileID: 11400000, guid: 5027b2e6a9356b44bbe06d645ed4ff42, type: 2}
+    availability: 0
+  maximumBlockCount: 3
+  armorSlotKind: 3

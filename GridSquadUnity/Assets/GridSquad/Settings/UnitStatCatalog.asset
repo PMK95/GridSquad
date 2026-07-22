@@ -1,0 +1,19 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c6d5735eb12a4dbaadcd3b9de7e21ad5, type: 3}
+  m_Name: UnitStatCatalog
+  m_EditorClassIdentifier: Assembly-CSharp::GridSquad.UnitStatCatalog
+  maximumHealth: {fileID: 11400000, guid: d6148edf0b514418b78b4e24153b352a, type: 2}
+  movementSpeedMultiplier: {fileID: 11400000, guid: 5334004fe7134e3bbf45984a145712cb, type: 2}
+  hitChanceBonusPercent: {fileID: 11400000, guid: a5944a7364a14b79976b8d5290268113, type: 2}
+  damageMultiplier: {fileID: 11400000, guid: 7b106af550824e58b6ad9afa06890461, type: 2}
+  carryCapacity: {fileID: 11400000, guid: 8943ec9c869dccc439b4f7d5c2cdd77d, type: 2}

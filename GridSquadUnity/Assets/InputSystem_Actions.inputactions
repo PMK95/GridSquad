@@ -685,7 +685,7 @@
                     "initialStateCheck": false
                 },
                 {
-                    "name": "Grenade",
+                    "name": "ActionSlot1",
                     "type": "Button",
                     "id": "8cdb0b10-0f82-4725-a3c1-c44f31e640e7",
                     "expectedControlType": "Button",
@@ -694,7 +694,7 @@
                     "initialStateCheck": false
                 },
                 {
-                    "name": "Stim",
+                    "name": "ActionSlot2",
                     "type": "Button",
                     "id": "f7d83cc8-070d-4c9f-83d9-f6e53911ec1c",
                     "expectedControlType": "Button",
@@ -703,7 +703,7 @@
                     "initialStateCheck": false
                 },
                 {
-                    "name": "Dash",
+                    "name": "ActionSlot3",
                     "type": "Button",
                     "id": "ad531bb1-16f5-4138-afac-41068b3ec1d4",
                     "expectedControlType": "Button",
@@ -712,7 +712,7 @@
                     "initialStateCheck": false
                 },
                 {
-                    "name": "SwitchWeapon",
+                    "name": "ActionSlot4",
                     "type": "Button",
                     "id": "539407d8-acde-4cf4-9b55-e968078c8e5d",
                     "expectedControlType": "Button",
@@ -971,7 +971,7 @@
                     "interactions": "",
                     "processors": "",
                     "groups": "Keyboard&Mouse",
-                    "action": "Grenade",
+                    "action": "ActionSlot1",
                     "isComposite": false,
                     "isPartOfComposite": false
                 },
@@ -982,7 +982,7 @@
                     "interactions": "",
                     "processors": "",
                     "groups": "Keyboard&Mouse",
-                    "action": "Stim",
+                    "action": "ActionSlot2",
                     "isComposite": false,
                     "isPartOfComposite": false
                 },
@@ -993,7 +993,7 @@
                     "interactions": "",
                     "processors": "",
                     "groups": "Keyboard&Mouse",
-                    "action": "Dash",
+                    "action": "ActionSlot3",
                     "isComposite": false,
                     "isPartOfComposite": false
                 },
@@ -1004,7 +1004,7 @@
                     "interactions": "",
                     "processors": "",
                     "groups": "Keyboard&Mouse",
-                    "action": "SwitchWeapon",
+                    "action": "ActionSlot4",
                     "isComposite": false,
                     "isPartOfComposite": false
                 }

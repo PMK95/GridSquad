@@ -15,7 +15,7 @@ MonoBehaviour:
   displayName: "\uB3CC\uACA9 \uD6C8\uB828"
   description: "\uC774\uB3D9 \uC18D\uB3C4\uAC00 10% \uC99D\uAC00\uD569\uB2C8\uB2E4."
   icon: {fileID: 0}
-  maximumHealthDelta: 0
-  movementSpeedMultiplierDelta: 0.1
-  hitChanceBonusPercent: 0
-  damageMultiplierDelta: 0
+  modifiers:
+  - definition: {fileID: 11400000, guid: 5334004fe7134e3bbf45984a145712cb, type: 2}
+    operation: 0
+    value: 0.1

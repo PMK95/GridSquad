@@ -15,9 +15,10 @@ namespace GridSquad
         [SerializeField, HideInInspector] private int editorRandomSeed = 12345;
 
         private readonly HashSet<GridCoordinate> blocked = new();
-        private readonly Dictionary<GridCoordinate, Combatant> occupants = new();
-        private readonly Dictionary<GridCoordinate, Combatant> reservations = new();
-        private readonly Dictionary<GridCoordinate, Combatant> transitReservations = new();
+        private readonly Dictionary<GridCoordinate, TacticalEntity> occupants = new();
+        private readonly Dictionary<GridCoordinate, TacticalEntity> reservations = new();
+        private readonly Dictionary<GridCoordinate, TacticalEntity> transitReservations = new();
+        private readonly Dictionary<GridCoordinate, DestructibleCover> destructibleCovers = new();
 
         public int Width => width;
         public int Height => height;
@@ -32,6 +33,7 @@ namespace GridSquad
         private void Awake()
         {
             RebuildBlockedCellLookup();
+            AddRuntimeComponentsToLegacyCoverObjects();
         }
 
         public void RebuildBlockedCellLookup()
@@ -62,40 +64,40 @@ namespace GridSquad
 
         public bool IsBlocked(GridCoordinate coordinate) => blocked.Contains(coordinate);
 
-        public bool IsWalkable(GridCoordinate coordinate, Combatant requester = null)
+        public bool IsWalkable(GridCoordinate coordinate, TacticalEntity requester = null)
         {
             if (!IsInside(coordinate) || IsBlocked(coordinate))
                 return false;
-            if (occupants.TryGetValue(coordinate, out Combatant occupant) && occupant != requester)
+            if (occupants.TryGetValue(coordinate, out TacticalEntity occupant) && occupant != requester)
                 return false;
-            if (reservations.TryGetValue(coordinate, out Combatant destinationOwner) && destinationOwner != requester)
+            if (reservations.TryGetValue(coordinate, out TacticalEntity destinationOwner) && destinationOwner != requester)
                 return false;
-            return !transitReservations.TryGetValue(coordinate, out Combatant transitOwner)
+            return !transitReservations.TryGetValue(coordinate, out TacticalEntity transitOwner)
                 || transitOwner == requester;
         }
 
         public bool IsTraversableForPath(
             GridCoordinate coordinate,
-            Combatant requester,
+            TacticalEntity requester,
             bool avoidDynamicBlockers)
         {
             if (!IsInside(coordinate) || IsBlocked(coordinate))
                 return false;
-            if (reservations.TryGetValue(coordinate, out Combatant destinationOwner)
+            if (reservations.TryGetValue(coordinate, out TacticalEntity destinationOwner)
                 && destinationOwner != requester)
             {
                 return false;
             }
             if (!avoidDynamicBlockers)
                 return true;
-            if (occupants.TryGetValue(coordinate, out Combatant occupant) && occupant != requester)
+            if (occupants.TryGetValue(coordinate, out TacticalEntity occupant) && occupant != requester)
                 return false;
-            return !transitReservations.TryGetValue(coordinate, out Combatant transitOwner)
+            return !transitReservations.TryGetValue(coordinate, out TacticalEntity transitOwner)
                 || transitOwner == requester;
         }
 
         public bool IsAvailablePeekCell(GridCoordinate coordinate, Combatant requester)
-            => IsWalkable(coordinate, requester);
+            => IsWalkable(coordinate, requester != null ? requester.Entity : null);
 
         public bool HasClearCellLine(GridCoordinate originCell, GridCoordinate targetCell)
         {
@@ -162,42 +164,42 @@ namespace GridSquad
             return neighbors;
         }
 
-        public void RegisterOccupant(Combatant combatant, GridCoordinate coordinate)
+        public void RegisterOccupant(TacticalEntity entity, GridCoordinate coordinate)
         {
-            occupants[coordinate] = combatant;
+            occupants[coordinate] = entity;
         }
 
-        public void MoveOccupant(Combatant combatant, GridCoordinate previous, GridCoordinate next)
+        public void MoveOccupant(TacticalEntity entity, GridCoordinate previous, GridCoordinate next)
         {
-            if (occupants.TryGetValue(previous, out Combatant previousOccupant) && previousOccupant == combatant)
+            if (occupants.TryGetValue(previous, out TacticalEntity previousOccupant) && previousOccupant == entity)
                 occupants.Remove(previous);
-            occupants[next] = combatant;
-            ReleaseTransitReservation(combatant);
+            occupants[next] = entity;
+            ReleaseTransitReservation(entity);
         }
 
-        public void UnregisterOccupant(Combatant combatant, GridCoordinate coordinate)
+        public void UnregisterOccupant(TacticalEntity entity, GridCoordinate coordinate)
         {
-            if (occupants.TryGetValue(coordinate, out Combatant occupant) && occupant == combatant)
+            if (occupants.TryGetValue(coordinate, out TacticalEntity occupant) && occupant == entity)
                 occupants.Remove(coordinate);
-            ReleaseReservation(combatant);
-            ReleaseTransitReservation(combatant);
+            ReleaseReservation(entity);
+            ReleaseTransitReservation(entity);
         }
 
-        public bool TryReserveCell(Combatant combatant, GridCoordinate coordinate)
+        public bool TryReserveCell(TacticalEntity entity, GridCoordinate coordinate)
         {
-            if (!IsWalkable(coordinate, combatant))
+            if (!IsWalkable(coordinate, entity))
                 return false;
-            ReleaseReservation(combatant);
-            reservations[coordinate] = combatant;
+            ReleaseReservation(entity);
+            reservations[coordinate] = entity;
             return true;
         }
 
-        public void ReleaseReservation(Combatant combatant)
+        public void ReleaseReservation(TacticalEntity entity)
         {
             GridCoordinate? target = null;
-            foreach (KeyValuePair<GridCoordinate, Combatant> pair in reservations)
+            foreach (KeyValuePair<GridCoordinate, TacticalEntity> pair in reservations)
             {
-                if (pair.Value == combatant)
+                if (pair.Value == entity)
                 {
                     target = pair.Key;
                     break;
@@ -207,21 +209,21 @@ namespace GridSquad
                 reservations.Remove(target.Value);
         }
 
-        public bool TryReserveTransitCell(Combatant combatant, GridCoordinate coordinate)
+        public bool TryReserveTransitCell(TacticalEntity entity, GridCoordinate coordinate)
         {
-            if (!IsWalkable(coordinate, combatant))
+            if (!IsWalkable(coordinate, entity))
                 return false;
-            ReleaseTransitReservation(combatant);
-            transitReservations[coordinate] = combatant;
+            ReleaseTransitReservation(entity);
+            transitReservations[coordinate] = entity;
             return true;
         }
 
-        public void ReleaseTransitReservation(Combatant combatant)
+        public void ReleaseTransitReservation(TacticalEntity entity)
         {
             GridCoordinate? target = null;
-            foreach (KeyValuePair<GridCoordinate, Combatant> pair in transitReservations)
+            foreach (KeyValuePair<GridCoordinate, TacticalEntity> pair in transitReservations)
             {
-                if (pair.Value == combatant)
+                if (pair.Value == entity)
                 {
                     target = pair.Key;
                     break;
@@ -232,7 +234,69 @@ namespace GridSquad
         }
 
         public bool TryGetOccupant(GridCoordinate coordinate, out Combatant combatant)
-            => occupants.TryGetValue(coordinate, out combatant);
+        {
+            combatant = null;
+            return occupants.TryGetValue(coordinate, out TacticalEntity entity)
+                && entity != null
+                && (combatant = entity.Combatant) != null;
+        }
+
+        public void RegisterDestructibleCover(DestructibleCover cover, GridCoordinate coordinate)
+        {
+            if (cover == null || !IsInside(coordinate))
+                return;
+
+            destructibleCovers[coordinate] = cover;
+            blocked.Add(coordinate);
+        }
+
+        public void UnregisterDestructibleCover(
+            DestructibleCover cover,
+            GridCoordinate coordinate,
+            bool removeBlockedCell)
+        {
+            if (destructibleCovers.TryGetValue(coordinate, out DestructibleCover registeredCover)
+                && registeredCover == cover)
+            {
+                destructibleCovers.Remove(coordinate);
+            }
+            if (removeBlockedCell)
+                blocked.Remove(coordinate);
+        }
+
+        public List<ShootableTarget> GetRegisteredShootableTargets()
+        {
+            List<ShootableTarget> targets = new(occupants.Count + destructibleCovers.Count);
+            HashSet<ShootableTarget> uniqueTargets = new();
+            foreach (TacticalEntity entity in occupants.Values)
+            {
+                ShootableTarget target = entity != null ? entity.ShootableTarget : null;
+                if (target != null && uniqueTargets.Add(target))
+                    targets.Add(target);
+            }
+            foreach (DestructibleCover cover in destructibleCovers.Values)
+            {
+                ShootableTarget target = cover != null ? cover.ShootableTarget : null;
+                if (target != null && uniqueTargets.Add(target))
+                    targets.Add(target);
+            }
+            return targets;
+        }
+
+        private void AddRuntimeComponentsToLegacyCoverObjects()
+        {
+            Transform coversRoot = transform.Find("Covers");
+            if (coversRoot == null)
+                return;
+
+            foreach (Transform coverTransform in coversRoot)
+            {
+                DestructibleCover cover = coverTransform.GetComponent<DestructibleCover>();
+                if (cover == null)
+                    cover = coverTransform.gameObject.AddComponent<DestructibleCover>();
+                cover.ConfigureRuntime(this);
+            }
+        }
 
 #if UNITY_EDITOR
         public void SetEditorConfiguration(int newWidth, int newHeight, float newCellSize, Vector3 newOrigin, Vector2Int[] newBlockedCells)

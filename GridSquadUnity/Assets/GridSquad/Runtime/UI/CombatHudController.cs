@@ -21,6 +21,7 @@ namespace GridSquad
         [SerializeField] private MMF_Player automaticModeChangedFeedbacks;
         [SerializeField] private MMF_Player resultPanelFeedbacks;
 
+        private TacticalEntity selectedEntity;
         private Combatant selectedCombatant;
         private UnitTacticalBehaviorController selectedBehaviorController;
         private bool automaticModeInitialized;
@@ -48,7 +49,7 @@ namespace GridSquad
 
         private void Update()
         {
-            RefreshSelectedCombatantInfo();
+            RefreshSelectedEntityInfo();
         }
 
         public void SetTimeScaleDisplay(float scale, bool paused)
@@ -63,12 +64,12 @@ namespace GridSquad
                 modeText.text = value ? "TARGET MODE: ON" : "TARGET MODE: OFF";
         }
 
-        public void SetActionTargetingState(CombatActionKind kind)
+        public void SetActionTargetingState(CombatActionDefinition definition)
         {
             if (modeText != null)
-                modeText.text = kind == CombatActionKind.Grenade
-                    ? "GRENADE: SELECT CELL"
-                    : "DASH: SELECT CELL";
+                modeText.text = definition != null
+                    ? $"{definition.DisplayName}: 대상 선택"
+                    : "TARGET MODE: OFF";
         }
 
         public void SetActionMessage(string message)
@@ -83,16 +84,22 @@ namespace GridSquad
                 debugText.text = value ? "DEBUG: ALL" : "DEBUG: SELECTED";
         }
 
+        public void SetSelectedEntity(TacticalEntity entity)
+        {
+            bool selectionChanged = selectedEntity != entity;
+            selectedEntity = entity;
+            selectedCombatant = entity != null ? entity.Combatant : null;
+            selectedBehaviorController = selectedCombatant != null
+                ? selectedCombatant.GetComponent<UnitTacticalBehaviorController>()
+                : null;
+            RefreshSelectedEntityInfo();
+            if (selectionChanged && entity != null)
+                selectionChangedFeedbacks?.PlayFeedbacks();
+        }
+
         public void SetSelectedCombatant(Combatant combatant)
         {
-            bool selectionChanged = selectedCombatant != combatant;
-            selectedCombatant = combatant;
-            selectedBehaviorController = combatant != null
-                ? combatant.GetComponent<UnitTacticalBehaviorController>()
-                : null;
-            RefreshSelectedCombatantInfo();
-            if (selectionChanged && combatant != null)
-                selectionChangedFeedbacks?.PlayFeedbacks();
+            SetSelectedEntity(combatant != null ? combatant.Entity : null);
         }
 
         public void SetLegacySelectedInfoVisible(bool visible)
@@ -149,7 +156,7 @@ namespace GridSquad
             resultPanelFeedbacks?.PlayFeedbacks();
         }
 
-        private void RefreshSelectedCombatantInfo()
+        private void RefreshSelectedEntityInfo()
         {
             if (!legacySelectedInfoVisible)
             {
@@ -163,22 +170,48 @@ namespace GridSquad
             if (selectedInfoTitleText != null)
                 selectedInfoTitleText.text = selectedCombatant != null
                     ? $"SELECTED: {selectedCombatant.DisplayName}"
-                    : "SELECTED UNIT";
+                    : selectedEntity != null
+                        ? $"SELECTED: {selectedEntity.DisplayName}"
+                        : "SELECTED ENTITY";
             if (selectedInfoBodyText == null)
                 return;
 
+            if (selectedEntity == null)
+            {
+                selectedInfoBodyText.text = "NO ENTITY SELECTED\n\nLMB: SELECT UNIT OR COVER";
+                return;
+            }
+
             if (selectedCombatant == null)
             {
-                selectedInfoBodyText.text = "NO UNIT SELECTED\n\nLMB: SELECT ALLY";
+                EntityHealth selectedHealth = selectedEntity.GetComponent<EntityHealth>();
+                ShootableTarget selectedTarget = selectedEntity.ShootableTarget;
+                string entityType = selectedTarget != null && selectedTarget.IsCover
+                    ? "COVER"
+                    : "TACTICAL ENTITY";
+                string healthText = selectedHealth != null
+                    ? $"{selectedHealth.CurrentHealth} / {selectedHealth.MaximumHealth}"
+                    : "-";
+                selectedInfoBodyText.text =
+                    $"TYPE  {entityType}\n" +
+                    $"HP    {healthText}\n" +
+                    $"CELL  {selectedEntity.CurrentCell}\n" +
+                    $"STATE {(selectedEntity.IsAvailable ? "ACTIVE" : "DESTROYED")}\n\n" +
+                    $"SHOOTABLE   {(selectedTarget != null && selectedTarget.IsAlive ? "YES" : "NO")}\n" +
+                    $"DESTRUCTIBLE {(selectedHealth != null ? "YES" : "NO")}\n" +
+                    "COMMANDS     NONE";
                 return;
             }
 
             ShotEvaluation shot = selectedCombatant.CurrentShotEvaluation;
-            Combatant target = selectedCombatant.CurrentTarget;
+            ShootableTarget target = selectedCombatant.CurrentTarget;
             WeaponDefinition weapon = selectedCombatant.Weapon;
             string team = selectedCombatant.Team == Team.Ally ? "ALLY" : "ENEMY";
             string movement = !selectedCombatant.IsAlive ? "DEAD" : selectedCombatant.IsMoving ? "MOVING" : "IDLE";
             string targetName = target != null && target.IsAlive ? target.DisplayName : "-";
+            string targetHealth = target != null && target.IsAlive
+                ? $"{target.CurrentHealth} / {target.MaximumHealth}"
+                : "-";
             string shotState = shot.CanShoot ? "READY" : $"BLOCKED ({shot.FailureReason})";
             string weaponInfo = weapon != null
                 ? BuildWeaponInfo(selectedCombatant, weapon)
@@ -201,10 +234,7 @@ namespace GridSquad
                 ? selectedBehaviorController.ActionController
                 : null;
             string actionInfo = actionController != null
-                ? $"G GRENADE  {actionController.GetActionStatusText(CombatActionKind.Grenade)}\n" +
-                  $"V STIM     {actionController.GetActionStatusText(CombatActionKind.Stim)}\n" +
-                  $"X DASH     {actionController.GetActionStatusText(CombatActionKind.Dash)}\n" +
-                  $"C SWITCH   {actionController.GetActionStatusText(CombatActionKind.SwitchWeapon)}"
+                ? BuildActionInfo(actionController)
                 : "ACTIONS -";
             string message = Time.unscaledTime < actionMessageEndTime
                 ? $"\n\n{actionMessage}"
@@ -220,13 +250,27 @@ namespace GridSquad
                 $"CELL  {selectedCombatant.CurrentCell}\n" +
                 $"STATE {movement}\n\n" +
                 $"TARGET  {targetName}\n" +
+                $"TARGET HP {targetHealth}\n" +
                 $"SHOT    {shotState}\n" +
                 $"FIRE    {fireState}\n" +
                 $"HIT     {shot.HitChancePercent:0}%\n" +
+                $"FF RISK {shot.FriendlyFireRiskPercent:0}%\n" +
                 $"COVER   {shot.CoverEvasionPercent:0}%\n" +
                 $"COVER ANG {coverAngle}\n" +
                 $"PEEK    {(selectedCombatant.PeekEnabled ? "ON" : "OFF")}  AUTO {automaticPeek}\n\n" +
-                weaponInfo + "\n\n" + actionInfo + message + utilityDebug;
+                weaponInfo + "\n" + BuildEquipmentInfo(selectedCombatant) +
+                "\n\n" + actionInfo + message + utilityDebug;
+        }
+
+        private static string BuildEquipmentInfo(Combatant combatant)
+        {
+            EquipmentLoadout equipment = combatant.EquipmentLoadout;
+            if (equipment == null)
+                return "ARMOR -  EXTRA -";
+            string armorText = equipment.TryGetArmorState(out ArmorDefinition armor, out int remaining, out int maximum)
+                ? $"ARMOR {armor.DisplayName} {remaining}/{maximum}"
+                : "ARMOR -";
+            return $"{armorText}  EXTRA {equipment.BuildAdditionalEquipmentSummary()}";
         }
 
         private static string BuildWeaponInfo(Combatant combatant, WeaponDefinition activeWeapon)
@@ -247,6 +291,26 @@ namespace GridSquad
                 slots += $"\n{marker}S{slotIndex + 1} {(definition != null ? definition.DisplayName : "-")}  {ammo.MagazineAmmo}/{ammo.ReserveAmmo}";
             }
             return header + slots;
+        }
+
+        private static string BuildActionInfo(CombatActionController actionController)
+        {
+            string[] hotkeys = { "G", "V", "X", "C" };
+            System.Text.StringBuilder builder = new();
+            for (int slotIndex = 0; slotIndex < CombatActionLoadout.KeyboardShortcutActionCount; slotIndex++)
+            {
+                CombatActionRuntimeState state = actionController.GetPlayerActionRuntimeState(slotIndex);
+                if (state.Definition == null)
+                    continue;
+                if (builder.Length > 0)
+                    builder.Append('\n');
+                builder.Append(hotkeys[slotIndex])
+                    .Append(' ')
+                    .Append(state.Definition.DisplayName)
+                    .Append("  ")
+                    .Append(state.StatusText);
+            }
+            return builder.Length > 0 ? builder.ToString() : "ACTIONS -";
         }
 
         private void HandleAllyFullAutoClicked()

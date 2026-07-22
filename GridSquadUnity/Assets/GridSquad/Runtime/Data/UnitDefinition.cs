@@ -5,24 +5,19 @@ using UnityEngine;
 namespace GridSquad
 {
     [Serializable]
-    public struct UnitStatBlock
+    public struct StartingInventoryItem
     {
-        [Min(1)] public int MaximumHealth;
-        [Min(0.1f)] public float MovementSpeedMultiplier;
-        public float HitChanceBonusPercent;
-        [Min(0.1f)] public float DamageMultiplier;
+        [SerializeField] private ItemDefinition definition;
+        [SerializeField, Min(1)] private int quantity;
 
-        public UnitStatBlock(
-            int maximumHealth,
-            float movementSpeedMultiplier,
-            float hitChanceBonusPercent,
-            float damageMultiplier)
+        public StartingInventoryItem(ItemDefinition definition, int quantity)
         {
-            MaximumHealth = Mathf.Max(1, maximumHealth);
-            MovementSpeedMultiplier = Mathf.Max(0.1f, movementSpeedMultiplier);
-            HitChanceBonusPercent = hitChanceBonusPercent;
-            DamageMultiplier = Mathf.Max(0.1f, damageMultiplier);
+            this.definition = definition;
+            this.quantity = Mathf.Max(1, quantity);
         }
+
+        public ItemDefinition Definition => definition;
+        public int Quantity => Mathf.Max(1, quantity);
     }
 
     [CreateAssetMenu(menuName = "GridSquad/Unit Definition", fileName = "UnitDefinition")]
@@ -38,22 +33,26 @@ namespace GridSquad
         [SerializeField] private Color accentColor = new(0.2f, 0.75f, 0.9f, 1f);
 
         [Header("기본 스탯")]
-        [SerializeField] private UnitStatBlock baseStats = new(500, 1f, 0f, 1f);
+        [SerializeField] private UnitStatValue[] baseStatValues = Array.Empty<UnitStatValue>();
 
         [Header("기본 로드아웃")]
         [SerializeField] private WeaponDefinition[] defaultWeapons = new WeaponDefinition[WeaponSlotCount];
         [SerializeField] private CombatActionDefinition[] actionDefinitions = Array.Empty<CombatActionDefinition>();
         [SerializeField] private UnitTraitDefinition[] traits = Array.Empty<UnitTraitDefinition>();
+        [SerializeField] private EquipmentSlotAssignment[] defaultEquipmentAssignments = Array.Empty<EquipmentSlotAssignment>();
+        [SerializeField] private StartingInventoryItem[] startingInventoryItems = Array.Empty<StartingInventoryItem>();
 
         public string DisplayName => string.IsNullOrWhiteSpace(displayName) ? name : displayName;
         public string RoleName => roleName;
         public string Description => description;
         public Sprite Portrait => portrait;
         public Color AccentColor => accentColor;
-        public UnitStatBlock BaseStats => baseStats;
+        public IReadOnlyList<UnitStatValue> BaseStatValues => baseStatValues;
         public IReadOnlyList<WeaponDefinition> DefaultWeapons => defaultWeapons;
         public IReadOnlyList<CombatActionDefinition> ActionDefinitions => actionDefinitions;
         public IReadOnlyList<UnitTraitDefinition> Traits => traits;
+        public IReadOnlyList<EquipmentSlotAssignment> DefaultEquipmentAssignments => defaultEquipmentAssignments;
+        public IReadOnlyList<StartingInventoryItem> StartingInventoryItems => startingInventoryItems;
 
         public WeaponDefinition GetDefaultWeapon(int slotIndex)
         {
@@ -64,34 +63,6 @@ namespace GridSquad
                     : null;
         }
 
-        public UnitStatBlock CalculateEffectiveStats()
-        {
-            int maximumHealth = baseStats.MaximumHealth;
-            float movementSpeedMultiplier = baseStats.MovementSpeedMultiplier;
-            float hitChanceBonusPercent = baseStats.HitChanceBonusPercent;
-            float damageMultiplier = baseStats.DamageMultiplier;
-
-            if (traits != null)
-            {
-                foreach (UnitTraitDefinition trait in traits)
-                {
-                    if (trait == null)
-                        continue;
-
-                    maximumHealth += trait.MaximumHealthDelta;
-                    movementSpeedMultiplier += trait.MovementSpeedMultiplierDelta;
-                    hitChanceBonusPercent += trait.HitChanceBonusPercent;
-                    damageMultiplier += trait.DamageMultiplierDelta;
-                }
-            }
-
-            return new UnitStatBlock(
-                maximumHealth,
-                movementSpeedMultiplier,
-                hitChanceBonusPercent,
-                damageMultiplier);
-        }
-
 #if UNITY_EDITOR
         public void SetEditorConfiguration(
             string newDisplayName,
@@ -99,7 +70,7 @@ namespace GridSquad
             string newDescription,
             Sprite newPortrait,
             Color newAccentColor,
-            UnitStatBlock newBaseStats,
+            UnitStatValue[] newBaseStatValues,
             WeaponDefinition firstWeapon,
             WeaponDefinition secondWeapon,
             CombatActionDefinition[] newActionDefinitions,
@@ -110,11 +81,17 @@ namespace GridSquad
             description = newDescription;
             portrait = newPortrait;
             accentColor = newAccentColor;
-            baseStats = newBaseStats;
+            baseStatValues = newBaseStatValues ?? Array.Empty<UnitStatValue>();
             defaultWeapons = new[] { firstWeapon, secondWeapon };
             actionDefinitions = newActionDefinitions ?? Array.Empty<CombatActionDefinition>();
             traits = newTraits ?? Array.Empty<UnitTraitDefinition>();
         }
+
+        public void SetEditorDefaultEquipment(EquipmentSlotAssignment[] assignments)
+            => defaultEquipmentAssignments = assignments ?? Array.Empty<EquipmentSlotAssignment>();
+
+        public void SetEditorStartingInventory(StartingInventoryItem[] newStartingItems)
+            => startingInventoryItems = newStartingItems ?? Array.Empty<StartingInventoryItem>();
 #endif
     }
 }

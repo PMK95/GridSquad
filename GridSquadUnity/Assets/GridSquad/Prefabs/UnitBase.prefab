@@ -5205,6 +5205,24 @@ GameObject:
   - component: {fileID: 1171881880182107069}
   - component: {fileID: 6372213725560063780}
   - component: {fileID: 5382178924116542895}
+  - component: {fileID: 8230458415219826830}
+  - component: {fileID: 4267403006316358537}
+  - component: {fileID: 4087255740657042790}
+  - component: {fileID: 5347498834606658390}
+  - component: {fileID: 3106792895035244104}
+  - component: {fileID: 6863107774192474988}
+  - component: {fileID: 797430315962430215}
+  - component: {fileID: 7860599823193561660}
+  - component: {fileID: 6167376343644010442}
+  - component: {fileID: 6609694444748098200}
+  - component: {fileID: 3887359115113409846}
+  - component: {fileID: 8399863809299060785}
+  - component: {fileID: 8238826886331393968}
+  - component: {fileID: 6112390649436766364}
+  - component: {fileID: 4538160773337184229}
+  - component: {fileID: 4724346965568170978}
+  - component: {fileID: 1235458209011331595}
+  - component: {fileID: 4729455658105895088}
   m_Layer: 9
   m_Name: UnitBase
   m_TagString: Untagged
@@ -5268,9 +5286,11 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GridSquad.Combatant
   team: 0
+  unitDefinition: {fileID: 0}
   maximumHealth: 500
   weapon: {fileID: 11400000, guid: fe826854c04049d46a2e0c277a5603f4, type: 2}
   tuning: {fileID: 11400000, guid: 750f35e9934c51e41aa779aa3c765d69, type: 2}
+  statCatalog: {fileID: 11400000, guid: 8da798c53026486bb111d5dfb2ec5f06, type: 2}
   gridMap: {fileID: 0}
   shotEvaluator: {fileID: 0}
   director: {fileID: 0}
@@ -5282,6 +5302,17 @@ MonoBehaviour:
   animationController: {fileID: 3917027562528671163}
   feedbackPresenter: {fileID: 3874138156721311992}
   weaponLoadout: {fileID: 5382178924116542895}
+  equipmentLoadout: {fileID: 6112390649436766364}
+  inventory: {fileID: 4538160773337184229}
+  itemInteractionController: {fileID: 4724346965568170978}
+  entity: {fileID: 8230458415219826830}
+  health: {fileID: 4267403006316358537}
+  shootableTarget: {fileID: 4087255740657042790}
+  movementController: {fileID: 5347498834606658390}
+  rangedAttackController: {fileID: 3106792895035244104}
+  hitReactionController: {fileID: 6863107774192474988}
+  statusEffectController: {fileID: 797430315962430215}
+  facingController: {fileID: 7860599823193561660}
 --- !u!114 &448263477535009713
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -5294,7 +5325,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f0038c16c34866b4f9e25c9c0dc0f7e6, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Behavior::Unity.Behavior.BehaviorGraphAgent
-  m_Graph: {fileID: -2390304811687711416, guid: d6a06066f66114a489860ef69d1165c4, type: 2}
+  m_Graph: {fileID: -9183714086680321575, guid: d6a06066f66114a489860ef69d1165c4, type: 2}
   m_BlackboardVariableOverridesList:
   - rid: 5381438083667853395
   m_OriginalGraph: {fileID: 0}
@@ -5332,7 +5363,9 @@ MonoBehaviour:
   behaviorAgent: {fileID: 448263477535009713}
   autonomousMovementDefault: 0
   automaticPeekDefault: 1
+  commandState: {fileID: 0}
   actionController: {fileID: 0}
+  decisionCoordinator: {fileID: 0}
 --- !u!114 &3874138156721311992
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -5351,6 +5384,7 @@ MonoBehaviour:
   hitFeedbacks: {fileID: 480291473665972556}
   damageTextFeedbacks: {fileID: 2056602582924627677}
   missTextFeedbacks: {fileID: 8974717383159660163}
+  blockTextFeedbacks: {fileID: 0}
   deathVisualFeedbacks: {fileID: 264136300913456254}
   deathShakeFeedbacks: {fileID: 7401976493407408834}
   defeatShakeFeedbacks: {fileID: 6956646357863628200}
@@ -5366,11 +5400,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 163c80dba2e59ed428510adb32688337, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GridSquad.CombatActionLoadout
-  definitions:
-  - {fileID: 11400000, guid: 85d322d0da956394bab29cc2da1f36f9, type: 2}
-  - {fileID: 11400000, guid: 915388927c7ed434da7dec59aa43bc93, type: 2}
-  - {fileID: 11400000, guid: aea859656eaa37d469f683122a99dada, type: 2}
-  - {fileID: 11400000, guid: b244f032deff9d84b8312d9f3cf0612b, type: 2}
+  innateDefinitions:
+  - {fileID: 11400000, guid: 39473895280b49d0834deb82fbfec557, type: 2}
+  definitions: []
 --- !u!114 &1171881880182107069
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -5390,6 +5422,7 @@ MonoBehaviour:
   positionEvaluator: {fileID: 0}
   tuning: {fileID: 0}
   loadout: {fileID: 0}
+  commandState: {fileID: 0}
 --- !u!114 &6372213725560063780
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -5416,11 +5449,240 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9334a28c9974acd4d838f38f6306ca3c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GridSquad.WeaponLoadout
-  weaponSlots:
-  - {fileID: 11400000, guid: fe826854c04049d46a2e0c277a5603f4, type: 2}
-  - {fileID: 11400000, guid: b1076ddc85f74194098437ce0ac37102, type: 2}
-  activeSlotIndex: 0
   weaponMount: {fileID: 6372213725560063780}
+  equipmentLoadout: {fileID: 6112390649436766364}
+--- !u!114 &8230458415219826830
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2985916207501052990}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fe3990829c1d74d4d8882ac6a2d8c884, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::GridSquad.TacticalEntity
+  fallbackDisplayName: "\uC804\uD22C\uC6D0"
+  selectable: 1
+  selectionVisual: {fileID: 0}
+--- !u!114 &4267403006316358537
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2985916207501052990}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bdd25f2e2d1b90e41ae5371801f9597c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::GridSquad.EntityHealth
+  maximumHealth: 100
+--- !u!114 &4087255740657042790
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2985916207501052990}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 49a8192ce8314c6e804c55593a0ae3ef, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::GridSquad.ShootableTarget
+  aimCenter: {fileID: 1656491660813451236}
+  hitCollider: {fileID: 3833004746415252582}
+  cover: 0
+--- !u!114 &5347498834606658390
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2985916207501052990}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f4ac9793d10dd4046b08e8590234bb69, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::GridSquad.GridMovementController
+--- !u!114 &3106792895035244104
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2985916207501052990}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 98d9f9da4cab1be44a0dc33e7e58121d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::GridSquad.RangedAttackController
+--- !u!114 &6863107774192474988
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2985916207501052990}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 415cbc76e10ff0c459cab3b89deb7512, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::GridSquad.CombatantHitReactionController
+--- !u!114 &797430315962430215
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2985916207501052990}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 11af6ab4b72d6ec4f983a9b2ee7b1ab5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::GridSquad.CombatantStatusEffectController
+--- !u!114 &7860599823193561660
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2985916207501052990}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 562005ce59dbbaa40a216756cb61fe01, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::GridSquad.CombatantFacingController
+--- !u!114 &6167376343644010442
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2985916207501052990}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f67bb2c7c93677c4dbfab0b06b0f30e0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::GridSquad.CombatCommandState
+--- !u!114 &6609694444748098200
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2985916207501052990}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fdd44d5dcd917504682447002aa37969, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::GridSquad.CombatDecisionCoordinator
+  combatant: {fileID: 0}
+  director: {fileID: 0}
+  tuning: {fileID: 0}
+  commandState: {fileID: 0}
+  actionController: {fileID: 0}
+--- !u!114 &3887359115113409846
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2985916207501052990}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7c7799614af73864cb4de3b83ffaa647, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::GridSquad.CombatTargetingController
+--- !u!114 &8399863809299060785
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2985916207501052990}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d56770ce68db41b4c84e5a40d008d4ef, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::GridSquad.WeaponRuntimeController
+--- !u!114 &8238826886331393968
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2985916207501052990}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cccb21e54a2d37e47a4c400ff3f5abba, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::GridSquad.RangedFireCycleController
+--- !u!114 &6112390649436766364
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2985916207501052990}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2ae1574e16919a64698d5720c7643441, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::GridSquad.EquipmentLoadout
+  layout: {fileID: 11400000, guid: b997ff44880c3024e98f9e013733fefe, type: 2}
+  assignments: []
+--- !u!114 &4538160773337184229
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2985916207501052990}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8f71233d27b6ed04088da0884d279449, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::GridSquad.UnitInventory
+  fallbackCarryCapacity: 30
+  items: []
+--- !u!114 &4724346965568170978
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2985916207501052990}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a5e3fc9726de4a599683833a9794f46d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::GridSquad.UnitItemInteractionController
+--- !u!114 &1235458209011331595
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2985916207501052990}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5e13f4fbfbec3ec47b87008d7061a04e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::GridSquad.CombatantContextCommandProvider
+--- !u!114 &4729455658105895088
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2985916207501052990}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3dc0249db8ef9364495319f160e6bd37, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::GridSquad.CombatantItemContextCommandProvider
 --- !u!1 &3846169453653415163
 GameObject:
   m_ObjectHideFlags: 0

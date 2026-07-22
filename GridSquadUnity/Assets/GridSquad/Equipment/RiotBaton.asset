@@ -1,0 +1,37 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bac09dc4e36b5d84fa11bceed50de763, type: 3}
+  m_Name: RiotBaton
+  m_EditorClassIdentifier: Assembly-CSharp::GridSquad.WeaponDefinition
+  equipmentId: riot_baton
+  displayName: "\uC9C4\uC555\uBD09"
+  description: "20 \uD53C\uD574\uC640 50% \uD655\uB960\uC758 1.5\uCD08 \uAE30\uC808\uC744
+    \uAC00\uD558\uB294 \uADFC\uC811 \uBB34\uAE30"
+  icon: {fileID: 21300000, guid: feb2fdb31ed1a0547aa66d04acc34c68, type: 3}
+  weight: 1.5
+  maximumStack: 1
+  actionGrants:
+  - action: {fileID: 11400000, guid: 130616886d6849efbe74b4a114078b34, type: 2}
+    availability: 0
+  handedness: 0
+  PresentationPrefab: {fileID: 61142183283406044, guid: ba66ceb278ccccc439b0498b0a8660c2, type: 3}
+  attackBehavior: {fileID: 11400000, guid: 34df098b9a980054983c5eba204fa5f6, type: 2}
+  hitEffects:
+  - {fileID: 11400000, guid: 1e1165760a5f0144b80b1ed2fb811cc8, type: 2}
+  Damage: 20
+  AimEnterDuration: 0.25
+  AimedShotInterval: 0.85
+  MagazineCapacity: 1
+  StartingReserveAmmo: 0
+  ReloadDuration: 0.1
+  RangeInCells: 1
+  BaseHitChancePercent: 100

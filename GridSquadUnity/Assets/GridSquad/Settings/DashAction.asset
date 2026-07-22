@@ -12,27 +12,15 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8902b82866e050b47b51d1dab1451d0a, type: 3}
   m_Name: DashAction
   m_EditorClassIdentifier: Assembly-CSharp::GridSquad.CombatActionDefinition
-  kind: 4
+  actionId: dash
   displayName: "\uB3CC\uC9C4"
   description: "\uC120\uD0DD\uD55C \uC140\uAE4C\uC9C0 \uBE60\uB974\uAC8C \uB3CC\uC9C4\uD569\uB2C8\uB2E4."
   icon: {fileID: 21300000, guid: c6830ef39484ff045b73712bbdd600ea, type: 3}
-  targetType: 3
+  behavior: {fileID: 11400000, guid: 53659084a67a4920a38d5eab7ccd3ba6, type: 2}
   automaticInFullAuto: 1
   automaticInSemiAuto: 0
   startingCharges: -1
   cooldownSeconds: 6
   windupSeconds: 0
-  grenadeRangeCells: 5
-  grenadeRadiusCells: 1
-  grenadeDamage: 40
-  grenadeTravelSeconds: 0.4
-  grenadeFuseSeconds: 1.5
-  grenadeCameraShakeDuration: 0.28
-  grenadeCameraShakeAmplitude: 1.4
-  grenadeCameraShakeFrequency: 24
-  stimDurationSeconds: 8
-  stimMovementSpeedMultiplier: 1.35
-  stimFireIntervalMultiplier: 0.75
-  dashMaximumCells: 3
-  dashMovementSpeedMultiplier: 3
-  dashMinimumPositionImprovement: 15
+  playerSlotOrder: 200
+  displayKind: 0

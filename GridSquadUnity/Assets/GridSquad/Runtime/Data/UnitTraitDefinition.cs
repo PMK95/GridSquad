@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace GridSquad
@@ -8,37 +10,30 @@ namespace GridSquad
         [SerializeField] private string displayName = "특성";
         [SerializeField, TextArea(2, 4)] private string description;
         [SerializeField] private Sprite icon;
-        [SerializeField] private int maximumHealthDelta;
-        [SerializeField] private float movementSpeedMultiplierDelta;
-        [SerializeField] private float hitChanceBonusPercent;
-        [SerializeField] private float damageMultiplierDelta;
+        [SerializeField] private UnitStatModifier[] modifiers = Array.Empty<UnitStatModifier>();
+        [SerializeField] private CombatActionDefinition[] grantedActions = Array.Empty<CombatActionDefinition>();
 
-        public string DisplayName => displayName;
+        public string DisplayName => string.IsNullOrWhiteSpace(displayName) ? name : displayName;
         public string Description => description;
         public Sprite Icon => icon;
-        public int MaximumHealthDelta => maximumHealthDelta;
-        public float MovementSpeedMultiplierDelta => movementSpeedMultiplierDelta;
-        public float HitChanceBonusPercent => hitChanceBonusPercent;
-        public float DamageMultiplierDelta => damageMultiplierDelta;
+        public IReadOnlyList<UnitStatModifier> Modifiers => modifiers;
+        public IReadOnlyList<CombatActionDefinition> GrantedActions => grantedActions;
 
 #if UNITY_EDITOR
         public void SetEditorConfiguration(
             string newDisplayName,
             string newDescription,
             Sprite newIcon,
-            int newMaximumHealthDelta,
-            float newMovementSpeedMultiplierDelta,
-            float newHitChanceBonusPercent,
-            float newDamageMultiplierDelta)
+            UnitStatModifier[] newModifiers)
         {
             displayName = newDisplayName;
             description = newDescription;
             icon = newIcon;
-            maximumHealthDelta = newMaximumHealthDelta;
-            movementSpeedMultiplierDelta = newMovementSpeedMultiplierDelta;
-            hitChanceBonusPercent = newHitChanceBonusPercent;
-            damageMultiplierDelta = newDamageMultiplierDelta;
+            modifiers = newModifiers ?? Array.Empty<UnitStatModifier>();
         }
+
+        public void SetEditorGrantedActions(CombatActionDefinition[] newGrantedActions)
+            => grantedActions = newGrantedActions ?? Array.Empty<CombatActionDefinition>();
 #endif
     }
 }
