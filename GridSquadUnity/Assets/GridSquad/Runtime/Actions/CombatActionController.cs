@@ -5,6 +5,38 @@ using UnityEngine;
 
 namespace GridSquad
 {
+    public readonly struct CombatActionRuntimeState
+    {
+        public readonly CombatActionKind Kind;
+        public readonly CombatActionDefinition Definition;
+        public readonly bool IsEquipped;
+        public readonly bool IsInteractable;
+        public readonly bool IsRunning;
+        public readonly int RemainingCharges;
+        public readonly float CooldownRemaining;
+        public readonly string StatusText;
+
+        public CombatActionRuntimeState(
+            CombatActionKind kind,
+            CombatActionDefinition definition,
+            bool isEquipped,
+            bool isInteractable,
+            bool isRunning,
+            int remainingCharges,
+            float cooldownRemaining,
+            string statusText)
+        {
+            Kind = kind;
+            Definition = definition;
+            IsEquipped = isEquipped;
+            IsInteractable = isInteractable;
+            IsRunning = isRunning;
+            RemainingCharges = remainingCharges;
+            CooldownRemaining = cooldownRemaining;
+            StatusText = statusText;
+        }
+    }
+
     public sealed class CombatActionController : MonoBehaviour
     {
         [SerializeField] private Combatant combatant;
@@ -29,6 +61,16 @@ namespace GridSquad
         public bool HasLastSelectedCandidate => hasLastSelectedCandidate;
         public IReadOnlyList<CombatActionCandidate> LastCandidates => utilitySelector.Candidates;
         public Combatant OwnerCombatant => combatant;
+
+        public void RefreshRuntimeActionsFromLoadout()
+        {
+            if (combatant == null)
+                combatant = GetComponent<Combatant>();
+            if (loadout == null)
+                loadout = GetComponent<CombatActionLoadout>();
+            CancelAllActions();
+            BuildRuntimeActions();
+        }
 
         private void Awake()
         {
@@ -216,6 +258,39 @@ namespace GridSquad
             if (kind == CombatActionKind.Stim && combatant.IsStimActive)
                 return $"효과 {combatant.StimRemainingSeconds:0.0}s";
             return action.RemainingCharges < 0 ? "사용 가능" : $"{action.RemainingCharges}회";
+        }
+
+        public CombatActionRuntimeState GetActionRuntimeState(CombatActionKind kind)
+        {
+            RuntimeCombatAction action = FindAction(kind);
+            if (action == null)
+            {
+                return new CombatActionRuntimeState(
+                    kind,
+                    null,
+                    false,
+                    false,
+                    false,
+                    0,
+                    0f,
+                    "미장착");
+            }
+
+            bool isRunning = currentAction == action;
+            bool isInteractable = combatant != null
+                && combatant.IsAlive
+                && (currentAction == null || isRunning || currentAction.Kind == CombatActionKind.Reposition)
+                && action.RemainingCharges != 0
+                && action.CooldownRemaining <= 0f;
+            return new CombatActionRuntimeState(
+                kind,
+                action.ActionDefinition,
+                true,
+                isInteractable,
+                isRunning,
+                action.RemainingCharges,
+                action.CooldownRemaining,
+                GetActionStatusText(kind));
         }
 
         public string BuildUtilityDebugText()
@@ -427,6 +502,7 @@ namespace GridSquad
             }
 
             public abstract CombatActionKind Kind { get; }
+            public CombatActionDefinition ActionDefinition => Definition;
             public int RemainingCharges { get; protected set; }
             public float CooldownRemaining { get; protected set; }
 

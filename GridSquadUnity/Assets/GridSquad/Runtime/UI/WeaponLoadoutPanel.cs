@@ -57,6 +57,15 @@ namespace GridSquad
             if (rowContainer == null || director == null || weaponCatalog == null)
                 return;
 
+            if (rowContainer.TryGetComponent(out VerticalLayoutGroup rowLayout))
+            {
+                rowLayout.spacing = 14f;
+                rowLayout.childControlWidth = true;
+                rowLayout.childForceExpandWidth = true;
+                rowLayout.childControlHeight = true;
+                rowLayout.childForceExpandHeight = false;
+            }
+
             for (int childIndex = rowContainer.childCount - 1; childIndex >= 0; childIndex--)
                 Destroy(rowContainer.GetChild(childIndex).gameObject);
             rows.Clear();
@@ -64,7 +73,9 @@ namespace GridSquad
             int unitIndex = 0;
             foreach (Combatant combatant in director.Combatants)
             {
-                if (combatant == null || combatant.WeaponLoadout == null)
+                if (combatant == null
+                    || combatant.Team != Team.Ally
+                    || combatant.WeaponLoadout == null)
                     continue;
                 CreateUnitRow(combatant, unitIndex++);
             }
@@ -79,11 +90,13 @@ namespace GridSquad
             layout.childControlWidth = true;
             layout.childForceExpandWidth = true;
             LayoutElement rowLayout = rowObject.AddComponent<LayoutElement>();
-            rowLayout.preferredHeight = 42f;
+            rowLayout.preferredHeight = 86f;
 
             Text unitText = CreateText("Unit", rowObject.transform, 16, TextAnchor.MiddleLeft);
-            unitText.text = $"{combatant.name}  [{(combatant.Team == Team.Ally ? "ALLY" : "ENEMY")}]";
-            unitText.gameObject.AddComponent<LayoutElement>().preferredWidth = 220f;
+            unitText.text = $"{combatant.DisplayName}  [{combatant.RoleName}]";
+            LayoutElement unitLayout = unitText.gameObject.AddComponent<LayoutElement>();
+            unitLayout.minWidth = 240f;
+            unitLayout.preferredWidth = 280f;
 
             UnitRow row = new()
             {
@@ -128,7 +141,7 @@ namespace GridSquad
             }
 
             RefreshRow(row);
-            SetStatusMessage($"{row.Combatant.name} 무기 구성을 변경했습니다.");
+            SetStatusMessage($"{row.Combatant.DisplayName} 무기 구성을 변경했습니다.");
         }
 
         private static void RefreshRow(UnitRow row)
@@ -170,7 +183,9 @@ namespace GridSquad
             image.color = new Color(0.15f, 0.22f, 0.3f, 0.98f);
             Button button = buttonObject.AddComponent<Button>();
             button.targetGraphic = image;
-            buttonObject.AddComponent<LayoutElement>().preferredWidth = 180f;
+            LayoutElement buttonLayout = buttonObject.AddComponent<LayoutElement>();
+            buttonLayout.minWidth = 210f;
+            buttonLayout.preferredWidth = 260f;
             buttonText = CreateText("Text", buttonObject.transform, 15, TextAnchor.MiddleCenter);
             RectTransform textRect = buttonText.rectTransform;
             textRect.anchorMin = Vector2.zero;

@@ -46,7 +46,7 @@ namespace GridSquad
                 detailText.gameObject.SetActive(owner != null && owner.IsAlive);
                 detailText.text = showDetails
                     ? BuildDetailText(target, evaluation)
-                    : $"{owner.name}  HP {owner.CurrentHealth}/{owner.MaximumHealth}";
+                    : $"{owner.DisplayName}  HP {owner.CurrentHealth}/{owner.MaximumHealth}";
             }
 
             bool showTargetSet = showDetails && target != null && target.IsAlive;
@@ -168,10 +168,10 @@ namespace GridSquad
 
         private string BuildDetailText(Combatant target, ShotEvaluation evaluation)
         {
-            string targetName = target != null ? target.name : "-";
+            string targetName = target != null ? target.DisplayName : "-";
             string state = evaluation.CanShoot ? $"HIT {evaluation.HitChancePercent:0}%" : "NO SHOT";
             string coverAngle = evaluation.CoverAngleDegrees >= 0f ? $"{evaluation.CoverAngleDegrees:0}deg" : "-";
-            return $"{owner.name}  HP {owner.CurrentHealth}/{owner.MaximumHealth}  TGT {targetName}\n{state}  COV {evaluation.CoverEvasionPercent:0}%  ANG {coverAngle}  PEEK {(owner.PeekEnabled ? "ON" : "OFF")}  FIRE {owner.FireState}  AMMO {owner.CurrentMagazineAmmo}/{owner.ReserveAmmo}";
+            return $"{owner.DisplayName}  HP {owner.CurrentHealth}/{owner.MaximumHealth}  TGT {targetName}\n{state}  COV {evaluation.CoverEvasionPercent:0}%  ANG {coverAngle}  PEEK {(owner.PeekEnabled ? "ON" : "OFF")}  FIRE {owner.FireState}  AMMO {owner.CurrentMagazineAmmo}/{owner.ReserveAmmo}";
         }
 
 #if UNITY_EDITOR

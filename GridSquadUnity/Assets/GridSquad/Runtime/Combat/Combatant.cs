@@ -8,6 +8,7 @@ namespace GridSquad
     {
         [Header("전투 설정")]
         [SerializeField] private Team team;
+        [SerializeField] private UnitDefinition unitDefinition;
         [SerializeField] private int maximumHealth = 100;
         [SerializeField] private WeaponDefinition weapon;
         [SerializeField] private CombatTuning tuning;
@@ -53,10 +54,29 @@ namespace GridSquad
         private float stimMovementSpeedMultiplier = 1f;
         private float stimFireIntervalMultiplier = 1f;
         private float stimRemainingSeconds;
+        private UnitStatBlock effectiveStats;
 
         public event Action<Combatant> Died;
 
         public Team Team => team;
+        public UnitDefinition UnitDefinition => unitDefinition;
+        public string DisplayName => unitDefinition != null ? unitDefinition.DisplayName : name;
+        public string RoleName => unitDefinition != null ? unitDefinition.RoleName : (team == Team.Ally ? "아군" : "적군");
+        public string Description => unitDefinition != null ? unitDefinition.Description : string.Empty;
+        public Sprite Portrait => unitDefinition != null ? unitDefinition.Portrait : null;
+        public Color AccentColor => unitDefinition != null
+            ? unitDefinition.AccentColor
+            : team == Team.Ally
+                ? new Color(0.2f, 0.75f, 0.9f, 1f)
+                : new Color(0.8f, 0.2f, 0.2f, 1f);
+        public IReadOnlyList<UnitTraitDefinition> Traits => unitDefinition != null
+            ? unitDefinition.Traits
+            : Array.Empty<UnitTraitDefinition>();
+        public UnitStatBlock EffectiveStats => effectiveStats;
+        public float HitChanceBonusPercent => effectiveStats.HitChanceBonusPercent;
+        public int EffectiveWeaponDamage => Weapon != null
+            ? Mathf.Max(1, Mathf.RoundToInt(Weapon.Damage * effectiveStats.DamageMultiplier))
+            : 0;
         public bool IsAlive => currentHealth > 0;
         public bool IsMoving => movementIndex < movementPath.Count;
         public bool IsSelected => selected;
@@ -125,6 +145,24 @@ namespace GridSquad
 
         private void Awake()
         {
+            if (weaponLoadout == null)
+                weaponLoadout = GetComponent<WeaponLoadout>();
+
+            if (unitDefinition != null)
+            {
+                effectiveStats = unitDefinition.CalculateEffectiveStats();
+                maximumHealth = effectiveStats.MaximumHealth;
+                weaponLoadout?.ApplyUnitDefinitionDefaults(unitDefinition);
+                CombatActionLoadout actionLoadout = GetComponent<CombatActionLoadout>();
+                actionLoadout?.ApplyUnitDefinitionDefaults(unitDefinition);
+                GetComponent<CombatActionController>()?.RefreshRuntimeActionsFromLoadout();
+            }
+            else
+            {
+                effectiveStats = new UnitStatBlock(maximumHealth, 1f, 0f, 1f);
+                Debug.LogWarning($"[유닛 데이터] {name}에 UnitDefinition이 없어 기존 직렬화 값을 사용합니다.", this);
+            }
+
             currentHealth = maximumHealth;
             currentMagazineAmmo = MagazineCapacity;
             reserveAmmo = Weapon != null ? Mathf.Max(0, Weapon.StartingReserveAmmo) : 0;
@@ -135,8 +173,6 @@ namespace GridSquad
                 animationController = GetComponentInChildren<UnitAnimationController>(true);
             if (feedbackPresenter == null)
                 feedbackPresenter = GetComponentInChildren<CombatantFeedbackPresenter>(true);
-            if (weaponLoadout == null)
-                weaponLoadout = GetComponent<WeaponLoadout>();
             animationController?.Initialize();
             worldUi.Initialize(this);
             worldUi.SetSelected(false);
@@ -404,6 +440,7 @@ namespace GridSquad
             }
             Vector3 destination = gridMap.GridToWorld(nextCell);
             float movementSpeed = tuning.MovementSpeed
+                * effectiveStats.MovementSpeedMultiplier
                 * temporaryMovementSpeedMultiplier
                 * stimMovementSpeedMultiplier;
             transform.position = Vector3.MoveTowards(
@@ -629,7 +666,7 @@ namespace GridSquad
                 currentShotEvaluation.TargetCenter);
 
             if (UnityEngine.Random.value * 100f <= currentShotEvaluation.HitChancePercent)
-                currentTarget.ApplyDamage(Weapon.Damage);
+                currentTarget.ApplyDamage(EffectiveWeaponDamage);
             else
                 currentTarget.PlayMissFeedback();
             currentMagazineAmmo = Mathf.Max(0, currentMagazineAmmo - 1);
@@ -856,6 +893,11 @@ namespace GridSquad
         }
 
 #if UNITY_EDITOR
+        public void SetEditorUnitDefinition(UnitDefinition newUnitDefinition)
+        {
+            unitDefinition = newUnitDefinition;
+        }
+
         public void SetEditorConfiguration(
             Team newTeam,
             int newMaximumHealth,

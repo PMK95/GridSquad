@@ -1,0 +1,34 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d280abd9e7d4b184d9e86d5826bee3da, type: 3}
+  m_Name: ChoiYujin
+  m_EditorClassIdentifier: Assembly-CSharp::GridSquad.UnitDefinition
+  displayName: "\uCD5C\uC720\uC9C4"
+  roleName: "\uAE30\uB3D9\uBCD1"
+  description: "\uACBD\uB7C9 \uC7A5\uBE44\uB85C \uC804\uC7A5\uC744 \uB113\uAC8C \uD65C\uC6A9\uD558\uBA70
+    \uCE21\uBA74\uC744 \uD30C\uACE0\uB4ED\uB2C8\uB2E4."
+  portrait: {fileID: 21300000, guid: cb4bcbfed088d724fae44b8ff86d6de8, type: 3}
+  accentColor: {r: 0.78, g: 0.35, b: 0.92, a: 1}
+  baseStats:
+    MaximumHealth: 500
+    MovementSpeedMultiplier: 1
+    HitChanceBonusPercent: 0
+    DamageMultiplier: 1
+  defaultWeapons:
+  - {fileID: 11400000, guid: b1076ddc85f74194098437ce0ac37102, type: 2}
+  - {fileID: 11400000, guid: fe826854c04049d46a2e0c277a5603f4, type: 2}
+  actionDefinitions:
+  - {fileID: 11400000, guid: 85d322d0da956394bab29cc2da1f36f9, type: 2}
+  - {fileID: 11400000, guid: aea859656eaa37d469f683122a99dada, type: 2}
+  - {fileID: 11400000, guid: b244f032deff9d84b8312d9f3cf0612b, type: 2}
+  traits:
+  - {fileID: 11400000, guid: b8723dbd8a026774098329828d8eafd0, type: 2}

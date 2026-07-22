@@ -48,6 +48,8 @@ namespace GridSquad
     {
         [SerializeField] private CombatActionKind kind;
         [SerializeField] private string displayName = "ACTION";
+        [SerializeField, TextArea(2, 4)] private string description;
+        [SerializeField] private Sprite icon;
         [SerializeField] private CombatActionTargetType targetType;
         [SerializeField] private bool automaticInFullAuto = true;
         [SerializeField] private bool automaticInSemiAuto = true;
@@ -77,6 +79,8 @@ namespace GridSquad
 
         public CombatActionKind Kind => kind;
         public string DisplayName => displayName;
+        public string Description => description;
+        public Sprite Icon => icon;
         public CombatActionTargetType TargetType => targetType;
         public bool AutomaticInFullAuto => automaticInFullAuto;
         public bool AutomaticInSemiAuto => automaticInSemiAuto;
@@ -137,6 +141,12 @@ namespace GridSquad
         }
 
 #if UNITY_EDITOR
+        public void SetEditorPresentation(string newDescription, Sprite newIcon)
+        {
+            description = newDescription;
+            icon = newIcon;
+        }
+
         public void SetEditorConfiguration(
             CombatActionKind newKind,
             string newDisplayName,

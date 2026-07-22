@@ -19,6 +19,17 @@ namespace GridSquad
             return null;
         }
 
+        public void ApplyUnitDefinitionDefaults(UnitDefinition unitDefinition)
+        {
+            if (unitDefinition == null)
+                return;
+
+            int definitionCount = unitDefinition.ActionDefinitions.Count;
+            definitions = new CombatActionDefinition[definitionCount];
+            for (int index = 0; index < definitionCount; index++)
+                definitions[index] = unitDefinition.ActionDefinitions[index];
+        }
+
 #if UNITY_EDITOR
         public void SetEditorDefinitions(CombatActionDefinition[] newDefinitions)
         {

@@ -32,6 +32,9 @@ namespace GridSquad
 
         public bool Paused => paused;
         public float ActiveTimeScale => activeTimeScale;
+        public Combatant SelectedCombatant => selectedCombatant;
+        public bool IsTargetCommandActive => targetingMode && !targetingActionKind.HasValue;
+        public CombatActionKind? TargetingActionKind => targetingActionKind;
 
         private void Awake()
         {
@@ -76,25 +79,19 @@ namespace GridSquad
             if (ActionPressed("MoveCommand"))
                 HandleMoveCommand();
             if (ActionPressed("TargetCommand"))
-                SetEnemyTargetingMode(!targetingMode || targetingActionKind.HasValue);
+                BeginSelectedTargetCommandFromHud();
             if (ActionPressed("CycleControlMode"))
                 director.CycleAllyControlMode();
             if (ActionPressed("Grenade"))
-                BeginActionCellTargeting(CombatActionKind.Grenade);
+                BeginSelectedActionFromHud(CombatActionKind.Grenade);
             if (ActionPressed("Stim"))
-                TryUseStim();
+                BeginSelectedActionFromHud(CombatActionKind.Stim);
             if (ActionPressed("Dash"))
-                BeginActionCellTargeting(CombatActionKind.Dash);
+                BeginSelectedActionFromHud(CombatActionKind.Dash);
             if (ActionPressed("SwitchWeapon"))
-                TrySwitchWeapon();
-            if (ActionPressed("TogglePeek") && selectedCombatant != null && selectedCombatant.Team == Team.Ally)
-            {
-                UnitTacticalBehaviorController behaviorController =
-                    selectedCombatant.GetComponent<UnitTacticalBehaviorController>();
-                if (behaviorController != null)
-                    behaviorController.SetAutomaticPeekAllowed(
-                        !behaviorController.AutomaticPeekAllowed);
-            }
+                BeginSelectedActionFromHud(CombatActionKind.SwitchWeapon);
+            if (ActionPressed("TogglePeek"))
+                ToggleSelectedAutomaticPeekFromHud();
             if (ActionPressed("TogglePause"))
                 TogglePause();
             if (ActionPressed("Speed1"))
@@ -169,7 +166,7 @@ namespace GridSquad
             if (!TryRaycastUnit(out Combatant clicked))
             {
                 if (!targetingMode)
-                    SelectCombatant(null);
+                    SetSelectedCombatant(null);
                 return;
             }
 
@@ -185,7 +182,7 @@ namespace GridSquad
                 return;
             }
 
-            SelectCombatant(clicked);
+            SetSelectedCombatant(clicked);
         }
 
         private void HandleMoveCommand()
@@ -222,14 +219,102 @@ namespace GridSquad
             return false;
         }
 
-        private void SelectCombatant(Combatant combatant)
+        public void SelectCombatantFromRoster(Combatant combatant)
         {
+            if (combatant == null
+                || combatant.Team != Team.Ally
+                || !combatant.IsAlive)
+            {
+                return;
+            }
+
+            SetSelectedCombatant(combatant);
+        }
+
+        public void BeginSelectedTargetCommandFromHud()
+        {
+            SetEnemyTargetingMode(!targetingMode || targetingActionKind.HasValue);
+        }
+
+        public void ToggleSelectedAutomaticPeekFromHud()
+        {
+            if (selectedCombatant == null
+                || selectedCombatant.Team != Team.Ally
+                || !selectedCombatant.IsAlive)
+            {
+                hud.SetActionMessage("생존한 아군을 선택해야 합니다");
+                return;
+            }
+
+            UnitTacticalBehaviorController behaviorController =
+                selectedCombatant.GetComponent<UnitTacticalBehaviorController>();
+            if (behaviorController == null)
+                return;
+
+            behaviorController.SetAutomaticPeekAllowed(
+                !behaviorController.AutomaticPeekAllowed);
+            hud.SetActionMessage(
+                behaviorController.AutomaticPeekAllowed
+                    ? "자동 엄폐 사용"
+                    : "자동 엄폐 해제");
+        }
+
+        public void BeginSelectedActionFromHud(CombatActionKind kind)
+        {
+            switch (kind)
+            {
+                case CombatActionKind.Grenade:
+                case CombatActionKind.Dash:
+                    BeginActionCellTargeting(kind);
+                    break;
+                case CombatActionKind.Stim:
+                    TryUseStim();
+                    break;
+                case CombatActionKind.SwitchWeapon:
+                    TrySwitchWeapon();
+                    break;
+            }
+        }
+
+        private void SetSelectedCombatant(Combatant combatant)
+        {
+            if (selectedCombatant == combatant)
+                return;
+
+            if (selectedCombatant != null)
+                selectedCombatant.Died -= HandleSelectedCombatantDied;
             selectedCombatant?.SetSelected(false);
             selectedCombatant = combatant;
             selectedCombatant?.SetSelected(true);
+            if (selectedCombatant != null)
+                selectedCombatant.Died += HandleSelectedCombatantDied;
             hud.SetSelectedCombatant(selectedCombatant);
             gridCombatIndicator.SetSelectedCombatant(selectedCombatant);
             CancelTargeting();
+        }
+
+        private void HandleSelectedCombatantDied(Combatant deadCombatant)
+        {
+            deadCombatant.Died -= HandleSelectedCombatantDied;
+            if (deadCombatant.Team != Team.Ally)
+            {
+                SetSelectedCombatant(null);
+                return;
+            }
+
+            foreach (Combatant combatant in director.Combatants)
+            {
+                if (combatant != null
+                    && combatant != deadCombatant
+                    && combatant.Team == Team.Ally
+                    && combatant.IsAlive)
+                {
+                    SetSelectedCombatant(combatant);
+                    return;
+                }
+            }
+
+            SetSelectedCombatant(null);
         }
 
         private void SetEnemyTargetingMode(bool value)
@@ -245,6 +330,13 @@ namespace GridSquad
             CombatActionController actionController = GetSelectedAllyActionController();
             if (actionController == null)
                 return;
+
+            CombatActionRuntimeState actionState = actionController.GetActionRuntimeState(kind);
+            if (!actionState.IsEquipped || !actionState.IsInteractable)
+            {
+                hud.SetActionMessage(actionState.StatusText);
+                return;
+            }
 
             targetingMode = false;
             targetingActionKind = kind;

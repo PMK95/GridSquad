@@ -246,7 +246,9 @@ namespace GridSquad
 
             CoverEvaluation cover = EvaluateCoverFromCells(originCell, targetPhysicalCell);
             float hitChance = Mathf.Clamp(
-                weapon.BaseHitChancePercent - cover.EvasionPercent,
+                weapon.BaseHitChancePercent
+                    + (shooter != null ? shooter.HitChanceBonusPercent : 0f)
+                    - cover.EvasionPercent,
                 tuning.MinimumHitChancePercent,
                 tuning.MaximumHitChancePercent);
             return new ShotEvaluation

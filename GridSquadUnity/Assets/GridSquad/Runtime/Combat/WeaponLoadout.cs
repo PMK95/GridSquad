@@ -42,6 +42,17 @@ namespace GridSquad
 
         public int GetNextSlotIndex() => (activeSlotIndex + 1) % SlotCount;
 
+        public void ApplyUnitDefinitionDefaults(UnitDefinition unitDefinition)
+        {
+            if (battleInitialized || unitDefinition == null)
+                return;
+
+            EnsureSlotArray();
+            for (int slotIndex = 0; slotIndex < SlotCount; slotIndex++)
+                weaponSlots[slotIndex] = unitDefinition.GetDefaultWeapon(slotIndex);
+            activeSlotIndex = 0;
+        }
+
         public bool SetDefinitionBeforeBattle(int slotIndex, WeaponDefinition definition)
         {
             if (battleInitialized || !IsValidSlot(slotIndex) || definition == null)

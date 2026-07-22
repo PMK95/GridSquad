@@ -27,6 +27,7 @@ namespace GridSquad
         private CombatControlMode previousControlMode;
         private string actionMessage;
         private float actionMessageEndTime;
+        private bool legacySelectedInfoVisible = true;
 
         private static readonly Color CommandButtonColor =
             new(0.24f, 0.28f, 0.34f, 0.96f);
@@ -94,6 +95,13 @@ namespace GridSquad
                 selectionChangedFeedbacks?.PlayFeedbacks();
         }
 
+        public void SetLegacySelectedInfoVisible(bool visible)
+        {
+            legacySelectedInfoVisible = visible;
+            if (selectedInfoPanel != null)
+                selectedInfoPanel.SetActive(visible);
+        }
+
         public void SetAllyFullAutoState(bool enabled)
         {
             SetAllyControlMode(enabled
@@ -143,11 +151,18 @@ namespace GridSquad
 
         private void RefreshSelectedCombatantInfo()
         {
+            if (!legacySelectedInfoVisible)
+            {
+                if (selectedInfoPanel != null)
+                    selectedInfoPanel.SetActive(false);
+                return;
+            }
+
             if (selectedInfoPanel != null)
                 selectedInfoPanel.SetActive(true);
             if (selectedInfoTitleText != null)
                 selectedInfoTitleText.text = selectedCombatant != null
-                    ? $"SELECTED: {selectedCombatant.name}"
+                    ? $"SELECTED: {selectedCombatant.DisplayName}"
                     : "SELECTED UNIT";
             if (selectedInfoBodyText == null)
                 return;
@@ -163,7 +178,7 @@ namespace GridSquad
             WeaponDefinition weapon = selectedCombatant.Weapon;
             string team = selectedCombatant.Team == Team.Ally ? "ALLY" : "ENEMY";
             string movement = !selectedCombatant.IsAlive ? "DEAD" : selectedCombatant.IsMoving ? "MOVING" : "IDLE";
-            string targetName = target != null && target.IsAlive ? target.name : "-";
+            string targetName = target != null && target.IsAlive ? target.DisplayName : "-";
             string shotState = shot.CanShoot ? "READY" : $"BLOCKED ({shot.FailureReason})";
             string weaponInfo = weapon != null
                 ? BuildWeaponInfo(selectedCombatant, weapon)
@@ -216,7 +231,7 @@ namespace GridSquad
 
         private static string BuildWeaponInfo(Combatant combatant, WeaponDefinition activeWeapon)
         {
-            string header = $"[{activeWeapon.DisplayName}]  DMG {activeWeapon.Damage}  RANGE {activeWeapon.RangeInCells:0}\n" +
+            string header = $"[{activeWeapon.DisplayName}]  DMG {combatant.EffectiveWeaponDamage}  RANGE {activeWeapon.RangeInCells:0}\n" +
                 $"AIM {activeWeapon.AimEnterDuration:0.0}s  INTERVAL {activeWeapon.AimedShotInterval:0.00}s  RELOAD {activeWeapon.ReloadDuration:0.0}s\n" +
                 $"AMMO {combatant.CurrentMagazineAmmo}/{combatant.ReserveAmmo}";
             WeaponLoadout weaponLoadout = combatant.WeaponLoadout;

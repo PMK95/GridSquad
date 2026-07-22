@@ -1,0 +1,34 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d280abd9e7d4b184d9e86d5826bee3da, type: 3}
+  m_Name: YoonTaeho
+  m_EditorClassIdentifier: Assembly-CSharp::GridSquad.UnitDefinition
+  displayName: "\uC724\uD0DC\uD638"
+  roleName: "\uC9C0\uC815\uC0AC\uC218"
+  description: "\uB290\uB9AC\uC9C0\uB9CC \uC815\uD655\uD55C \uC0AC\uACA9\uC73C\uB85C
+    \uBA3C \uAC70\uB9AC\uC758 \uC6B0\uC120 \uBAA9\uD45C\uB97C \uC81C\uC555\uD569\uB2C8\uB2E4."
+  portrait: {fileID: 21300000, guid: 417cbd2e3a325de47912a292a55d8377, type: 3}
+  accentColor: {r: 0.95, g: 0.76, b: 0.25, a: 1}
+  baseStats:
+    MaximumHealth: 500
+    MovementSpeedMultiplier: 1
+    HitChanceBonusPercent: 0
+    DamageMultiplier: 1
+  defaultWeapons:
+  - {fileID: 11400000, guid: fe826854c04049d46a2e0c277a5603f4, type: 2}
+  - {fileID: 11400000, guid: b1076ddc85f74194098437ce0ac37102, type: 2}
+  actionDefinitions:
+  - {fileID: 11400000, guid: 85d322d0da956394bab29cc2da1f36f9, type: 2}
+  - {fileID: 11400000, guid: 915388927c7ed434da7dec59aa43bc93, type: 2}
+  - {fileID: 11400000, guid: b244f032deff9d84b8312d9f3cf0612b, type: 2}
+  traits:
+  - {fileID: 11400000, guid: ae993c6031fde154ba81d2a3c4b9d775, type: 2}

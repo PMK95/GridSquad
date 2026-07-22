@@ -1,0 +1,35 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d280abd9e7d4b184d9e86d5826bee3da, type: 3}
+  m_Name: HanSeoyun
+  m_EditorClassIdentifier: Assembly-CSharp::GridSquad.UnitDefinition
+  displayName: "\uD55C\uC11C\uC724"
+  roleName: "\uAE30\uB3D9\uBCD1"
+  description: "\uAC00\uBCBC\uC6B4 \uC7A5\uBE44\uC640 \uB6F0\uC5B4\uB09C \uD604\uC7A5
+    \uAC10\uAC01\uC73C\uB85C \uCE21\uBA74\uC744 \uBE60\uB974\uAC8C \uC7A5\uC545\uD569\uB2C8\uB2E4."
+  portrait: {fileID: 21300000, guid: 3ed61e1b70350fe48a8f4147384935fe, type: 3}
+  accentColor: {r: 0.28, g: 0.88, b: 0.68, a: 1}
+  baseStats:
+    MaximumHealth: 500
+    MovementSpeedMultiplier: 1
+    HitChanceBonusPercent: 0
+    DamageMultiplier: 1
+  defaultWeapons:
+  - {fileID: 11400000, guid: b1076ddc85f74194098437ce0ac37102, type: 2}
+  - {fileID: 11400000, guid: fe826854c04049d46a2e0c277a5603f4, type: 2}
+  actionDefinitions:
+  - {fileID: 11400000, guid: 85d322d0da956394bab29cc2da1f36f9, type: 2}
+  - {fileID: 11400000, guid: aea859656eaa37d469f683122a99dada, type: 2}
+  - {fileID: 11400000, guid: b244f032deff9d84b8312d9f3cf0612b, type: 2}
+  traits:
+  - {fileID: 11400000, guid: b8723dbd8a026774098329828d8eafd0, type: 2}
+  - {fileID: 11400000, guid: 445cdf5127bc7704582dc8cf006055f9, type: 2}
