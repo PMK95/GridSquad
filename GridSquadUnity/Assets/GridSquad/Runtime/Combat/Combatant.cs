@@ -35,6 +35,7 @@ namespace GridSquad
         private int currentHealth;
         private GridCoordinate currentCell;
         private Combatant currentTarget;
+        private Combatant manualTargetHoverPreview;
         private ShotEvaluation currentShotEvaluation;
         private FireCycleState fireCycleState;
         private float fireStateRemainingSeconds;
@@ -188,7 +189,21 @@ namespace GridSquad
             bool movedThisFrame = MoveAlongPath();
             RotateTowardMovementOrTarget();
             animationController?.SetMovementState(movedThisFrame && !IsReloading && !IsHitReacting);
-            worldUi.Refresh(currentTarget, currentShotEvaluation, selected, debugVisible);
+            Combatant presentationTarget = manualTargetHoverPreview;
+            if (presentationTarget != null
+                && (!presentationTarget.IsAlive || presentationTarget.Team == team))
+            {
+                manualTargetHoverPreview = null;
+                presentationTarget = null;
+            }
+
+            ShotEvaluation presentationEvaluation = currentShotEvaluation;
+            if (presentationTarget != null)
+                presentationEvaluation = shotEvaluator.EvaluateShot(this, presentationTarget);
+            else
+                presentationTarget = currentTarget;
+
+            worldUi.Refresh(presentationTarget, presentationEvaluation, selected, debugVisible);
         }
 
         private void OnDestroy()
@@ -416,6 +431,20 @@ namespace GridSquad
         {
             selected = value && IsAlive;
             worldUi.SetSelected(selected);
+        }
+
+        public void SetManualTargetHoverPreview(Combatant target)
+        {
+            manualTargetHoverPreview = target != null
+                && target.IsAlive
+                && target.Team != team
+                    ? target
+                    : null;
+        }
+
+        public void ClearManualTargetHoverPreview()
+        {
+            manualTargetHoverPreview = null;
         }
 
         public void SetDebugVisible(bool value)

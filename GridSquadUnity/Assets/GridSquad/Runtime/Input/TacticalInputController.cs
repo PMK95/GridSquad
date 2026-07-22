@@ -50,7 +50,12 @@ namespace GridSquad
         }
 
         private void OnEnable() => tacticalMap?.Enable();
-        private void OnDisable() => tacticalMap?.Disable();
+
+        private void OnDisable()
+        {
+            selectedCombatant?.ClearManualTargetHoverPreview();
+            tacticalMap?.Disable();
+        }
 
         private void Update()
         {
@@ -110,6 +115,7 @@ namespace GridSquad
                 RestartScene();
 
             RefreshSelectedPathLine();
+            RefreshEnemyTargetHoverPreview();
             RefreshActionTargetPreview();
         }
 
@@ -283,6 +289,7 @@ namespace GridSquad
 
             if (selectedCombatant != null)
                 selectedCombatant.Died -= HandleSelectedCombatantDied;
+            selectedCombatant?.ClearManualTargetHoverPreview();
             selectedCombatant?.SetSelected(false);
             selectedCombatant = combatant;
             selectedCombatant?.SetSelected(true);
@@ -319,6 +326,7 @@ namespace GridSquad
 
         private void SetEnemyTargetingMode(bool value)
         {
+            selectedCombatant?.ClearManualTargetHoverPreview();
             targetingMode = value && selectedCombatant != null && selectedCombatant.Team == Team.Ally;
             targetingActionKind = null;
             gridCombatIndicator.SetActionTargeting(null, null);
@@ -340,6 +348,7 @@ namespace GridSquad
 
             targetingMode = false;
             targetingActionKind = kind;
+            selectedCombatant?.ClearManualTargetHoverPreview();
             gridCombatIndicator.SetActionTargeting(kind, actionController);
             hud.SetActionTargetingState(kind);
         }
@@ -402,6 +411,22 @@ namespace GridSquad
                 gridCombatIndicator.SetActionPreviewCell(targetCell);
         }
 
+        private void RefreshEnemyTargetHoverPreview()
+        {
+            if (!targetingMode
+                || selectedCombatant == null
+                || !selectedCombatant.IsAlive
+                || IsPointerOverHud()
+                || !TryRaycastUnit(out Combatant hoveredCombatant)
+                || hoveredCombatant.Team == selectedCombatant.Team)
+            {
+                selectedCombatant?.ClearManualTargetHoverPreview();
+                return;
+            }
+
+            selectedCombatant.SetManualTargetHoverPreview(hoveredCombatant);
+        }
+
         private bool TryRaycastGroundCell(out GridCoordinate cell)
         {
             Vector2 pointer = tacticalMap.FindAction("PointerPosition", true).ReadValue<Vector2>();
@@ -432,6 +457,7 @@ namespace GridSquad
 
         private void CancelTargeting()
         {
+            selectedCombatant?.ClearManualTargetHoverPreview();
             targetingMode = false;
             targetingActionKind = null;
             gridCombatIndicator.SetActionTargeting(null, null);
