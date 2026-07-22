@@ -7,7 +7,7 @@ namespace GridSquadEditor
     [InitializeOnLoad]
     public static class TacticalEntityPrefabConfigurator
     {
-        private const string UnitBasePrefabPath = "Assets/GridSquad/Prefabs/UnitBase.prefab";
+        private const string UnitBasePrefabPath = "Assets/GridSquad/Prefabs/Units/UnitBase.prefab";
 
         static TacticalEntityPrefabConfigurator()
         {

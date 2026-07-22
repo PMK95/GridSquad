@@ -20,11 +20,11 @@ namespace GridSquadEditor
     public static class CombatFeelConfigurator
     {
         private const string RootPath = "Assets/GridSquad";
-        private const string UnitBasePath = RootPath + "/Prefabs/UnitBase.prefab";
-        private const string CharacterModelPath = RootPath + "/Prefabs/CharacterModel.prefab";
-        private const string AllyUnitPath = RootPath + "/Prefabs/AllyUnit.prefab";
-        private const string EnemyUnitPath = RootPath + "/Prefabs/EnemyUnit.prefab";
-        private const string WorldUiPath = RootPath + "/Prefabs/CharacterWorldUI.prefab";
+        private const string UnitBasePath = RootPath + "/Prefabs/Units/UnitBase.prefab";
+        private const string CharacterModelPath = RootPath + "/Prefabs/Units/CharacterModel.prefab";
+        private const string AllyUnitPath = RootPath + "/Prefabs/Units/AllyUnit.prefab";
+        private const string EnemyUnitPath = RootPath + "/Prefabs/Units/EnemyUnit.prefab";
+        private const string WorldUiPath = RootPath + "/Prefabs/UI/CharacterWorldUI.prefab";
         private const string FeedbackRootPath = RootPath + "/Feedbacks";
         private const string FeedbackPrefabPath = FeedbackRootPath + "/Prefabs/DamageFloatingText.prefab";
         private const string DamageChannelPath = FeedbackRootPath + "/Channels/DamageTextChannel.asset";

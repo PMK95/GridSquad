@@ -7,9 +7,9 @@ namespace GridSquadEditor
     [InitializeOnLoad]
     public static class DestructibleCoverPrefabFactory
     {
-        public const string PrefabPath = "Assets/GridSquad/Prefabs/Cover.prefab";
-        private const string CoverMaterialPath = "Assets/GridSquad/Materials/Cover.mat";
-        private const string SelectionMaterialPath = "Assets/GridSquad/Materials/CoverSelection.mat";
+        public const string PrefabPath = "Assets/GridSquad/Prefabs/Environment/Cover.prefab";
+        private const string CoverMaterialPath = "Assets/GridSquad/Materials/Environment/Cover.mat";
+        private const string SelectionMaterialPath = "Assets/GridSquad/Materials/Environment/CoverSelection.mat";
         private const int CoverLayer = 10;
         private const int DefaultMaximumHealth = 120;
 

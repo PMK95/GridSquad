@@ -10,39 +10,62 @@ namespace GridSquad.Editor
     public static class EquipmentAssetFactory
     {
         public const string EquipmentRoot = "Assets/GridSquad/Equipment";
-        public const string EquipmentCatalogPath = EquipmentRoot + "/EquipmentCatalog.asset";
-        public const string ItemCatalogPath = EquipmentRoot + "/ItemCatalog.asset";
-        public const string EquipmentLayoutPath = EquipmentRoot + "/CombatEquipmentLayout.asset";
+        private const string EquipmentCatalogsRoot = EquipmentRoot + "/Catalogs";
+        private const string EquipmentLayoutsRoot = EquipmentRoot + "/Layouts";
+        private const string EquipmentSlotsRoot = EquipmentRoot + "/Slots";
+        private const string EquipmentArmorRoot = EquipmentRoot + "/Armor";
+        private const string EquipmentConsumablesRoot = EquipmentRoot + "/Consumables";
+        private const string EquipmentSupportRoot = EquipmentRoot + "/Support";
+        private const string EquipmentWeaponsRoot = EquipmentRoot + "/Weapons";
+        private const string WeaponDefinitionsRoot = EquipmentWeaponsRoot + "/Definitions";
+        private const string WeaponAttackBehaviorsRoot = EquipmentWeaponsRoot + "/AttackBehaviors";
+        private const string WeaponHitEffectsRoot = EquipmentWeaponsRoot + "/HitEffects";
+        private const string ActionDataRoot = "Assets/GridSquad/Data/Actions";
+        private const string StatDataRoot = "Assets/GridSquad/Data/Stats";
+        public const string EquipmentCatalogPath = EquipmentCatalogsRoot + "/EquipmentCatalog.asset";
+        public const string ItemCatalogPath = EquipmentCatalogsRoot + "/ItemCatalog.asset";
+        public const string EquipmentLayoutPath = EquipmentLayoutsRoot + "/CombatEquipmentLayout.asset";
         public const string EquipmentSlotPrefabPath = "Assets/GridSquad/Prefabs/UI/EquipmentSlotView.prefab";
         public const string EquipmentItemCardPrefabPath = "Assets/GridSquad/Prefabs/UI/EquipmentItemCard.prefab";
         public const string SelectionUiRootPrefabPath = "Assets/GridSquad/Resources/UI/SelectionUiRoot.prefab";
         public const string CombatActionButtonPrefabPath = "Assets/GridSquad/Resources/UI/CombatActionButton.prefab";
         public const string ContextCommandButtonPrefabPath = "Assets/GridSquad/Resources/UI/ContextCommandButton.prefab";
 
-        private const string SettingsRoot = "Assets/GridSquad/Settings";
-        private const string RiflePath = SettingsRoot + "/WeaponDefinition.asset";
-        private const string SmgPath = SettingsRoot + "/SmgWeaponDefinition.asset";
-        private const string ShotgunPath = EquipmentRoot + "/Shotgun.asset";
-        private const string BatonPath = EquipmentRoot + "/RiotBaton.asset";
-        private const string BallisticPlatePath = EquipmentRoot + "/BallisticPlate.asset";
-        private const string RecoveryArmorPath = EquipmentRoot + "/RecoveryArmor.asset";
-        private const string BandagePath = EquipmentRoot + "/Bandage.asset";
-        private const string RecoveryActionPath = EquipmentRoot + "/RecoveryAction.asset";
-        private const string RecoveryBehaviorPath = EquipmentRoot + "/RecoveryBehavior.asset";
-        private const string BandageActionPath = EquipmentRoot + "/BandageAction.asset";
-        private const string BandageBehaviorPath = EquipmentRoot + "/BandageBehavior.asset";
-        private const string GrenadeEquipmentPath = EquipmentRoot + "/GrenadeEquipment.asset";
-        private const string StimEquipmentPath = EquipmentRoot + "/StimEquipment.asset";
-        private const string WeaponCatalogPath = SettingsRoot + "/WeaponCatalog.asset";
+        private const string RiflePath = WeaponDefinitionsRoot + "/WeaponDefinition.asset";
+        private const string SmgPath = WeaponDefinitionsRoot + "/SmgWeaponDefinition.asset";
+        private const string ShotgunPath = WeaponDefinitionsRoot + "/Shotgun.asset";
+        private const string BatonPath = WeaponDefinitionsRoot + "/RiotBaton.asset";
+        private const string BallisticPlatePath = EquipmentSupportRoot + "/BallisticPlate.asset";
+        private const string RecoveryArmorPath = EquipmentArmorRoot + "/RecoveryArmor.asset";
+        private const string BandagePath = EquipmentConsumablesRoot + "/Bandage.asset";
+        private const string RecoveryActionPath = ActionDataRoot + "/RecoveryAction.asset";
+        private const string RecoveryBehaviorPath = ActionDataRoot + "/RecoveryBehavior.asset";
+        private const string BandageActionPath = ActionDataRoot + "/BandageAction.asset";
+        private const string BandageBehaviorPath = ActionDataRoot + "/BandageBehavior.asset";
+        private const string GrenadeEquipmentPath = EquipmentSupportRoot + "/GrenadeEquipment.asset";
+        private const string StimEquipmentPath = EquipmentSupportRoot + "/StimEquipment.asset";
+        private const string WeaponCatalogPath = EquipmentCatalogsRoot + "/WeaponCatalog.asset";
 
         [MenuItem("GridSquad/장비 시스템 에셋 생성 및 마이그레이션")]
         public static void EnsureProjectEquipmentAssets()
         {
             EnsureFolder("Assets/GridSquad", "Equipment");
+            EnsureFolder(EquipmentRoot, "Catalogs");
+            EnsureFolder(EquipmentRoot, "Layouts");
+            EnsureFolder(EquipmentRoot, "Slots");
+            EnsureFolder(EquipmentRoot, "Armor");
+            EnsureFolder(EquipmentRoot, "Consumables");
+            EnsureFolder(EquipmentRoot, "Support");
+            EnsureFolder(EquipmentRoot, "Weapons");
+            EnsureFolder(EquipmentWeaponsRoot, "Definitions");
+            EnsureFolder(EquipmentWeaponsRoot, "AttackBehaviors");
+            EnsureFolder(EquipmentWeaponsRoot, "HitEffects");
+            EnsureFolder("Assets/GridSquad/Data", "Actions");
+            EnsureFolder("Assets/GridSquad/Data", "Stats");
             EnsureFolder("Assets/GridSquad/Prefabs", "UI");
             EnsureFolder("Assets/GridSquad", "Resources");
             EnsureFolder("Assets/GridSquad/Resources", "UI");
-            EnsureFolder("Assets/GridSquad/Materials", "Equipment");
+            EnsureFolder("Assets/GridSquad/Materials", "Weapons");
             EnsureFolder("Assets/GridSquad/Art/UI", "Equipment");
             ConfigureEquipmentIconImporters();
 
@@ -74,15 +97,15 @@ namespace GridSquad.Editor
             EditorUtility.SetDirty(layout);
 
             HitscanWeaponAttackBehaviorDefinition hitscan = EnsureAsset<HitscanWeaponAttackBehaviorDefinition>(
-                EquipmentRoot + "/HitscanAttack.asset");
+                WeaponAttackBehaviorsRoot + "/HitscanAttack.asset");
             ShotgunWeaponAttackBehaviorDefinition shotgunAttack = EnsureAsset<ShotgunWeaponAttackBehaviorDefinition>(
-                EquipmentRoot + "/ShotgunAttack.asset");
+                WeaponAttackBehaviorsRoot + "/ShotgunAttack.asset");
             MeleeWeaponAttackBehaviorDefinition meleeAttack = EnsureAsset<MeleeWeaponAttackBehaviorDefinition>(
-                EquipmentRoot + "/MeleeAttack.asset");
+                WeaponAttackBehaviorsRoot + "/MeleeAttack.asset");
             StunWeaponHitEffectDefinition stun = EnsureAsset<StunWeaponHitEffectDefinition>(
-                EquipmentRoot + "/RiotBatonStun.asset");
+                WeaponHitEffectsRoot + "/RiotBatonStun.asset");
             KnockbackWeaponHitEffectDefinition knockback = EnsureAsset<KnockbackWeaponHitEffectDefinition>(
-                EquipmentRoot + "/ShotgunKnockback.asset");
+                WeaponHitEffectsRoot + "/ShotgunKnockback.asset");
 
             WeaponDefinition rifle = AssetDatabase.LoadAssetAtPath<WeaponDefinition>(RiflePath);
             WeaponDefinition smg = AssetDatabase.LoadAssetAtPath<WeaponDefinition>(SmgPath);
@@ -92,9 +115,9 @@ namespace GridSquad.Editor
             Material shotgunMaterial = EnsureMaterial("Shotgun", new Color(0.16f, 0.19f, 0.21f));
             Material batonMaterial = EnsureMaterial("RiotBaton", new Color(0.035f, 0.045f, 0.055f));
             WeaponPresentation shotgunPresentation = EnsureWeaponPresentation(
-                "Assets/GridSquad/Prefabs/ShotgunGunRoot.prefab", shotgunMaterial, false);
+                "Assets/GridSquad/Prefabs/Weapons/ShotgunGunRoot.prefab", shotgunMaterial, false);
             WeaponPresentation batonPresentation = EnsureWeaponPresentation(
-                "Assets/GridSquad/Prefabs/RiotBatonRoot.prefab", batonMaterial, true);
+                "Assets/GridSquad/Prefabs/Weapons/RiotBatonRoot.prefab", batonMaterial, true);
             WeaponDefinition shotgun = EnsureAsset<WeaponDefinition>(ShotgunPath);
             ConfigureWeapon(
                 shotgun, "shotgun", "샷건", "5발 산탄과 1칸 밀치기를 제공하는 근거리 화기",
@@ -107,13 +130,13 @@ namespace GridSquad.Editor
                 20, 0.25f, 0.85f, 1, 0, 0.1f, 1f, 100f, 1.5f, WeaponHandedness.OneHanded);
 
             CombatActionDefinition basicAttack = AssetDatabase.LoadAssetAtPath<CombatActionDefinition>(
-                SettingsRoot + "/BasicAttackAction.asset");
+                ActionDataRoot + "/BasicAttackAction.asset");
             CombatActionDefinition grenadeAction = AssetDatabase.LoadAssetAtPath<CombatActionDefinition>(
-                SettingsRoot + "/GrenadeAction.asset");
+                ActionDataRoot + "/GrenadeAction.asset");
             CombatActionDefinition stimAction = AssetDatabase.LoadAssetAtPath<CombatActionDefinition>(
-                SettingsRoot + "/StimAction.asset");
+                ActionDataRoot + "/StimAction.asset");
             CombatActionDefinition dashAction = AssetDatabase.LoadAssetAtPath<CombatActionDefinition>(
-                SettingsRoot + "/DashAction.asset");
+                ActionDataRoot + "/DashAction.asset");
 
             ConfigureWeaponActionGrants(rifle, basicAttack, grenadeAction);
             ConfigureWeaponActionGrants(smg, basicAttack);
@@ -255,8 +278,8 @@ namespace GridSquad.Editor
 
         private static void EnsureCarryCapacityStat()
         {
-            const string catalogPath = SettingsRoot + "/UnitStatCatalog.asset";
-            const string statPath = SettingsRoot + "/CarryCapacityStat.asset";
+            const string catalogPath = StatDataRoot + "/UnitStatCatalog.asset";
+            const string statPath = StatDataRoot + "/CarryCapacityStat.asset";
             UnitStatDefinition carryCapacity = EnsureAsset<UnitStatDefinition>(statPath);
             carryCapacity.SetEditorConfiguration(
                 "carry_capacity", "휴대 한도", 30f, 0f, false, 500);
@@ -371,7 +394,7 @@ namespace GridSquad.Editor
 
         private static void ConfigureUnitBase(EquipmentLayoutDefinition layout)
         {
-            const string path = "Assets/GridSquad/Prefabs/UnitBase.prefab";
+            const string path = "Assets/GridSquad/Prefabs/Units/UnitBase.prefab";
             if (AssetDatabase.LoadAssetAtPath<GameObject>(path) == null)
                 return;
             GameObject root = PrefabUtility.LoadPrefabContents(path);
@@ -849,7 +872,7 @@ namespace GridSquad.Editor
             Vector2 position)
         {
             EquipmentSlotDefinition slot = EnsureAsset<EquipmentSlotDefinition>(
-                $"{EquipmentRoot}/{assetName}.asset");
+                $"{EquipmentSlotsRoot}/{assetName}.asset");
             slot.SetEditorConfiguration(id, displayName, category, slotKind, position);
             EditorUtility.SetDirty(slot);
             return slot;
@@ -869,7 +892,7 @@ namespace GridSquad.Editor
 
         private static Material EnsureMaterial(string name, Color color)
         {
-            string path = $"Assets/GridSquad/Materials/Equipment/{name}.mat";
+            string path = $"Assets/GridSquad/Materials/Weapons/{name}.mat";
             Material material = AssetDatabase.LoadAssetAtPath<Material>(path);
             if (material == null)
             {

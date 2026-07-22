@@ -24,35 +24,35 @@ namespace GridSquadEditor
     {
         private const string RootPath = "Assets/GridSquad";
         private const string ScenePath = RootPath + "/Scenes/CombatFeasibility.unity";
-        private const string CharacterUiPath = RootPath + "/Prefabs/CharacterWorldUI.prefab";
-        private const string UnitBasePrefabPath = RootPath + "/Prefabs/UnitBase.prefab";
-        private const string AllyPrefabPath = RootPath + "/Prefabs/AllyUnit.prefab";
-        private const string EnemyPrefabPath = RootPath + "/Prefabs/EnemyUnit.prefab";
+        private const string CharacterUiPath = RootPath + "/Prefabs/UI/CharacterWorldUI.prefab";
+        private const string UnitBasePrefabPath = RootPath + "/Prefabs/Units/UnitBase.prefab";
+        private const string AllyPrefabPath = RootPath + "/Prefabs/Units/AllyUnit.prefab";
+        private const string EnemyPrefabPath = RootPath + "/Prefabs/Units/EnemyUnit.prefab";
         private const string TuningPath = RootPath + "/Settings/CombatTuning.asset";
-        private const string WeaponPath = RootPath + "/Settings/WeaponDefinition.asset";
-        private const string SmgWeaponPath = RootPath + "/Settings/SmgWeaponDefinition.asset";
-        private const string WeaponCatalogPath = RootPath + "/Settings/WeaponCatalog.asset";
-        private const string GunRootPrefabPath = RootPath + "/Prefabs/GunRoot.prefab";
-        private const string SmgGunRootPrefabPath = RootPath + "/Prefabs/SmgGunRoot.prefab";
-        private const string CharacterModelPrefabPath = RootPath + "/Prefabs/CharacterModel.prefab";
+        private const string WeaponPath = RootPath + "/Equipment/Weapons/Definitions/WeaponDefinition.asset";
+        private const string SmgWeaponPath = RootPath + "/Equipment/Weapons/Definitions/SmgWeaponDefinition.asset";
+        private const string WeaponCatalogPath = RootPath + "/Equipment/Catalogs/WeaponCatalog.asset";
+        private const string GunRootPrefabPath = RootPath + "/Prefabs/Weapons/GunRoot.prefab";
+        private const string SmgGunRootPrefabPath = RootPath + "/Prefabs/Weapons/SmgGunRoot.prefab";
+        private const string CharacterModelPrefabPath = RootPath + "/Prefabs/Units/CharacterModel.prefab";
         private const string BehaviorGraphPath = RootPath + "/Behavior/UnitCombatBehavior.asset";
         private const string InputActionsPath = "Assets/InputSystem_Actions.inputactions";
-        private const string GrenadeActionPath = RootPath + "/Settings/GrenadeAction.asset";
-        private const string StimActionPath = RootPath + "/Settings/StimAction.asset";
-        private const string DashActionPath = RootPath + "/Settings/DashAction.asset";
-        private const string BasicAttackActionPath = RootPath + "/Settings/BasicAttackAction.asset";
-        private const string RepositionActionPath = RootPath + "/Settings/RepositionAction.asset";
-        private const string BasicAttackBehaviorPath = RootPath + "/Settings/BasicAttackBehavior.asset";
-        private const string RepositionBehaviorPath = RootPath + "/Settings/RepositionBehavior.asset";
-        private const string GrenadeBehaviorPath = RootPath + "/Settings/GrenadeBehavior.asset";
-        private const string StimBehaviorPath = RootPath + "/Settings/StimBehavior.asset";
-        private const string DashBehaviorPath = RootPath + "/Settings/DashBehavior.asset";
-        private const string UnitStatCatalogPath = RootPath + "/Settings/UnitStatCatalog.asset";
-        private const string MaximumHealthStatPath = RootPath + "/Settings/MaximumHealthStat.asset";
-        private const string MovementSpeedStatPath = RootPath + "/Settings/MovementSpeedStat.asset";
-        private const string HitChanceStatPath = RootPath + "/Settings/HitChanceStat.asset";
-        private const string DamageMultiplierStatPath = RootPath + "/Settings/DamageMultiplierStat.asset";
-        private const string CarryCapacityStatPath = RootPath + "/Settings/CarryCapacityStat.asset";
+        private const string GrenadeActionPath = RootPath + "/Data/Actions/GrenadeAction.asset";
+        private const string StimActionPath = RootPath + "/Data/Actions/StimAction.asset";
+        private const string DashActionPath = RootPath + "/Data/Actions/DashAction.asset";
+        private const string BasicAttackActionPath = RootPath + "/Data/Actions/BasicAttackAction.asset";
+        private const string RepositionActionPath = RootPath + "/Data/Actions/RepositionAction.asset";
+        private const string BasicAttackBehaviorPath = RootPath + "/Data/Actions/BasicAttackBehavior.asset";
+        private const string RepositionBehaviorPath = RootPath + "/Data/Actions/RepositionBehavior.asset";
+        private const string GrenadeBehaviorPath = RootPath + "/Data/Actions/GrenadeBehavior.asset";
+        private const string StimBehaviorPath = RootPath + "/Data/Actions/StimBehavior.asset";
+        private const string DashBehaviorPath = RootPath + "/Data/Actions/DashBehavior.asset";
+        private const string UnitStatCatalogPath = RootPath + "/Data/Stats/UnitStatCatalog.asset";
+        private const string MaximumHealthStatPath = RootPath + "/Data/Stats/MaximumHealthStat.asset";
+        private const string MovementSpeedStatPath = RootPath + "/Data/Stats/MovementSpeedStat.asset";
+        private const string HitChanceStatPath = RootPath + "/Data/Stats/HitChanceStat.asset";
+        private const string DamageMultiplierStatPath = RootPath + "/Data/Stats/DamageMultiplierStat.asset";
+        private const string CarryCapacityStatPath = RootPath + "/Data/Stats/CarryCapacityStat.asset";
 
         private const int GroundLayer = 8;
         private const int UnitLayer = 9;
@@ -484,8 +484,23 @@ namespace GridSquadEditor
             EnsureFolder("Assets", "GridSquad");
             EnsureFolder(RootPath, "Scenes");
             EnsureFolder(RootPath, "Prefabs");
+            EnsureFolder(RootPath + "/Prefabs", "Units");
+            EnsureFolder(RootPath + "/Prefabs", "UI");
+            EnsureFolder(RootPath + "/Prefabs", "Weapons");
             EnsureFolder(RootPath, "Materials");
+            EnsureFolder(RootPath + "/Materials", "Units");
+            EnsureFolder(RootPath + "/Materials", "Environment");
+            EnsureFolder(RootPath + "/Materials", "Grid");
+            EnsureFolder(RootPath + "/Materials", "Weapons");
+            EnsureFolder(RootPath + "/Materials", "Effects");
             EnsureFolder(RootPath, "Settings");
+            EnsureFolder(RootPath, "Data");
+            EnsureFolder(RootPath + "/Data", "Actions");
+            EnsureFolder(RootPath + "/Data", "Stats");
+            EnsureFolder(RootPath, "Equipment");
+            EnsureFolder(RootPath + "/Equipment", "Catalogs");
+            EnsureFolder(RootPath + "/Equipment", "Weapons");
+            EnsureFolder(RootPath + "/Equipment/Weapons", "Definitions");
             EnsureFolder(RootPath, "Behavior");
         }
 
@@ -999,7 +1014,7 @@ namespace GridSquadEditor
 
         private static Material CreateOrUpdateMaterial(string name, Color color, bool transparent = false)
         {
-            string path = $"{RootPath}/Materials/{name}.mat";
+            string path = GetMaterialAssetPath(name);
             Material material = AssetDatabase.LoadAssetAtPath<Material>(path);
             Shader shader = Shader.Find(transparent ? "Universal Render Pipeline/Unlit" : "Universal Render Pipeline/Lit");
             if (material == null)
@@ -1026,7 +1041,7 @@ namespace GridSquadEditor
 
         private static Material CreateOrUpdateParticleMaterial(string name, Color color)
         {
-            string path = $"{RootPath}/Materials/{name}.mat";
+            string path = GetMaterialAssetPath(name);
             Material material = AssetDatabase.LoadAssetAtPath<Material>(path);
             Shader shader = Shader.Find("Universal Render Pipeline/Particles/Unlit");
             if (shader == null)
@@ -1044,6 +1059,20 @@ namespace GridSquadEditor
                 material.SetColor("_BaseColor", color);
             EditorUtility.SetDirty(material);
             return material;
+        }
+
+        private static string GetMaterialAssetPath(string materialName)
+        {
+            string folder = materialName switch
+            {
+                "Ally" or "Enemy" or "Selection" => "Units",
+                "Cover" or "CoverSelection" => "Environment",
+                "GridEven" or "GridOdd" or "DebugLine" or "ViewRangeIndicator" or "ShootableCellIndicator" => "Grid",
+                "Gun" or "SmgGun" or "RiotBaton" or "Shotgun" => "Weapons",
+                "AllyUnit_HitEffectParticle" or "EnemyUnit_HitEffectParticle" or "MuzzleFlashParticle" => "Effects",
+                _ => throw new InvalidOperationException($"분류되지 않은 머티리얼입니다: {materialName}")
+            };
+            return $"{RootPath}/Materials/{folder}/{materialName}.mat";
         }
 
         private static GameObject CreateCharacterWorldUiPrefab(Material lineMaterial)

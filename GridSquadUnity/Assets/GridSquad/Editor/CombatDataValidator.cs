@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using GridSquad;
+using GridSquad.Editor;
 using UnityEditor;
 using UnityEngine;
 
@@ -132,7 +133,7 @@ namespace GridSquadEditor
         {
             int errors = 0;
             EquipmentLayoutDefinition layout = AssetDatabase.LoadAssetAtPath<EquipmentLayoutDefinition>(
-                "Assets/GridSquad/Equipment/CombatEquipmentLayout.asset");
+                EquipmentAssetFactory.EquipmentLayoutPath);
             if (layout == null)
                 return LogError("전투 장비 레이아웃이 없습니다.", null);
             if (layout.Slots.Count != RequiredSlotKinds.Length)
@@ -156,7 +157,7 @@ namespace GridSquadEditor
                     errors += LogError($"필수 장비 슬롯이 없습니다: {requiredKind}", layout);
 
             ItemCatalog itemCatalog = AssetDatabase.LoadAssetAtPath<ItemCatalog>(
-                "Assets/GridSquad/Equipment/ItemCatalog.asset");
+                EquipmentAssetFactory.ItemCatalogPath);
             if (itemCatalog == null)
                 return errors + LogError("아이템 카탈로그가 없습니다.", null);
             HashSet<string> itemIds = new();
@@ -332,7 +333,7 @@ namespace GridSquadEditor
 
         private static int ValidateUnitBasePrefab(EquipmentLayoutDefinition layout)
         {
-            const string path = "Assets/GridSquad/Prefabs/UnitBase.prefab";
+            const string path = "Assets/GridSquad/Prefabs/Units/UnitBase.prefab";
             GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(path);
             if (prefab == null)
                 return LogError("UnitBase 프리팹이 없습니다.", null);

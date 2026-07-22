@@ -12,7 +12,8 @@ namespace GridSquadEditor
     {
         private const int GroundLayer = 8;
         private const int CoverLayer = 10;
-        private const string MaterialRoot = "Assets/GridSquad/Materials";
+        private const string GridMaterialRoot = "Assets/GridSquad/Materials/Grid";
+        private const string EnvironmentMaterialRoot = "Assets/GridSquad/Materials/Environment";
 
         private SerializedProperty widthProperty;
         private SerializedProperty heightProperty;
@@ -152,9 +153,9 @@ namespace GridSquadEditor
             if (existingCovers != null)
                 Undo.DestroyObjectImmediate(existingCovers.gameObject);
 
-            Material evenMaterial = AssetDatabase.LoadAssetAtPath<Material>($"{MaterialRoot}/GridEven.mat");
-            Material oddMaterial = AssetDatabase.LoadAssetAtPath<Material>($"{MaterialRoot}/GridOdd.mat");
-            Material coverMaterial = AssetDatabase.LoadAssetAtPath<Material>($"{MaterialRoot}/Cover.mat");
+            Material evenMaterial = AssetDatabase.LoadAssetAtPath<Material>($"{GridMaterialRoot}/GridEven.mat");
+            Material oddMaterial = AssetDatabase.LoadAssetAtPath<Material>($"{GridMaterialRoot}/GridOdd.mat");
+            Material coverMaterial = AssetDatabase.LoadAssetAtPath<Material>($"{EnvironmentMaterialRoot}/Cover.mat");
 
             GameObject cellsRoot = new("Cells");
             Undo.RegisterCreatedObjectUndo(cellsRoot, undoName);
