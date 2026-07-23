@@ -16,6 +16,7 @@ namespace GridSquad
         private readonly Dictionary<string, float> passiveRechargeProgress = new();
         private UnitInventory inventory;
         private bool battleInitialized;
+        private bool legacyAssignmentsBuilt;
 
         public event Action EquipmentChanged;
         public event Action<EquipmentSlotDefinition, int, int> DurabilityChanged;
@@ -34,8 +35,7 @@ namespace GridSquad
 
         private void Awake()
         {
-            inventory = GetComponent<UnitInventory>();
-            RebuildLegacyAssignments();
+            InitializeRuntimeEquipmentStateIfNeeded();
         }
 
         private void Update()
@@ -46,7 +46,16 @@ namespace GridSquad
         }
 
         public IEnumerable<KeyValuePair<EquipmentSlotDefinition, ItemInstance>> EnumerateEquippedItems()
-            => equippedItems;
+        {
+            InitializeRuntimeEquipmentStateIfNeeded();
+            return equippedItems;
+        }
+
+        internal void InitializeRuntimeEquipmentStateIfNeeded()
+        {
+            inventory = inventory != null ? inventory : GetComponent<UnitInventory>();
+            RebuildLegacyAssignments();
+        }
 
         public ItemInstance GetItemInstance(EquipmentSlotDefinition slot)
             => slot != null && equippedItems.TryGetValue(slot, out ItemInstance item) ? item : null;
@@ -328,19 +337,7 @@ namespace GridSquad
             if (item?.Definition is not EquippableDefinition equipment)
                 return Fail("장착할 수 없는 아이템입니다.", out failureReason);
 
-            bool compatible = slot.SlotKind switch
-            {
-                EquipmentSlotKind.LeftHand => equipment is WeaponDefinition,
-                EquipmentSlotKind.RightHand => equipment is OffHandDefinition,
-                EquipmentSlotKind.Head => equipment is ArmorDefinition armor && armor.ArmorSlotKind == EquipmentSlotKind.Head,
-                EquipmentSlotKind.Torso => equipment is ArmorDefinition armor && armor.ArmorSlotKind == EquipmentSlotKind.Torso,
-                EquipmentSlotKind.Legs => equipment is ArmorDefinition armor && armor.ArmorSlotKind == EquipmentSlotKind.Legs,
-                EquipmentSlotKind.Hands => equipment is ArmorDefinition armor && armor.ArmorSlotKind == EquipmentSlotKind.Hands,
-                EquipmentSlotKind.Feet => equipment is ArmorDefinition armor && armor.ArmorSlotKind == EquipmentSlotKind.Feet,
-                EquipmentSlotKind.SupportOne or EquipmentSlotKind.SupportTwo => equipment is AdditionalEquipmentDefinition,
-                _ => false
-            };
-            if (!compatible)
+            if (!EquipmentSlotCompatibility.CanAssign(slot, equipment))
                 return Fail($"{equipment.DisplayName}은(는) {slot.DisplayName} 슬롯에 장착할 수 없습니다.", out failureReason);
             failureReason = string.Empty;
             return true;
@@ -411,6 +408,9 @@ namespace GridSquad
 
         private void RebuildLegacyAssignments()
         {
+            if (legacyAssignmentsBuilt)
+                return;
+            legacyAssignmentsBuilt = true;
             if (assignments == null || assignments.Length == 0)
                 return;
             foreach (EquipmentSlotAssignment assignment in assignments)
@@ -455,6 +455,8 @@ namespace GridSquad
         {
             layout = newLayout;
             assignments = newAssignments ?? Array.Empty<EquipmentSlotAssignment>();
+            equippedItems.Clear();
+            legacyAssignmentsBuilt = false;
             RebuildLegacyAssignments();
         }
 #endif

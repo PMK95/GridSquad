@@ -36,20 +36,20 @@ MonoBehaviour:
   - {fileID: 11400000, guid: b8723dbd8a026774098329828d8eafd0, type: 2}
   - {fileID: 11400000, guid: 445cdf5127bc7704582dc8cf006055f9, type: 2}
   defaultEquipmentAssignments:
-  - slot: {fileID: 11400000, guid: df04ceaf7a55a844fa85de275b8250c2, type: 2}
-    equipment: {fileID: 0}
-  - slot: {fileID: 11400000, guid: 2c18d826929ff07428060513e00ff766, type: 2}
-    equipment: {fileID: 0}
   - slot: {fileID: 11400000, guid: aff0e6fa0799aa64ca3e55322ef768cc, type: 2}
-    equipment: {fileID: 0}
-  - slot: {fileID: 11400000, guid: 4c08e38a066164342a458d70a14c6380, type: 2}
-    equipment: {fileID: 0}
-  - slot: {fileID: 11400000, guid: 54ad9f9bd6f2dd54fa0c47d67323016c, type: 2}
-    equipment: {fileID: 0}
-  - slot: {fileID: 11400000, guid: c38fd40ee40942041a7fe836b20b03b1, type: 2}
-    equipment: {fileID: 0}
+    equipment: {fileID: 11400000, guid: 9058c2c339bf3c04da02957d1881f8c9, type: 2}
   - slot: {fileID: 11400000, guid: f047e62e7553af144acaf5b5f0ed0c51, type: 2}
-    equipment: {fileID: 0}
+    equipment: {fileID: 11400000, guid: 9fa2db25c1510e347856f9cc4ff3aa84, type: 2}
+  - slot: {fileID: 11400000, guid: 2c18d826929ff07428060513e00ff766, type: 2}
+    equipment: {fileID: 11400000, guid: cbbc27cf800eb3d4893b8e0134c8bae4, type: 2}
+  - slot: {fileID: 11400000, guid: 4c08e38a066164342a458d70a14c6380, type: 2}
+    equipment: {fileID: 11400000, guid: 3c9c2f936b457fb439797b82812a638e, type: 2}
+  - slot: {fileID: 11400000, guid: df04ceaf7a55a844fa85de275b8250c2, type: 2}
+    equipment: {fileID: 11400000, guid: 3b1138284bd5d1745a41261ff028b095, type: 2}
+  - slot: {fileID: 11400000, guid: 54ad9f9bd6f2dd54fa0c47d67323016c, type: 2}
+    equipment: {fileID: 11400000, guid: 61eee12f2cad6b449a3bef53fe868367, type: 2}
+  - slot: {fileID: 11400000, guid: c38fd40ee40942041a7fe836b20b03b1, type: 2}
+    equipment: {fileID: 11400000, guid: 6091c0c100a91684a9f34d8eb6705f4e, type: 2}
   startingInventoryItems:
   - definition: {fileID: 11400000, guid: fe826854c04049d46a2e0c277a5603f4, type: 2}
     quantity: 1

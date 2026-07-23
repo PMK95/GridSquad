@@ -14,7 +14,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::GridSquad.UnitStatDefinition
   statId: carry_capacity
   displayName: "\uD734\uB300 \uD55C\uB3C4"
+  description: "\uACFC\uC801\uC7AC \uD310\uC815 \uC804\uC5D0 \uD734\uB300\uD560 \uC218 \uC788\uB294 \uC778\uBCA4\uD1A0\uB9AC \uCD5C\uB300 \uBB34\uAC8C\uC785\uB2C8\uB2E4."
   defaultValue: 30
   minimumValue: 0
   roundToInteger: 0
   hudOrder: 500
+  category: 3
+  displayFormat: 4

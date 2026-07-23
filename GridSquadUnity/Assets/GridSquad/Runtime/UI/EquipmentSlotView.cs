@@ -11,7 +11,8 @@ namespace GridSquad
         IPointerClickHandler,
         IBeginDragHandler,
         IDragHandler,
-        IEndDragHandler
+        IEndDragHandler,
+        IUiTooltipContentProvider
     {
         [SerializeField] private Image background;
         [SerializeField] private Image icon;
@@ -26,6 +27,7 @@ namespace GridSquad
         private CanvasGroup canvasGroup;
         private DragVisualController dragVisual;
         private bool isDragging;
+        private UiTooltipTrigger tooltipTrigger;
 
         public EquipmentSlotDefinition Slot => slot;
         public ItemInstance Item => item;
@@ -80,6 +82,14 @@ namespace GridSquad
                 clicked?.Invoke(this);
         }
 
+        public bool TryGetTooltipContent(out UiTooltipContent content)
+        {
+            content = UiTooltipContentFactory.CreateItem(
+                item,
+                slot != null ? slot.DisplayName : "장비 슬롯");
+            return slot != null;
+        }
+
         public void OnDrop(PointerEventData eventData)
         {
             EquipmentItemCardView card = eventData.pointerDrag != null
@@ -126,7 +136,12 @@ namespace GridSquad
         private void EnsureVisuals()
         {
             EnsureCanvasGroup();
+            tooltipTrigger = GetComponent<UiTooltipTrigger>()
+                ?? gameObject.AddComponent<UiTooltipTrigger>();
+            tooltipTrigger.Bind(this);
             background = background != null ? background : GetComponent<Image>() ?? gameObject.AddComponent<Image>();
+            if (durabilityFill != null && durabilityFill.sprite == null)
+                durabilityFill.sprite = UiFillSpriteProvider.GetSprite(background);
             if (label != null)
                 return;
             GameObject labelObject = new("Label", typeof(RectTransform), typeof(Text));
@@ -150,6 +165,7 @@ namespace GridSquad
             GameObject fillObject = new("Durability", typeof(RectTransform), typeof(Image));
             fillObject.transform.SetParent(transform, false);
             durabilityFill = fillObject.GetComponent<Image>();
+            durabilityFill.sprite = UiFillSpriteProvider.GetSprite(background);
             durabilityFill.type = Image.Type.Filled;
             durabilityFill.fillMethod = Image.FillMethod.Horizontal;
             durabilityFill.rectTransform.anchorMin = new Vector2(0.08f, 0.05f);

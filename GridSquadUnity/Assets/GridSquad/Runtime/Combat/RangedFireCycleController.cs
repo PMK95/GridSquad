@@ -146,7 +146,7 @@ namespace GridSquad
 
         public void SetFireIntervalMultiplier(float multiplier)
         {
-            fireIntervalMultiplier = Mathf.Clamp(multiplier, 0.1f, 1f);
+            fireIntervalMultiplier = Mathf.Clamp(multiplier, 0.1f, 10f);
         }
 
         public void ResumePresentationAfterHitReaction()

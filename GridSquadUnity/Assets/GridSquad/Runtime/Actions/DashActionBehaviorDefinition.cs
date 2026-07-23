@@ -10,10 +10,12 @@ namespace GridSquad
         [SerializeField, Min(1)] private int maximumCells = 3;
         [SerializeField, Min(1f)] private float movementSpeedMultiplier = 3f;
         [SerializeField, Min(0f)] private float minimumPositionImprovement = 15f;
+        [SerializeField, Min(1)] private int knockbackCells = 1;
 
         public int MaximumCells => maximumCells;
         public float MovementSpeedMultiplier => movementSpeedMultiplier;
         public float MinimumPositionImprovement => minimumPositionImprovement;
+        public int KnockbackCells => Mathf.Max(1, knockbackCells);
         public override CombatActionTargetingMode TargetingMode => CombatActionTargetingMode.GridCell;
         public override CombatActionCapabilityFlags Capabilities =>
             CombatActionCapabilityFlags.ChangesPosition
@@ -53,15 +55,21 @@ namespace GridSquad
         {
             if (!selection.HasTargetCell || owner.OwnerCombatant == null || owner.GridMap == null)
                 return;
+            DashPathPlan pathPlan = default;
             bool valid = runtime.Executor is DashExecutor executor
-                && executor.ValidateTargetCell(selection.TargetCell, out _);
+                && executor.TryBuildPathPlan(selection.TargetCell, out pathPlan, out _);
             preview.Reset(valid
-                ? new Color(0.2f, 0.9f, 1f, 0.55f)
+                ? pathPlan.HasCollision
+                    ? new Color(1f, 0.48f, 0.08f, 0.68f)
+                    : new Color(0.2f, 0.9f, 1f, 0.55f)
                 : new Color(1f, 0.08f, 0.08f, 0.58f));
             GridCoordinate origin = owner.OwnerCombatant.CurrentCell;
             int xStep = Math.Sign(selection.TargetCell.X - origin.X);
             int zStep = Math.Sign(selection.TargetCell.Z - origin.Z);
-            int distance = origin.ManhattanDistance(selection.TargetCell);
+            GridCoordinate previewEnd = valid && pathPlan.HasCollision
+                ? pathPlan.CollisionCell
+                : selection.TargetCell;
+            int distance = origin.ManhattanDistance(previewEnd);
             for (int step = 1; step <= distance; step++)
             {
                 GridCoordinate cell = new(origin.X + xStep * step, origin.Z + zStep * step);
@@ -74,11 +82,13 @@ namespace GridSquad
         public void SetEditorConfiguration(
             int newMaximumCells,
             float newMovementSpeedMultiplier,
-            float newMinimumPositionImprovement)
+            float newMinimumPositionImprovement,
+            int newKnockbackCells = 1)
         {
             maximumCells = newMaximumCells;
             movementSpeedMultiplier = newMovementSpeedMultiplier;
             minimumPositionImprovement = newMinimumPositionImprovement;
+            knockbackCells = Mathf.Max(1, newKnockbackCells);
         }
 #endif
     }

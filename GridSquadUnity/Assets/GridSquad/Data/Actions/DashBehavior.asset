@@ -15,3 +15,4 @@ MonoBehaviour:
   maximumCells: 3
   movementSpeedMultiplier: 3
   minimumPositionImprovement: 15
+  knockbackCells: 1

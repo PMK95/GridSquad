@@ -29,7 +29,6 @@ namespace GridSquad
         private InputActionMap tacticalMap;
         private TacticalEntity selectedEntity;
         private Combatant selectedCombatant;
-        private Combatant lastSelectedAllyCombatant;
         private bool targetingMode;
         private CombatActionDefinition targetingActionDefinition;
         private string targetingActionRuntimeKey;
@@ -241,22 +240,28 @@ namespace GridSquad
             if (!Physics.Raycast(ray, out RaycastHit hit, 500f, groundLayerMask, QueryTriggerInteraction.Ignore))
                 return;
             GridCoordinate clickedCell = gridMap.WorldToGrid(hit.point);
+            contextMenu?.HideMenu();
             List<ContextCommand> commands = new();
-            Combatant commandActor = selectedCombatant != null && selectedCombatant.Team == Team.Ally
-                ? selectedCombatant
-                : lastSelectedAllyCombatant;
+            Combatant commandActor = selectedCombatant != null
+                && selectedCombatant.Team == Team.Ally
+                && selectedCombatant.IsAlive
+                    ? selectedCombatant
+                    : null;
+            if (commandActor == null)
+                return;
             TacticalEntity targetEntity = TryRaycastSelectableEntity(out TacticalEntity pointedEntity)
                 ? pointedEntity
                 : null;
             ContextCommandQuery query = new(commandActor, targetEntity, detailWindow, hud);
-            if (targetEntity != null)
-            {
-                foreach (IContextCommandProvider provider in targetEntity.GetComponents<IContextCommandProvider>())
-                    provider.CollectAvailableContextCommands(query, commands);
-            }
+            if (targetEntity?.ShootableTarget != null)
+                AddAttackDesignationCommand(commandActor, targetEntity.ShootableTarget, commands);
+            WorldItemPickup pointedPickup = targetEntity != null
+                ? targetEntity.GetComponent<WorldItemPickup>()
+                : null;
+            pointedPickup?.CollectAvailableContextCommands(query, commands);
             foreach (WorldItemPickup pickup in WorldItemPickup.GetItemsAt(clickedCell))
             {
-                if (pickup != null && pickup != targetEntity?.GetComponent<WorldItemPickup>())
+                if (pickup != null && pickup != pointedPickup)
                     pickup.CollectAvailableContextCommands(query, commands);
             }
             if (commands.Count > 0 && contextMenu != null)
@@ -264,12 +269,62 @@ namespace GridSquad
                 contextMenu.ShowContextCommandsAtPointer(pointer, commands);
                 return;
             }
-            if (selectedCombatant == null || selectedCombatant.Team != Team.Ally)
+            if (targetEntity?.Combatant != null)
                 return;
             UnitTacticalBehaviorController behaviorController =
-                selectedCombatant.GetComponent<UnitTacticalBehaviorController>();
+                commandActor.GetComponent<UnitTacticalBehaviorController>();
             behaviorController?.QueueMoveCommand(clickedCell);
         }
+
+        private void AddAttackDesignationCommand(
+            Combatant commandActor,
+            ShootableTarget target,
+            List<ContextCommand> commands)
+        {
+            if (commandActor == null
+                || target == null
+                || !target.IsAlive
+                || target == commandActor.ShootableTarget
+                || target.TargetTeam == commandActor.Team)
+            {
+                return;
+            }
+
+            CombatActionController actionController =
+                commandActor.GetComponent<CombatActionController>();
+            ShotEvaluation evaluation = actionController != null
+                ? actionController.ShotEvaluator.EvaluateShot(commandActor, target)
+                : default;
+            string detail = evaluation.CanShoot
+                ? $"현재 사격 가능 · 명중 {evaluation.HitChancePercent:0}%"
+                : $"현재 사격 불가 · {GetShotFailureLabel(evaluation.FailureReason)}";
+            UnitTacticalBehaviorController behaviorController =
+                commandActor.GetComponent<UnitTacticalBehaviorController>();
+            commands.Add(new ContextCommand(
+                $"combat.attack-designation.{target.GetInstanceID()}",
+                "공격 지정",
+                commandActor.Weapon != null ? commandActor.Weapon.Icon : null,
+                0,
+                behaviorController != null,
+                behaviorController != null ? string.Empty : "전투 명령을 처리할 수 없습니다.",
+                () =>
+                {
+                    behaviorController?.SetPriorityTargetCommand(target);
+                    hud?.SetActionMessage($"{target.DisplayName} 공격 지정");
+                },
+                detail));
+        }
+
+        private static string GetShotFailureLabel(ShotFailureReason reason)
+            => reason switch
+            {
+                ShotFailureReason.NoTarget => "대상 없음",
+                ShotFailureReason.TargetDead => "대상 전투 불능",
+                ShotFailureReason.OutOfRange => "사거리 밖",
+                ShotFailureReason.FullyBlocked => "완전 엄폐",
+                ShotFailureReason.NoPeekPosition => "사격 위치 없음",
+                _ => "사격 조건 미충족"
+            };
 
         private static bool IsPointerOverHud()
             => EventSystem.current != null && EventSystem.current.IsPointerOverGameObject();
@@ -405,8 +460,6 @@ namespace GridSquad
                 ? entity
                 : null;
             selectedCombatant = selectedEntity != null ? selectedEntity.Combatant : null;
-            if (selectedCombatant != null && selectedCombatant.Team == Team.Ally)
-                lastSelectedAllyCombatant = selectedCombatant;
             selectedEntity?.SetSelected(true);
             if (selectedEntity != null)
                 selectedEntity.BecameUnavailable += HandleSelectedEntityUnavailable;

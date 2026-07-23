@@ -91,20 +91,27 @@ namespace GridSquad
                 ? Instantiate(commandButtonPrefab, commandContainer)
                 : CreateFallbackButton(commandContainer);
             button.gameObject.SetActive(true);
+            if (button.transform is RectTransform buttonRect)
+                buttonRect.sizeDelta = new Vector2(buttonRect.sizeDelta.x, 52f);
             button.interactable = command.IsEnabled;
             Text label = button.GetComponentInChildren<Text>(true);
             if (label != null)
             {
-                label.text = command.IsEnabled || string.IsNullOrWhiteSpace(command.DisabledReason)
-                    ? command.Label
-                    : $"{command.Label}  ({command.DisabledReason})";
+                label.text = command.Label;
+                label.alignment = TextAnchor.UpperLeft;
+                label.rectTransform.anchorMin = new Vector2(0.18f, 0.46f);
+                label.rectTransform.anchorMax = new Vector2(0.97f, 0.94f);
+                label.rectTransform.offsetMin = label.rectTransform.offsetMax = Vector2.zero;
             }
-            Image[] images = button.GetComponentsInChildren<Image>(true);
-            if (command.Icon != null && images.Length > 1)
-            {
-                images[1].sprite = command.Icon;
-                images[1].enabled = true;
-            }
+            Text detail = FindOrCreateDetailText(button.transform, label);
+            string detailValue = !command.IsEnabled && !string.IsNullOrWhiteSpace(command.DisabledReason)
+                ? command.DisabledReason
+                : command.DetailText;
+            detail.text = detailValue;
+            detail.gameObject.SetActive(!string.IsNullOrWhiteSpace(detailValue));
+            Image commandIcon = FindOrCreateCommandIcon(button.transform);
+            commandIcon.sprite = command.Icon;
+            commandIcon.gameObject.SetActive(command.Icon != null);
             button.onClick.RemoveAllListeners();
             button.onClick.AddListener(() =>
             {
@@ -112,6 +119,45 @@ namespace GridSquad
                 command.Execute?.Invoke();
             });
             activeButtons.Add(button);
+        }
+
+        private static Text FindOrCreateDetailText(Transform buttonTransform, Text label)
+        {
+            Transform existing = buttonTransform.Find("Detail");
+            if (existing != null && existing.TryGetComponent(out Text existingText))
+                return existingText;
+
+            GameObject detailObject = new("Detail", typeof(RectTransform), typeof(Text));
+            detailObject.transform.SetParent(buttonTransform, false);
+            Text detail = detailObject.GetComponent<Text>();
+            detail.font = label != null && label.font != null
+                ? label.font
+                : Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            detail.fontSize = 11;
+            detail.color = new Color(0.68f, 0.76f, 0.82f, 1f);
+            detail.alignment = TextAnchor.LowerLeft;
+            detail.raycastTarget = false;
+            detail.rectTransform.anchorMin = new Vector2(0.18f, 0.08f);
+            detail.rectTransform.anchorMax = new Vector2(0.97f, 0.48f);
+            detail.rectTransform.offsetMin = detail.rectTransform.offsetMax = Vector2.zero;
+            return detail;
+        }
+
+        private static Image FindOrCreateCommandIcon(Transform buttonTransform)
+        {
+            Transform existing = buttonTransform.Find("Icon");
+            if (existing != null && existing.TryGetComponent(out Image existingImage))
+                return existingImage;
+
+            GameObject iconObject = new("Icon", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            iconObject.transform.SetParent(buttonTransform, false);
+            Image commandIcon = iconObject.GetComponent<Image>();
+            commandIcon.preserveAspect = true;
+            commandIcon.raycastTarget = false;
+            commandIcon.rectTransform.anchorMin = new Vector2(0.03f, 0.12f);
+            commandIcon.rectTransform.anchorMax = new Vector2(0.16f, 0.88f);
+            commandIcon.rectTransform.offsetMin = commandIcon.rectTransform.offsetMax = Vector2.zero;
+            return commandIcon;
         }
 
         private void PositionMenuInsideCanvas(Vector2 screenPosition)

@@ -133,34 +133,34 @@ namespace GridSquad.Editor
             ArmorDefinition[] armors =
             {
                 CreateArmor("ReconVisor", "recon_visor", "정찰 바이저",
-                    "전술 스캔 기능이 달린 경량 머리 장비입니다.", EquipmentSlotKind.Head, 2,
+                    "전술 스캔 기능이 달린 경량 머리 장비입니다.", EquipmentSlotKind.Head, 2, 4,
                     LoadGeneratedIcon("ReconVisor.png"), reconVisorAction, 1.5f, reconVisorModel),
                 CreateArmor("ImpactHelmet", "impact_helmet", "충격 흡수 헬멧",
-                    "충격 흡수층으로 순간 피해를 버팁니다.", EquipmentSlotKind.Head, 4,
+                    "충격 흡수층으로 순간 피해를 버팁니다.", EquipmentSlotKind.Head, 4, 8,
                     LoadGeneratedIcon("ImpactHelmet.png"), impactHelmetAction, 2.2f, impactHelmetModel),
                 CreateArmor("ReactiveVest", "reactive_vest", "반응 장갑복",
-                    "피격 순간 전개되는 반응식 장갑복입니다.", EquipmentSlotKind.Torso, 6,
+                    "피격 순간 전개되는 반응식 장갑복입니다.", EquipmentSlotKind.Torso, 6, 18,
                     LoadGeneratedIcon("ReactiveVest.png"), reactiveVestAction, 6.5f, reactiveVestModel),
                 CreateArmor("MedicRig", "medic_rig", "의무 지원복",
-                    "자가 처치 장치를 내장한 전장 의무 장비입니다.", EquipmentSlotKind.Torso, 3,
+                    "자가 처치 장치를 내장한 전장 의무 장비입니다.", EquipmentSlotKind.Torso, 3, 12,
                     LoadGeneratedIcon("MedicRig.png"), medicRigAction, 5.5f, medicRigModel),
                 CreateArmor("StabilizerGloves", "stabilizer_gloves", "안정화 장갑",
-                    "반동을 억제하는 정밀 사격용 장갑입니다.", EquipmentSlotKind.Hands, 2,
+                    "반동을 억제하는 정밀 사격용 장갑입니다.", EquipmentSlotKind.Hands, 2, 4,
                     LoadGeneratedIcon("StabilizerGloves.png"), stabilizerGlovesAction, 1.2f, stabilizerGlovesModel),
                 CreateArmor("ArcGauntlets", "arc_gauntlets", "전도성 건틀릿",
-                    "근거리 전격을 방출하는 강화 건틀릿입니다.", EquipmentSlotKind.Hands, 3,
+                    "근거리 전격을 방출하는 강화 건틀릿입니다.", EquipmentSlotKind.Hands, 3, 6,
                     LoadGeneratedIcon("ArcGauntlets.png"), arcGauntletsAction, 2f, arcGauntletsModel),
                 CreateArmor("ServoLegArmor", "servo_leg_armor", "서보 하의",
-                    "보행 출력을 증폭하는 동력식 하체 장갑입니다.", EquipmentSlotKind.Legs, 3,
+                    "보행 출력을 증폭하는 동력식 하체 장갑입니다.", EquipmentSlotKind.Legs, 3, 8,
                     LoadGeneratedIcon("ServoLegArmor.png"), servoLegArmorAction, 3.8f, servoLegArmorModel),
                 CreateArmor("AnchorGreaves", "anchor_greaves", "고정식 각갑",
-                    "지면 고정 장치가 달린 중형 하체 장갑입니다.", EquipmentSlotKind.Legs, 5,
+                    "지면 고정 장치가 달린 중형 하체 장갑입니다.", EquipmentSlotKind.Legs, 5, 10,
                     LoadGeneratedIcon("AnchorGreaves.png"), anchorGreavesAction, 5f, anchorGreavesModel),
                 CreateArmor("PhaseBoots", "phase_boots", "위상 부츠",
-                    "짧은 거리를 순간 이동하는 경량 전술화입니다.", EquipmentSlotKind.Feet, 2,
+                    "짧은 거리를 순간 이동하는 경량 전술화입니다.", EquipmentSlotKind.Feet, 2, 4,
                     LoadGeneratedIcon("PhaseBoots.png"), phaseBootsAction, 1.5f, phaseBootsModel),
                 CreateArmor("BreacherBoots", "breacher_boots", "충격 돌파화",
-                    "강한 추진력으로 전선을 돌파하는 중형 전술화입니다.", EquipmentSlotKind.Feet, 4,
+                    "강한 추진력으로 전선을 돌파하는 중형 전술화입니다.", EquipmentSlotKind.Feet, 4, 7,
                     LoadGeneratedIcon("BreacherBoots.png"), breacherBootsAction, 2.7f, breacherBootsModel)
             };
 
@@ -294,6 +294,7 @@ namespace GridSquad.Editor
             string description,
             EquipmentSlotKind slotKind,
             int blockCount,
+            int defense,
             Sprite icon,
             CombatActionDefinition action,
             float weight,
@@ -303,6 +304,7 @@ namespace GridSquad.Editor
             armor.SetEditorEquipmentPresentation(equipmentId, displayName, description, icon, weight);
             armor.SetEditorArmorSlotKind(slotKind);
             armor.SetEditorMaximumBlockCount(blockCount);
+            armor.SetEditorDefense(defense);
             armor.SetEditorWorldPresentationPrefab(model);
             armor.SetEditorActionGrants(new[]
             {

@@ -128,12 +128,17 @@ namespace GridSquad
 
         private readonly List<CombatActionButtonView> actionViews = new();
         private TacticalEntity previousSelection;
+        private ColorBlock statsButtonColors;
+        private ColorBlock equipmentButtonColors;
+        private ColorBlock traitsButtonColors;
+        private bool detailButtonColorsCached;
 
         private void Awake()
         {
             inputController = inputController != null
                 ? inputController
                 : FindFirstObjectByType<TacticalInputController>();
+            CacheDetailButtonColors();
             BindDetailButtons();
         }
 
@@ -148,6 +153,7 @@ namespace GridSquad
             }
             RefreshInspectPane(selected);
             RefreshActionViews(selected?.Combatant);
+            RefreshDetailButtonVisuals();
         }
 
         private void RefreshInspectPane(TacticalEntity selected)
@@ -238,7 +244,29 @@ namespace GridSquad
                     state.Definition != null ? state.Definition.DisplayName : "행동",
                     hotkey,
                     source,
-                    state.Definition != null ? state.Definition.Icon : null);
+                    CombatActionPresentation.GetDisplayedIcon(combatant, state));
+                float cooldownDuration = state.Definition != null
+                    ? state.Definition.CooldownSeconds
+                    : 0f;
+                actionViews[index].SetCooldownProgress(
+                    state.CooldownRemaining,
+                    cooldownDuration);
+                if (state.Definition != null)
+                {
+                    actionViews[index].SetTooltipContent(
+                        state.Definition.DisplayName,
+                        state.Definition.Description,
+                        hotkey,
+                        state.Definition.TargetingMode,
+                        cooldownDuration,
+                        state.CooldownRemaining,
+                        state.StatusText,
+                        state.SourceDisplayName);
+                }
+                else
+                {
+                    actionViews[index].ClearTooltipContent();
+                }
                 actionViews[index].SetState(
                     state.IsInteractable && !state.IsPassive,
                     state.IsPassive
@@ -256,6 +284,8 @@ namespace GridSquad
                     "패시브",
                     plate < plateMax ? $"{plate}/{plateMax} · 재생 {recharge * 100f:0}%" : $"{plate}/{plateMax}",
                     null);
+                passiveView.SetCooldownProgress(0f, 0f);
+                passiveView.ClearTooltipContent();
                 passiveView.SetState(false, new Color(0.22f, 0.2f, 0.1f, 0.96f), Color.white);
             }
         }
@@ -288,7 +318,76 @@ namespace GridSquad
 
         private void OpenDetail(UnitDetailTab tab)
         {
-            detailWindow?.Show(inputController != null ? inputController.SelectedCombatant : null, tab);
+            if (detailWindow == null)
+                return;
+            Combatant selected = inputController != null
+                ? inputController.SelectedCombatant
+                : null;
+            if (selected == null)
+            {
+                detailWindow.Hide();
+                return;
+            }
+            if (detailWindow.IsVisible
+                && detailWindow.SelectedCombatant == selected
+                && detailWindow.ActiveTab == tab)
+            {
+                detailWindow.Hide();
+                return;
+            }
+            detailWindow.Show(selected, tab);
+        }
+
+        private void CacheDetailButtonColors()
+        {
+            statsButtonColors = statsButton != null ? statsButton.colors : default;
+            equipmentButtonColors = equipmentInventoryButton != null
+                ? equipmentInventoryButton.colors
+                : default;
+            traitsButtonColors = traitsButton != null ? traitsButton.colors : default;
+            detailButtonColorsCached = true;
+        }
+
+        private void RefreshDetailButtonVisuals()
+        {
+            if (!detailButtonColorsCached)
+                CacheDetailButtonColors();
+            Combatant selected = inputController != null
+                ? inputController.SelectedCombatant
+                : null;
+            bool matchesSelection = detailWindow != null
+                && detailWindow.IsVisible
+                && detailWindow.SelectedCombatant == selected;
+            ApplyDetailButtonVisual(
+                statsButton,
+                statsButtonColors,
+                matchesSelection && detailWindow.ActiveTab == UnitDetailTab.Stats);
+            ApplyDetailButtonVisual(
+                equipmentInventoryButton,
+                equipmentButtonColors,
+                matchesSelection && detailWindow.ActiveTab == UnitDetailTab.EquipmentInventory);
+            ApplyDetailButtonVisual(
+                traitsButton,
+                traitsButtonColors,
+                matchesSelection && detailWindow.ActiveTab == UnitDetailTab.Traits);
+        }
+
+        private static void ApplyDetailButtonVisual(
+            Button button,
+            ColorBlock defaultColors,
+            bool active)
+        {
+            if (button == null)
+                return;
+            ColorBlock colors = defaultColors;
+            if (active)
+            {
+                Color selectedColor = new(0.12f, 0.55f, 0.7f, 1f);
+                colors.normalColor = selectedColor;
+                colors.highlightedColor = selectedColor * 1.08f;
+                colors.selectedColor = selectedColor;
+            }
+            button.colors = colors;
         }
 
         private static void SetButtonVisible(Button button, bool visible)
@@ -328,6 +427,7 @@ namespace GridSquad
             equipmentInventoryButton = newEquipmentInventoryButton;
             traitsButton = newTraitsButton;
             detailWindow = newDetailWindow;
+            detailButtonColorsCached = false;
         }
 #endif
     }

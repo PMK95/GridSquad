@@ -53,6 +53,8 @@ namespace GridSquadEditor
         private const string HitChanceStatPath = RootPath + "/Data/Stats/HitChanceStat.asset";
         private const string DamageMultiplierStatPath = RootPath + "/Data/Stats/DamageMultiplierStat.asset";
         private const string CarryCapacityStatPath = RootPath + "/Data/Stats/CarryCapacityStat.asset";
+        private const string DefenseStatPath = RootPath + "/Data/Stats/DefenseStat.asset";
+        private const string FireRateStatPath = RootPath + "/Data/Stats/FireRateStat.asset";
 
         private const int GroundLayer = 8;
         private const int UnitLayer = 9;
@@ -721,8 +723,9 @@ namespace GridSquadEditor
                 true,
                 true,
                 -1,
-                0f,
+                0.5f,
                 0f);
+            SetPlayerActionOrder(basicAttack, 0);
 
             CombatActionDefinition reposition = LoadOrCreateAsset<CombatActionDefinition>(RepositionActionPath);
             reposition.SetEditorConfiguration(
@@ -785,15 +788,40 @@ namespace GridSquadEditor
         private static UnitStatCatalog CreateOrUpdateUnitStatDefinitions()
         {
             UnitStatDefinition maximumHealth = LoadOrCreateAsset<UnitStatDefinition>(MaximumHealthStatPath);
-            maximumHealth.SetEditorConfiguration("maximum_health", "최대 체력", 500f, 1f, true, 0);
+            maximumHealth.SetEditorConfiguration(
+                "maximum_health", "최대 체력", 500f, 1f, true, 0,
+                "유닛이 전투 불능이 되기 전까지 버틸 수 있는 최대 피해량입니다.",
+                UnitStatCategory.Survivability, UnitStatDisplayFormat.Integer);
             UnitStatDefinition movementSpeed = LoadOrCreateAsset<UnitStatDefinition>(MovementSpeedStatPath);
-            movementSpeed.SetEditorConfiguration("movement_speed_multiplier", "이동 배율", 1f, 0.1f, false, 10);
+            movementSpeed.SetEditorConfiguration(
+                "movement_speed_multiplier", "이동 속도", 1f, 0.1f, false, 10,
+                "기본 이동 속도에 적용되는 배율입니다. 100%가 표준 속도입니다.",
+                UnitStatCategory.Mobility, UnitStatDisplayFormat.PercentMultiplier);
             UnitStatDefinition hitChance = LoadOrCreateAsset<UnitStatDefinition>(HitChanceStatPath);
-            hitChance.SetEditorConfiguration("hit_chance_bonus_percent", "명중 보너스", 0f, float.MinValue, false, 20);
+            hitChance.SetEditorConfiguration(
+                "hit_chance_bonus_percent", "명중 보너스", 0f, float.MinValue, false, 20,
+                "무기의 기본 명중률에 더해지는 퍼센트포인트 보너스입니다.",
+                UnitStatCategory.Offense, UnitStatDisplayFormat.PercentagePoints);
             UnitStatDefinition damageMultiplier = LoadOrCreateAsset<UnitStatDefinition>(DamageMultiplierStatPath);
-            damageMultiplier.SetEditorConfiguration("damage_multiplier", "피해 배율", 1f, 0.1f, false, 30);
+            damageMultiplier.SetEditorConfiguration(
+                "damage_multiplier", "피해 배율", 1f, 0.1f, false, 30,
+                "무기 피해량에 적용되는 배율입니다. 100%가 표준 피해량입니다.",
+                UnitStatCategory.Offense, UnitStatDisplayFormat.PercentMultiplier);
             UnitStatDefinition carryCapacity = LoadOrCreateAsset<UnitStatDefinition>(CarryCapacityStatPath);
-            carryCapacity.SetEditorConfiguration("carry_capacity", "휴대 한도", 30f, 0f, false, 500);
+            carryCapacity.SetEditorConfiguration(
+                "carry_capacity", "휴대 한도", 30f, 0f, false, 500,
+                "과적재 판정 전에 휴대할 수 있는 인벤토리 최대 무게입니다.",
+                UnitStatCategory.Utility, UnitStatDisplayFormat.Kilograms);
+            UnitStatDefinition defense = LoadOrCreateAsset<UnitStatDefinition>(DefenseStatPath);
+            defense.SetEditorConfiguration(
+                "defense", "방어력", 0f, 0f, true, 10,
+                "피해를 감소시키는 수치입니다. 방어력이 높아질수록 추가 효율은 점차 줄어듭니다.",
+                UnitStatCategory.Survivability, UnitStatDisplayFormat.Integer);
+            UnitStatDefinition fireRate = LoadOrCreateAsset<UnitStatDefinition>(FireRateStatPath);
+            fireRate.SetEditorConfiguration(
+                "fire_rate_multiplier", "사격 속도", 1f, 0.1f, false, 40,
+                "조준과 반복 사격 속도에 적용되는 배율입니다. 100%가 표준 속도입니다.",
+                UnitStatCategory.Offense, UnitStatDisplayFormat.PercentMultiplier);
 
             UnitStatCatalog catalog = LoadOrCreateAsset<UnitStatCatalog>(UnitStatCatalogPath);
             catalog.SetEditorConfiguration(
@@ -801,12 +829,16 @@ namespace GridSquadEditor
                 movementSpeed,
                 hitChance,
                 damageMultiplier,
-                carryCapacity);
+                carryCapacity,
+                defense,
+                fireRate);
             EditorUtility.SetDirty(maximumHealth);
             EditorUtility.SetDirty(movementSpeed);
             EditorUtility.SetDirty(hitChance);
             EditorUtility.SetDirty(damageMultiplier);
             EditorUtility.SetDirty(carryCapacity);
+            EditorUtility.SetDirty(defense);
+            EditorUtility.SetDirty(fireRate);
             EditorUtility.SetDirty(catalog);
             return catalog;
         }
@@ -1651,6 +1683,17 @@ namespace GridSquadEditor
         private static void ConfigureBuildSettings()
         {
             EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
+        }
+
+        private static void SetPlayerActionOrder(
+            CombatActionDefinition action,
+            int order)
+        {
+            if (action == null)
+                return;
+            SerializedObject serializedAction = new(action);
+            serializedAction.FindProperty("playerSlotOrder").intValue = order;
+            serializedAction.ApplyModifiedPropertiesWithoutUndo();
         }
     }
 }

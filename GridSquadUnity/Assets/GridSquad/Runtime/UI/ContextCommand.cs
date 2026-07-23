@@ -20,6 +20,7 @@ namespace GridSquad
         public readonly bool IsEnabled;
         public readonly string DisabledReason;
         public readonly Action Execute;
+        public readonly string DetailText;
 
         public ContextCommand(
             string commandId,
@@ -28,7 +29,8 @@ namespace GridSquad
             int order,
             bool isEnabled,
             string disabledReason,
-            Action execute)
+            Action execute,
+            string detailText = "")
         {
             CommandId = commandId;
             Label = label;
@@ -37,6 +39,7 @@ namespace GridSquad
             IsEnabled = isEnabled;
             DisabledReason = disabledReason;
             Execute = execute;
+            DetailText = detailText;
         }
     }
 

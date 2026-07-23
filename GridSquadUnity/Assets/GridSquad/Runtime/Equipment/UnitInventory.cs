@@ -31,13 +31,13 @@ namespace GridSquad
 
         private void Awake()
         {
-            owner = GetComponent<Combatant>();
-            equipmentLoadout = GetComponent<EquipmentLoadout>();
+            InitializeRuntimeReferencesIfNeeded();
             RemoveInvalidEntries();
         }
 
         public void ApplyUnitDefinitionDefaults(UnitDefinition definition)
         {
+            InitializeRuntimeReferencesIfNeeded();
             if (defaultsApplied || definition == null)
                 return;
             defaultsApplied = true;
@@ -99,6 +99,15 @@ namespace GridSquad
             InventoryChanged?.Invoke();
         }
 
+        private void InitializeRuntimeReferencesIfNeeded()
+        {
+            owner = owner != null ? owner : GetComponent<Combatant>();
+            equipmentLoadout = equipmentLoadout != null
+                ? equipmentLoadout
+                : GetComponent<EquipmentLoadout>();
+            equipmentLoadout?.InitializeRuntimeEquipmentStateIfNeeded();
+        }
+
         public bool CanAccept(ItemInstance item, out string failureReason)
         {
             if (item == null || item.Definition == null)
@@ -120,6 +129,37 @@ namespace GridSquad
                 return false;
             AddWithoutWeightCheck(item);
             InventoryChanged?.Invoke();
+            return true;
+        }
+
+        public bool TryAdd(
+            ItemDefinition definition,
+            int quantity,
+            out string failureReason)
+        {
+            if (definition == null)
+                return Fail("추가할 아이템이 없습니다.", out failureReason);
+            if (quantity <= 0)
+                return Fail("추가 수량은 1개 이상이어야 합니다.", out failureReason);
+
+            float projectedWeight = CarriedWeight + definition.Weight * quantity;
+            if (projectedWeight > CarryCapacity + 0.001f)
+            {
+                return Fail(
+                    $"무게 제한을 초과합니다. {projectedWeight:0.##}/{CarryCapacity:0.##}kg",
+                    out failureReason);
+            }
+
+            int remainingQuantity = quantity;
+            while (remainingQuantity > 0)
+            {
+                int stackQuantity = Mathf.Min(remainingQuantity, definition.MaximumStack);
+                AddWithoutWeightCheck(new ItemInstance(definition, stackQuantity));
+                remainingQuantity -= stackQuantity;
+            }
+
+            InventoryChanged?.Invoke();
+            failureReason = string.Empty;
             return true;
         }
 

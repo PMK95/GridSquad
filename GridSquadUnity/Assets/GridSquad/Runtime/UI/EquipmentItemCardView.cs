@@ -10,7 +10,8 @@ namespace GridSquad
         IBeginDragHandler,
         IDragHandler,
         IEndDragHandler,
-        IPointerClickHandler
+        IPointerClickHandler,
+        IUiTooltipContentProvider
     {
         [SerializeField] private Image icon;
         [SerializeField] private Text label;
@@ -22,6 +23,7 @@ namespace GridSquad
         private CanvasGroup canvasGroup;
         private DragVisualController dragVisual;
         private bool isDragging;
+        private UiTooltipTrigger tooltipTrigger;
 
         public ItemInstance Item { get; private set; }
         public UnitInventory Inventory { get; private set; }
@@ -66,6 +68,12 @@ namespace GridSquad
                 clicked?.Invoke(Item);
         }
 
+        public bool TryGetTooltipContent(out UiTooltipContent content)
+        {
+            content = UiTooltipContentFactory.CreateItem(Item);
+            return Item?.Definition != null;
+        }
+
         public void OnBeginDrag(PointerEventData eventData)
         {
             if (Item == null || Item.Definition == null || Inventory == null)
@@ -103,6 +111,9 @@ namespace GridSquad
         private void EnsureVisuals()
         {
             EnsureCanvasGroup();
+            tooltipTrigger = GetComponent<UiTooltipTrigger>()
+                ?? gameObject.AddComponent<UiTooltipTrigger>();
+            tooltipTrigger.Bind(this);
             if (GetComponent<Image>() == null)
                 gameObject.AddComponent<Image>().color = new Color(0.08f, 0.12f, 0.18f, 0.98f);
             if (icon == null)

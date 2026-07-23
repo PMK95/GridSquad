@@ -61,17 +61,6 @@ namespace GridSquad
             List<ContextCommand> commands)
         {
             Combatant actor = query.SelectedCombatant;
-            commands.Add(new ContextCommand(
-                $"world-item.info.{item?.InstanceId}",
-                $"정보: {(item?.Definition != null ? item.Definition.DisplayName : "아이템")}",
-                item?.Definition?.Icon,
-                0,
-                IsAvailable,
-                IsAvailable ? string.Empty : "아이템 정보가 없습니다.",
-                () => query.Hud?.SetActionMessage(
-                    item?.Definition != null
-                        ? $"{item.Definition.DisplayName} · {item.TotalWeight:0.##}kg — {item.Definition.Description}"
-                        : "아이템 정보가 없습니다.")));
             string reason = "먼저 살아있는 아군 유닛을 선택하세요.";
             bool canPickup = actor != null
                 && actor.IsAlive
@@ -90,7 +79,10 @@ namespace GridSquad
                         return;
                     if (!actor.ItemInteractionController.QueuePickup(this, out string failureReason))
                         query.Hud?.SetActionMessage(failureReason);
-                }));
+                },
+                item?.Definition != null
+                    ? $"{item.TotalWeight:0.##}kg · {item.Definition.Description}"
+                    : "아이템 정보가 없습니다."));
         }
 
         public static IReadOnlyList<WorldItemPickup> GetItemsAt(GridCoordinate targetCell)

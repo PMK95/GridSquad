@@ -5,10 +5,12 @@ namespace GridSquad
     [CreateAssetMenu(menuName = "GridSquad/Actions/Basic Attack Behavior", fileName = "BasicAttackBehavior")]
     public sealed class BasicAttackActionBehaviorDefinition : CombatActionBehaviorDefinition
     {
-        public override CombatActionTargetingMode TargetingMode => CombatActionTargetingMode.None;
+        public override CombatActionTargetingMode TargetingMode
+            => CombatActionTargetingMode.ShootableTarget;
         public override CombatActionCapabilityFlags Capabilities =>
             CombatActionCapabilityFlags.DefaultAttack
-            | CombatActionCapabilityFlags.AllowedWithForcedTarget;
+            | CombatActionCapabilityFlags.AllowedWithForcedTarget
+            | CombatActionCapabilityFlags.PlayerVisible;
 
         internal override CombatActionRuntimeParts CreateRuntimeParts(
             CombatActionController owner,

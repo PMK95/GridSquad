@@ -14,13 +14,13 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::GridSquad.CombatActionDefinition
   actionId: basic_attack
   displayName: "\uAE30\uBCF8 \uC0AC\uACA9"
-  description: 
+  description: "현재 지정한 적을 기본 무기로 공격합니다."
   icon: {fileID: 21300000, guid: c8dd5829cf8caeb40b0d60e657fbb253, type: 3}
   behavior: {fileID: 11400000, guid: a9a5de7a18b04808b9d5a3f0747f1b6a, type: 2}
   automaticInFullAuto: 1
   automaticInSemiAuto: 1
   startingCharges: -1
-  cooldownSeconds: 0
+  cooldownSeconds: 0.5
   windupSeconds: 0
-  playerSlotOrder: 100
+  playerSlotOrder: 0
   displayKind: 0

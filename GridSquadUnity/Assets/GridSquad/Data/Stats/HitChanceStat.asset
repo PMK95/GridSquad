@@ -14,7 +14,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::GridSquad.UnitStatDefinition
   statId: hit_chance_bonus_percent
   displayName: "\uBA85\uC911 \uBCF4\uB108\uC2A4"
+  description: "\uBB34\uAE30\uC758 \uAE30\uBCF8 \uBA85\uC911\uB960\uC5D0 \uB354\uD574\uC9C0\uB294 \uD37C\uC13C\uD2B8\uD3EC\uC778\uD2B8 \uBCF4\uB108\uC2A4\uC785\uB2C8\uB2E4."
   defaultValue: 0
   minimumValue: -3.4028235e+38
   roundToInteger: 0
   hudOrder: 20
+  category: 1
+  displayFormat: 3

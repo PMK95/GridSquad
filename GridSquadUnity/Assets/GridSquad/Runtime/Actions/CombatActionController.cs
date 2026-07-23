@@ -321,7 +321,7 @@ namespace GridSquad
         {
             CombatActionRuntime runtime = FindActionWithCapability(
                 CombatActionCapabilityFlags.MovementCommand);
-            if (runtime == null)
+            if (runtime == null || !runtime.CanUse(out _))
             {
                 intent = default;
                 return false;

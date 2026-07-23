@@ -66,8 +66,11 @@ namespace GridSquad
             if (RemainingCharges > 0)
                 RemainingCharges--;
             Grant.ConsumeOnSuccessfulUse?.Invoke();
-            CooldownRemaining = Definition != null ? Definition.CooldownSeconds : 0f;
+            StartCooldown();
         }
+
+        internal void StartCooldown()
+            => CooldownRemaining = Definition != null ? Definition.CooldownSeconds : 0f;
 
         private static bool Fail(string reason, out string failureReason)
         {
@@ -136,6 +139,9 @@ namespace GridSquad
             CombatActionContext context,
             List<CombatActionCandidate> results)
         {
+            if (!Runtime.CanUse(out _))
+                return;
+
             ShootableTarget target = context.PriorityTarget;
             if (target == null || !target.IsAlive || target.TargetTeam == context.Actor.Team)
             {
@@ -196,6 +202,23 @@ namespace GridSquad
             {
                 return Fail("유효한 사격 대상이 없습니다.", out failureReason);
             }
+            ShotEvaluation evaluation = Owner.ShotEvaluator.EvaluateShot(
+                Actor,
+                candidate.Target);
+            if (!evaluation.CanShoot)
+            {
+                evaluation = Owner.ShotEvaluator.EvaluateShotFromCell(
+                    Actor,
+                    candidate.Target,
+                    Actor.CurrentCell,
+                    Owner.AutomaticPeekAllowed);
+            }
+            if (!evaluation.CanShoot)
+            {
+                return Fail(
+                    $"현재 사격 불가 · {GetShotFailureLabel(evaluation.FailureReason)}",
+                    out failureReason);
+            }
             return true;
         }
 
@@ -219,9 +242,10 @@ namespace GridSquad
             if (target == null || !target.IsAlive || target.TargetTeam == Actor.Team)
                 return CombatActionExecutionStatus.Failed;
             remainingDuration -= deltaTime;
-            return remainingDuration > 0f
-                ? CombatActionExecutionStatus.Running
-                : CombatActionExecutionStatus.Completed;
+            if (remainingDuration > 0f)
+                return CombatActionExecutionStatus.Running;
+            Runtime.StartCooldown();
+            return CombatActionExecutionStatus.Completed;
         }
 
         public override void Interrupt(CombatActionInterruptReason reason)
@@ -234,6 +258,19 @@ namespace GridSquad
             }
             target = null;
         }
+
+        private static string GetShotFailureLabel(ShotFailureReason reason)
+        {
+            return reason switch
+            {
+                ShotFailureReason.NoTarget => "대상 없음",
+                ShotFailureReason.TargetDead => "대상 전투 불능",
+                ShotFailureReason.OutOfRange => "사거리 밖",
+                ShotFailureReason.FullyBlocked => "완전 엄폐",
+                ShotFailureReason.NoPeekPosition => "사격 위치 없음",
+                _ => "사격 조건 미충족"
+            };
+        }
     }
 
     internal sealed class RepositionCandidateProvider : CombatActionCandidateProviderBase
@@ -245,8 +282,11 @@ namespace GridSquad
             CombatActionContext context,
             List<CombatActionCandidate> results)
         {
-            if (context.ControlMode != CombatControlMode.FullAutomatic)
+            if (context.ControlMode != CombatControlMode.FullAutomatic
+                || !Runtime.CanUse(out _))
+            {
                 return;
+            }
             List<TacticalCellChoice> choices = context.PositionEvaluator.EvaluateReachableFiringCells(
                 context.Actor,
                 context.AutomaticPeekAllowed,
@@ -326,9 +366,10 @@ namespace GridSquad
         {
             if (stopRequested)
                 Actor.RequestStopMovementAfterCurrentCell();
-            return Actor.IsMoving
-                ? CombatActionExecutionStatus.Running
-                : CombatActionExecutionStatus.Completed;
+            if (Actor.IsMoving)
+                return CombatActionExecutionStatus.Running;
+            Runtime.StartCooldown();
+            return CombatActionExecutionStatus.Completed;
         }
 
         public override void Interrupt(CombatActionInterruptReason reason)
@@ -576,10 +617,32 @@ namespace GridSquad
                 return CombatActionExecutionStatus.Running;
             Runtime.ConsumeChargeAndStartCooldown();
             Actor.ApplyStim(
+                $"action:{Runtime.RuntimeKey}:stim",
+                Runtime.Definition.DisplayName,
+                Runtime.Definition.Icon,
                 Runtime.GetBehavior<StimActionBehaviorDefinition>().DurationSeconds,
                 Runtime.GetBehavior<StimActionBehaviorDefinition>().MovementSpeedMultiplier,
                 Runtime.GetBehavior<StimActionBehaviorDefinition>().FireIntervalMultiplier);
             return CombatActionExecutionStatus.Completed;
+        }
+    }
+
+    internal readonly struct DashPathPlan
+    {
+        public readonly GridCoordinate ApproachCell;
+        public readonly GridCoordinate CollisionCell;
+        public readonly Combatant CollisionTarget;
+
+        public bool HasCollision => CollisionTarget != null;
+
+        public DashPathPlan(
+            GridCoordinate approachCell,
+            GridCoordinate collisionCell,
+            Combatant collisionTarget)
+        {
+            ApproachCell = approachCell;
+            CollisionCell = collisionCell;
+            CollisionTarget = collisionTarget;
         }
     }
 
@@ -617,11 +680,38 @@ namespace GridSquad
                     GridCoordinate cell = new(
                         context.Actor.CurrentCell.X + direction.X * distance,
                         context.Actor.CurrentCell.Z + direction.Z * distance);
-                    if (!DashExecutor.IsStraightPathWalkable(
+                    if (!DashExecutor.TryBuildPathPlan(
                             context.Actor,
                             context.GridMap,
-                            cell))
+                            cell,
+                            Runtime.GetBehavior<DashActionBehaviorDefinition>().MaximumCells,
+                            out DashPathPlan pathPlan,
+                            out _))
                     {
+                        break;
+                    }
+                    if (pathPlan.HasCollision)
+                    {
+                        if (pathPlan.CollisionTarget.TryCalculateKnockbackDestination(
+                                pathPlan.ApproachCell,
+                                Runtime.GetBehavior<DashActionBehaviorDefinition>().KnockbackCells,
+                                out _))
+                        {
+                            UtilityScoreBreakdown collisionBreakdown = new UtilityScoreBreakdown()
+                                .Add("돌진", 30f)
+                                .Add("적 밀치기", 28f);
+                            CombatActionCandidate collisionCandidate = new(
+                                Definition,
+                                pathPlan.CollisionTarget.ShootableTarget,
+                                pathPlan.CollisionCell,
+                                true,
+                                collisionBreakdown);
+                            if (!best.HasValue
+                                || collisionCandidate.UtilityScore > best.Value.UtilityScore)
+                            {
+                                best = collisionCandidate;
+                            }
+                        }
                         break;
                     }
                     TacticalCellChoice? destination = FindChoice(choices, cell);
@@ -671,7 +761,9 @@ namespace GridSquad
 
     internal sealed class DashExecutor : CombatActionExecutorBase
     {
-        private bool speedApplied;
+        private UnitStatModifierHandle speedModifierHandle;
+        private DashPathPlan pathPlan;
+        private bool collisionHandled;
 
         public DashExecutor(CombatActionController owner, CombatActionRuntime runtime)
             : base(owner, runtime) { }
@@ -684,20 +776,66 @@ namespace GridSquad
         }
 
         public bool ValidateTargetCell(GridCoordinate targetCell, out string failureReason)
+            => TryBuildPathPlan(targetCell, out _, out failureReason);
+
+        public bool TryBuildPathPlan(
+            GridCoordinate targetCell,
+            out DashPathPlan plan,
+            out string failureReason)
+            => TryBuildPathPlan(
+                Actor,
+                Owner.GridMap,
+                targetCell,
+                Runtime.GetBehavior<DashActionBehaviorDefinition>().MaximumCells,
+                out plan,
+                out failureReason);
+
+        internal static bool TryBuildPathPlan(
+            Combatant actor,
+            GridMap gridMap,
+            GridCoordinate targetCell,
+            int maximumCells,
+            out DashPathPlan plan,
+            out string failureReason)
         {
-            if (!Owner.GridMap.IsInside(targetCell))
+            plan = default;
+            if (actor == null || gridMap == null || !gridMap.IsInside(targetCell))
                 return Fail("전장 밖입니다.", out failureReason);
-            GridCoordinate origin = Actor.CurrentCell;
+            GridCoordinate origin = actor.CurrentCell;
             int xDistance = Mathf.Abs(targetCell.X - origin.X);
             int zDistance = Mathf.Abs(targetCell.Z - origin.Z);
             if ((xDistance != 0 && zDistance != 0)
                 || xDistance + zDistance < 1
-                || xDistance + zDistance > Runtime.GetBehavior<DashActionBehaviorDefinition>().MaximumCells)
+                || xDistance + zDistance > maximumCells)
             {
-                return Fail($"직선 {Runtime.GetBehavior<DashActionBehaviorDefinition>().MaximumCells}칸 이내만 가능합니다.", out failureReason);
+                return Fail($"직선 {maximumCells}칸 이내만 가능합니다.", out failureReason);
             }
-            if (!IsStraightPathWalkable(Actor, Owner.GridMap, targetCell))
-                return Fail("돌진 경로가 차단되었습니다.", out failureReason);
+
+            int xStep = Math.Sign(targetCell.X - origin.X);
+            int zStep = Math.Sign(targetCell.Z - origin.Z);
+            int distance = origin.ManhattanDistance(targetCell);
+            GridCoordinate approachCell = origin;
+            for (int step = 1; step <= distance; step++)
+            {
+                GridCoordinate cell = new(
+                    origin.X + xStep * step,
+                    origin.Z + zStep * step);
+                if (gridMap.TryGetOccupant(cell, out Combatant occupant)
+                    && occupant != null
+                    && occupant != actor)
+                {
+                    if (!occupant.IsAlive || occupant.Team == actor.Team)
+                        return Fail("아군 또는 전투 불능 유닛이 경로를 막고 있습니다.", out failureReason);
+                    plan = new DashPathPlan(approachCell, cell, occupant);
+                    failureReason = string.Empty;
+                    return true;
+                }
+                if (!gridMap.IsWalkable(cell, actor.Entity))
+                    return Fail("돌진 경로가 차단되었습니다.", out failureReason);
+                approachCell = cell;
+            }
+
+            plan = new DashPathPlan(targetCell, default, null);
             failureReason = string.Empty;
             return true;
         }
@@ -706,13 +844,17 @@ namespace GridSquad
         {
             if (!CanBegin(intent.Candidate, out failureReason))
                 return false;
+            if (!TryBuildPathPlan(intent.Candidate.TargetCell, out pathPlan, out failureReason))
+                return false;
             Actor.PrepareForExclusiveCombatAction();
-            Actor.SetBehaviorTarget(intent.Candidate.Target);
-            Actor.SetTemporaryMovementSpeedMultiplier(Runtime.GetBehavior<DashActionBehaviorDefinition>().MovementSpeedMultiplier);
-            speedApplied = true;
-            if (!Actor.SetMoveDestination(intent.Candidate.TargetCell))
+            Actor.SetBehaviorTarget(pathPlan.HasCollision
+                ? pathPlan.CollisionTarget.ShootableTarget
+                : intent.Candidate.Target);
+            ApplyActionRunningSpeedModifier();
+            collisionHandled = false;
+            if (!Actor.SetMoveDestination(pathPlan.ApproachCell))
             {
-                ClearSpeedMultiplier();
+                RemoveActionRunningSpeedModifier();
                 return Fail("돌진 이동을 시작하지 못했습니다.", out failureReason);
             }
             Actor.PlayDashAnimation();
@@ -724,40 +866,67 @@ namespace GridSquad
         {
             if (Actor.IsMoving)
                 return CombatActionExecutionStatus.Running;
-            ClearSpeedMultiplier();
+            if (pathPlan.HasCollision && !collisionHandled)
+            {
+                collisionHandled = true;
+                Combatant target = pathPlan.CollisionTarget;
+                bool targetStillAtCollisionCell = target != null
+                    && target.IsAlive
+                    && target.CurrentCell == pathPlan.CollisionCell
+                    && target.Team != Actor.Team;
+                bool collisionCellVacated = !targetStillAtCollisionCell;
+                if (targetStillAtCollisionCell)
+                {
+                    collisionCellVacated = target.TryApplyKnockback(
+                        Actor.CurrentCell,
+                        Runtime.GetBehavior<DashActionBehaviorDefinition>().KnockbackCells);
+                }
+                if (collisionCellVacated
+                    && Owner.GridMap.IsWalkable(pathPlan.CollisionCell, Actor.Entity)
+                    && Actor.SetMoveDestination(pathPlan.CollisionCell))
+                {
+                    return CombatActionExecutionStatus.Running;
+                }
+            }
+            RemoveActionRunningSpeedModifier();
             return CombatActionExecutionStatus.Completed;
         }
 
         public override void Interrupt(CombatActionInterruptReason reason)
         {
             Actor?.RequestStopMovementAfterCurrentCell();
-            ClearSpeedMultiplier();
+            pathPlan = default;
+            collisionHandled = false;
+            RemoveActionRunningSpeedModifier();
         }
 
-        internal static bool IsStraightPathWalkable(
-            Combatant actor,
-            GridMap gridMap,
-            GridCoordinate targetCell)
+        private void ApplyActionRunningSpeedModifier()
         {
-            GridCoordinate origin = actor.CurrentCell;
-            int xStep = Math.Sign(targetCell.X - origin.X);
-            int zStep = Math.Sign(targetCell.Z - origin.Z);
-            int distance = origin.ManhattanDistance(targetCell);
-            for (int step = 1; step <= distance; step++)
-            {
-                GridCoordinate cell = new(origin.X + xStep * step, origin.Z + zStep * step);
-                if (!gridMap.IsWalkable(cell, actor.Entity))
-                    return false;
-            }
-            return true;
-        }
-
-        private void ClearSpeedMultiplier()
-        {
-            if (!speedApplied)
+            UnitStatDefinition movementSpeed = Actor.StatCatalog?.MovementSpeedMultiplier;
+            DashActionBehaviorDefinition behavior =
+                Runtime.GetBehavior<DashActionBehaviorDefinition>();
+            if (movementSpeed == null || behavior == null)
                 return;
-            Actor.SetTemporaryMovementSpeedMultiplier(1f);
-            speedApplied = false;
+            speedModifierHandle = Actor.AddPersistentStatModifiers(
+                $"action:{Runtime.RuntimeKey}:running",
+                Runtime.Definition.DisplayName,
+                Runtime.Definition.Icon,
+                UnitStatModifierSourceKind.Action,
+                new[]
+                {
+                    new UnitStatModifier(
+                        movementSpeed,
+                        UnitStatModifierOperation.Multiply,
+                        behavior.MovementSpeedMultiplier)
+                });
+        }
+
+        private void RemoveActionRunningSpeedModifier()
+        {
+            if (!speedModifierHandle.IsValid)
+                return;
+            Actor.RemoveStatModifierHandle(speedModifierHandle);
+            speedModifierHandle = default;
         }
     }
 }

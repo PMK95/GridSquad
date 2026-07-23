@@ -24,4 +24,5 @@ MonoBehaviour:
   - action: {fileID: 11400000, guid: 9f617ee307796c3468d37aef18a75b23, type: 2}
     availability: 0
   maximumBlockCount: 6
+  defense: 18
   armorSlotKind: 3

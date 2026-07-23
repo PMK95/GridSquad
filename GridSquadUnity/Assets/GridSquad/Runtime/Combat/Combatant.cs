@@ -55,6 +55,7 @@ namespace GridSquad
         private readonly UnitRuntimeStatCollection effectiveStats = new();
 
         public event Action<Combatant> Died;
+        public event Action<Combatant> StatsChanged;
 
         public Team Team => team;
         public UnitDefinition UnitDefinition => unitDefinition;
@@ -73,6 +74,12 @@ namespace GridSquad
             ? unitDefinition.Traits
             : Array.Empty<UnitTraitDefinition>();
         public IReadOnlyList<UnitRuntimeStatEntry> EffectiveStats => effectiveStats.Entries;
+        public float EffectiveDefense => GetCoreStatValue(
+            statCatalog != null ? statCatalog.Defense : null,
+            0f);
+        public float FireRateMultiplier => GetCoreStatValue(
+            statCatalog != null ? statCatalog.FireRateMultiplier : null,
+            1f);
         public float HitChanceBonusPercent => GetCoreStatValue(
             statCatalog != null ? statCatalog.HitChanceBonusPercent : null,
             0f);
@@ -165,12 +172,20 @@ namespace GridSquad
         public ShootableTarget ShootableTarget => shootableTarget;
         public GridMap GridMap => gridMap;
         internal float CurrentMovementSpeedMultiplier => GetCoreStatValue(
-                statCatalog != null ? statCatalog.MovementSpeedMultiplier : null,
-                1f)
-            * (statusEffectController != null ? statusEffectController.MovementSpeedMultiplier : 1f);
+            statCatalog != null ? statCatalog.MovementSpeedMultiplier : null,
+            1f);
+        internal UnitStatCatalog StatCatalog => statCatalog;
 
         public float GetStatValue(UnitStatDefinition definition)
             => effectiveStats.GetValue(definition);
+
+        public bool TryGetStatEntry(
+            UnitStatDefinition definition,
+            out UnitRuntimeStatEntry entry)
+            => effectiveStats.TryGetEntry(definition, out entry);
+
+        public float GetStatModifierRemainingSeconds(UnitStatModifierHandle handle)
+            => effectiveStats.GetRemainingSeconds(handle);
 
         private void Awake()
         {
@@ -184,21 +199,25 @@ namespace GridSquad
 
             if (unitDefinition != null)
             {
-                effectiveStats.Rebuild(statCatalog, unitDefinition.BaseStatValues, unitDefinition.Traits);
+                inventory?.ApplyUnitDefinitionDefaults(unitDefinition);
+                effectiveStats.Rebuild(
+                    statCatalog,
+                    unitDefinition.BaseStatValues,
+                    unitDefinition.Traits,
+                    equipmentLoadout);
                 if (statCatalog != null && statCatalog.MaximumHealth != null)
                 {
                     maximumHealth = Mathf.Max(
                         1,
                         Mathf.RoundToInt(effectiveStats.GetValue(statCatalog.MaximumHealth)));
                 }
-                inventory?.ApplyUnitDefinitionDefaults(unitDefinition);
                 CombatActionLoadout actionLoadout = GetComponent<CombatActionLoadout>();
                 actionLoadout?.ApplyUnitDefinitionDefaults(unitDefinition);
                 GetComponent<CombatActionController>()?.RefreshRuntimeActionsFromLoadout();
             }
             else
             {
-                effectiveStats.Rebuild(statCatalog, null, null);
+                effectiveStats.Rebuild(statCatalog, null, null, equipmentLoadout);
                 Debug.LogWarning(
                     $"[유닛 데이터] {name}에 UnitDefinition이 없어 기존 직렬화 값을 사용합니다.",
                     this);
@@ -227,10 +246,11 @@ namespace GridSquad
                 weaponLoadout,
                 muzzle);
             hitReactionController.Initialize(this, tuning, animationController, rangedAttackController);
-            statusEffectController.Initialize(rangedAttackController);
+            statusEffectController.Initialize(this);
             facingController.Initialize(this, movementController, tuning, visualRoot);
             equipmentLoadout.EquipmentChanged += HandleEquipmentChanged;
             RefreshOffHandPresentation();
+            ApplyEffectiveStatsAfterRecalculation(false);
 
             health.DamageApplied += HandleDamageApplied;
             health.HealthDepleted += HandleHealthDepleted;
@@ -245,6 +265,8 @@ namespace GridSquad
             if (!IsAlive)
                 return;
 
+            if (effectiveStats.TickTimedModifiers(Time.deltaTime))
+                ApplyEffectiveStatsAfterRecalculation(true);
             hitReactionController.Tick();
             statusEffectController.Tick();
             bool movedThisFrame = movementController.TickMovement(CurrentMovementSpeedMultiplier);
@@ -335,19 +357,66 @@ namespace GridSquad
         }
 
         public void ApplyStim(
+            string sourceKey,
+            string sourceDisplayName,
+            Sprite sourceIcon,
             float durationSeconds,
             float movementSpeedMultiplier,
             float fireIntervalMultiplier)
         {
             statusEffectController?.ApplyStim(
+                sourceKey,
+                sourceDisplayName,
+                sourceIcon,
                 durationSeconds,
                 movementSpeedMultiplier,
                 fireIntervalMultiplier);
         }
 
-        public void SetTemporaryMovementSpeedMultiplier(float multiplier)
+        public UnitStatModifierHandle AddTimedStatModifiers(
+            string sourceKey,
+            string sourceDisplayName,
+            Sprite sourceIcon,
+            UnitStatModifierSourceKind sourceKind,
+            IReadOnlyList<UnitStatModifier> modifiers,
+            float durationSeconds)
         {
-            statusEffectController?.SetTemporaryMovementSpeedMultiplier(multiplier);
+            UnitStatModifierHandle handle = effectiveStats.AddTimedModifiers(
+                sourceKey,
+                sourceDisplayName,
+                sourceIcon,
+                sourceKind,
+                modifiers,
+                durationSeconds);
+            if (handle.IsValid)
+                ApplyEffectiveStatsAfterRecalculation(true);
+            return handle;
+        }
+
+        public UnitStatModifierHandle AddPersistentStatModifiers(
+            string sourceKey,
+            string sourceDisplayName,
+            Sprite sourceIcon,
+            UnitStatModifierSourceKind sourceKind,
+            IReadOnlyList<UnitStatModifier> modifiers)
+        {
+            UnitStatModifierHandle handle = effectiveStats.AddPersistentModifiers(
+                sourceKey,
+                sourceDisplayName,
+                sourceIcon,
+                sourceKind,
+                modifiers);
+            if (handle.IsValid)
+                ApplyEffectiveStatsAfterRecalculation(true);
+            return handle;
+        }
+
+        public bool RemoveStatModifierHandle(UnitStatModifierHandle handle)
+        {
+            if (!effectiveStats.RemoveModifiers(handle))
+                return false;
+            ApplyEffectiveStatsAfterRecalculation(true);
+            return true;
         }
 
         public float PlayThrowAnimation()
@@ -410,8 +479,21 @@ namespace GridSquad
                 Debug.Log($"[장비 방어] {DisplayName}의 {plate.DisplayName}이 피해를 방어했습니다. 충전 {remaining}/{maximum}");
                 return new CombatDamageResult(requestedDamage, 0, true);
             }
-            int applied = health != null ? health.ApplyDamage(requestedDamage) : 0;
+            int mitigatedDamage = CalculateDamageAfterDefense(
+                requestedDamage,
+                EffectiveDefense);
+            int applied = health != null ? health.ApplyDamage(mitigatedDamage) : 0;
             return new CombatDamageResult(requestedDamage, applied, false);
+        }
+
+        private static int CalculateDamageAfterDefense(int requestedDamage, float defense)
+        {
+            if (requestedDamage <= 0)
+                return 0;
+            float nonNegativeDefense = Mathf.Max(0f, defense);
+            return Mathf.Max(
+                1,
+                Mathf.CeilToInt(requestedDamage * 100f / (100f + nonNegativeDefense)));
         }
 
         public int RestoreHealth(int amount)
@@ -437,6 +519,19 @@ namespace GridSquad
             GetComponent<UnitTacticalBehaviorController>()
                 ?.InterruptSelectedCombatIntent(CombatActionInterruptReason.PlayerCommand);
             return movementController.TryApplyForcedDisplacement(sourceCell, distanceCells);
+        }
+
+        public bool TryCalculateKnockbackDestination(
+            GridCoordinate sourceCell,
+            int distanceCells,
+            out GridCoordinate destination)
+        {
+            destination = CurrentCell;
+            return movementController != null
+                && movementController.TryCalculateForcedDisplacementDestination(
+                    sourceCell,
+                    distanceCells,
+                    out destination);
         }
 
         public void SetSelected(bool value)
@@ -494,6 +589,8 @@ namespace GridSquad
             rangedAttackController?.PrepareForBattleResult();
             hitReactionController?.ResetState();
             statusEffectController?.ResetState();
+            if (effectiveStats.ClearTimedModifiers())
+                ApplyEffectiveStatsAfterRecalculation(true);
         }
 
         internal void SetLegacyWeaponDefinition(WeaponDefinition definition)
@@ -553,8 +650,6 @@ namespace GridSquad
             offHandMount = offHandMount != null ? offHandMount : GetComponent<OffHandMount>();
             if (offHandMount == null)
                 offHandMount = gameObject.AddComponent<OffHandMount>();
-            if (GetComponent<CombatantContextCommandProvider>() == null)
-                gameObject.AddComponent<CombatantContextCommandProvider>();
             if (GetComponent<CombatantItemContextCommandProvider>() == null)
                 gameObject.AddComponent<CombatantItemContextCommandProvider>();
             facingController = facingController != null
@@ -586,7 +681,35 @@ namespace GridSquad
             weaponLoadout?.RefreshEquippedWeapon();
             rangedAttackController?.RefreshEquippedWeapon();
             RefreshOffHandPresentation();
+            RebuildEffectiveStatsFromCurrentSources();
             GetComponent<CombatActionController>()?.RefreshRuntimeActionsFromLoadout();
+        }
+
+        private void RebuildEffectiveStatsFromCurrentSources()
+        {
+            effectiveStats.Rebuild(
+                statCatalog,
+                unitDefinition != null ? unitDefinition.BaseStatValues : null,
+                unitDefinition != null ? unitDefinition.Traits : null,
+                equipmentLoadout);
+            ApplyEffectiveStatsAfterRecalculation(true);
+        }
+
+        private void ApplyEffectiveStatsAfterRecalculation(bool updateHealthMaximum)
+        {
+            int recalculatedMaximumHealth = statCatalog?.MaximumHealth != null
+                ? Mathf.Max(
+                    1,
+                    Mathf.RoundToInt(effectiveStats.GetValue(statCatalog.MaximumHealth)))
+                : Mathf.Max(1, maximumHealth);
+            maximumHealth = recalculatedMaximumHealth;
+            if (updateHealthMaximum && health != null)
+                health.UpdateMaximumHealthWithoutHealing(recalculatedMaximumHealth);
+
+            float fireRate = Mathf.Max(0.1f, FireRateMultiplier);
+            rangedAttackController?.SetFireIntervalMultiplier(1f / fireRate);
+            worldUi?.RefreshHealth();
+            StatsChanged?.Invoke(this);
         }
 
         private void RefreshOffHandPresentation()
@@ -603,6 +726,7 @@ namespace GridSquad
             rangedAttackController?.PrepareForEntityRemoval();
             movementController?.PrepareForEntityRemoval();
             statusEffectController?.ResetState();
+            effectiveStats.ClearTimedModifiers();
             if (selectionCollider != null)
                 selectionCollider.enabled = false;
             float deathAnimationDuration = animationController != null

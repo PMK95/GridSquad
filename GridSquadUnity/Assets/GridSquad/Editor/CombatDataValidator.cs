@@ -68,8 +68,20 @@ namespace GridSquadEditor
                     errors += LogError($"행동 ID가 중복되었습니다: {definition.ActionId}", definition);
                 if (definition.Behavior == null)
                     errors += LogError("행동 전략이 연결되지 않았습니다.", definition);
+                if (definition.CooldownSeconds <= 0f)
+                    errors += LogError("행동 쿨다운은 0초보다 커야 합니다.", definition);
                 if (definition.HasCapability(CombatActionCapabilityFlags.DefaultAttack))
+                {
                     defaultAttackCount++;
+                    if (!definition.HasCapability(CombatActionCapabilityFlags.PlayerVisible)
+                        || definition.TargetingMode != CombatActionTargetingMode.ShootableTarget
+                        || definition.PlayerSlotOrder != 0)
+                    {
+                        errors += LogError(
+                            "기본 공격은 첫 슬롯의 플레이어 대상 지정 행동이어야 합니다.",
+                            definition);
+                    }
+                }
                 if (definition.HasCapability(CombatActionCapabilityFlags.MovementCommand))
                     movementCommandCount++;
             }
@@ -84,12 +96,14 @@ namespace GridSquadEditor
         {
             int errors = 0;
             HashSet<string> statIds = new();
-            foreach (UnitStatDefinition definition in LoadAssets<UnitStatDefinition>())
+            List<UnitStatDefinition> definitions = LoadAssets<UnitStatDefinition>().ToList();
+            foreach (UnitStatDefinition definition in definitions)
             {
                 if (string.IsNullOrWhiteSpace(definition.StatId))
                     errors += LogError("스탯 ID가 비어 있습니다.", definition);
                 else if (!statIds.Add(definition.StatId))
                     errors += LogError($"스탯 ID가 중복되었습니다: {definition.StatId}", definition);
+                errors += ValidateExpectedStatPresentation(definition);
             }
             UnitStatCatalog catalog = LoadFirstAsset<UnitStatCatalog>();
             if (catalog == null
@@ -97,16 +111,52 @@ namespace GridSquadEditor
                 || catalog.MovementSpeedMultiplier == null
                 || catalog.HitChanceBonusPercent == null
                 || catalog.DamageMultiplier == null
+                || catalog.Defense == null
+                || catalog.FireRateMultiplier == null
                 || catalog.CarryCapacity == null)
             {
-                errors += LogError("휴대 한도를 포함한 핵심 유닛 스탯 카탈로그가 완전하지 않습니다.", catalog);
+                errors += LogError("7개 핵심 유닛 스탯 카탈로그가 완전하지 않습니다.", catalog);
+            }
+            else
+            {
+                HashSet<UnitStatDefinition> catalogDefinitions =
+                    new(catalog.CoreStats.Where(definition => definition != null));
+                if (catalogDefinitions.Count != 7 || definitions.Count != 7)
+                    errors += LogError("운영 스탯은 카탈로그에 등록된 7개여야 합니다.", catalog);
             }
             return errors;
+        }
+
+        private static int ValidateExpectedStatPresentation(UnitStatDefinition definition)
+        {
+            (UnitStatCategory category, UnitStatDisplayFormat format)? expected =
+                definition.StatId switch
+                {
+                    "maximum_health" => (UnitStatCategory.Survivability, UnitStatDisplayFormat.Integer),
+                    "defense" => (UnitStatCategory.Survivability, UnitStatDisplayFormat.Integer),
+                    "damage_multiplier" => (UnitStatCategory.Offense, UnitStatDisplayFormat.PercentMultiplier),
+                    "hit_chance_bonus_percent" => (UnitStatCategory.Offense, UnitStatDisplayFormat.PercentagePoints),
+                    "fire_rate_multiplier" => (UnitStatCategory.Offense, UnitStatDisplayFormat.PercentMultiplier),
+                    "movement_speed_multiplier" => (UnitStatCategory.Mobility, UnitStatDisplayFormat.PercentMultiplier),
+                    "carry_capacity" => (UnitStatCategory.Utility, UnitStatDisplayFormat.Kilograms),
+                    _ => null
+                };
+            if (!expected.HasValue)
+                return LogError($"허용되지 않은 운영 스탯입니다: {definition.StatId}", definition);
+            return definition.Category != expected.Value.category
+                || definition.DisplayFormat != expected.Value.format
+                    ? LogError($"스탯 분류 또는 표시 형식이 올바르지 않습니다: {definition.DisplayName}", definition)
+                    : 0;
         }
 
         private static int ValidateUnitsAndTraits()
         {
             int errors = 0;
+            UnitStatCatalog catalog = LoadFirstAsset<UnitStatCatalog>();
+            HashSet<UnitStatDefinition> catalogStats = catalog != null
+                ? new HashSet<UnitStatDefinition>(
+                    catalog.CoreStats.Where(definition => definition != null))
+                : new HashSet<UnitStatDefinition>();
             foreach (UnitDefinition unit in LoadAssets<UnitDefinition>())
             {
                 HashSet<UnitStatDefinition> baseStats = new();
@@ -116,15 +166,26 @@ namespace GridSquadEditor
                         errors += LogError("기본 스탯 참조가 비어 있습니다.", unit);
                     else if (!baseStats.Add(value.Definition))
                         errors += LogError($"기본 스탯이 중복되었습니다: {value.Definition.DisplayName}", unit);
+                    else if (!catalogStats.Contains(value.Definition))
+                        errors += LogError($"기본 스탯이 핵심 카탈로그 밖을 참조합니다: {value.Definition.DisplayName}", unit);
                 }
             }
             foreach (UnitTraitDefinition trait in LoadAssets<UnitTraitDefinition>())
             {
+                if (trait.Icon == null)
+                    errors += LogError("특성 아이콘이 비어 있습니다.", trait);
                 foreach (UnitStatModifier modifier in trait.Modifiers)
                 {
                     if (modifier.Definition == null)
                         errors += LogError("특성 스탯 수정자 참조가 비어 있습니다.", trait);
+                    else if (!catalogStats.Contains(modifier.Definition))
+                        errors += LogError($"특성 스탯이 핵심 카탈로그 밖을 참조합니다: {modifier.Definition.DisplayName}", trait);
                 }
+            }
+            foreach (DashActionBehaviorDefinition dash in LoadAssets<DashActionBehaviorDefinition>())
+            {
+                if (dash.KnockbackCells < 1)
+                    errors += LogError("돌진 밀치기 거리는 1칸 이상이어야 합니다.", dash);
             }
             return errors;
         }
@@ -132,8 +193,12 @@ namespace GridSquadEditor
         private static int ValidateItemsAndEquipment()
         {
             int errors = 0;
-            EquipmentLayoutDefinition layout = AssetDatabase.LoadAssetAtPath<EquipmentLayoutDefinition>(
-                EquipmentAssetFactory.EquipmentLayoutPath);
+            UnitStatCatalog statCatalog = LoadFirstAsset<UnitStatCatalog>();
+            HashSet<UnitStatDefinition> catalogStats = statCatalog != null
+                ? new HashSet<UnitStatDefinition>(
+                    statCatalog.CoreStats.Where(definition => definition != null))
+                : new HashSet<UnitStatDefinition>();
+            EquipmentLayoutDefinition layout = LoadFirstAsset<EquipmentLayoutDefinition>();
             if (layout == null)
                 return LogError("전투 장비 레이아웃이 없습니다.", null);
             if (layout.Slots.Count != RequiredSlotKinds.Length)
@@ -156,8 +221,7 @@ namespace GridSquadEditor
                 if (!slotKinds.Contains(requiredKind))
                     errors += LogError($"필수 장비 슬롯이 없습니다: {requiredKind}", layout);
 
-            ItemCatalog itemCatalog = AssetDatabase.LoadAssetAtPath<ItemCatalog>(
-                EquipmentAssetFactory.ItemCatalogPath);
+            ItemCatalog itemCatalog = LoadFirstAsset<ItemCatalog>();
             if (itemCatalog == null)
                 return errors + LogError("아이템 카탈로그가 없습니다.", null);
             HashSet<string> itemIds = new();
@@ -190,6 +254,18 @@ namespace GridSquadEditor
                     errors += LogError($"붕대 외 아이템은 개별 인스턴스여야 합니다: {item.DisplayName}", item);
                 if (item is EquippableDefinition equipment && !CanEquipInAnyLayoutSlot(equipment, layout))
                     errors += LogError($"호환되는 슬롯이 없는 장비입니다: {equipment.DisplayName}", equipment);
+                if (item is EquippableDefinition statEquipment)
+                {
+                    foreach (UnitStatModifier modifier in statEquipment.StatModifiers)
+                    {
+                        if (modifier.Definition == null)
+                            errors += LogError($"장비 스탯 수정자 참조가 비어 있습니다: {item.DisplayName}", item);
+                        else if (!catalogStats.Contains(modifier.Definition))
+                            errors += LogError($"장비 스탯이 핵심 카탈로그 밖을 참조합니다: {item.DisplayName}", item);
+                    }
+                }
+                if (item is ArmorDefinition armor && armor.Defense <= 0)
+                    errors += LogError($"방어구 방어력은 1 이상이어야 합니다: {armor.DisplayName}", armor);
                 if (item is WeaponDefinition weapon && weapon.AttackBehavior == null)
                     errors += LogError($"무기 공격 전략이 없습니다: {weapon.DisplayName}", weapon);
                 foreach (ItemActionGrant grant in item.ActionGrants)
@@ -404,6 +480,33 @@ namespace GridSquadEditor
                 "Assets/GridSquad/Prefabs/UI/EquipmentSlotView.prefab");
             if (slotPrefab == null || slotPrefab.GetComponent<CanvasGroup>() == null)
                 errors += LogError("EquipmentSlotView 프리팹에 CanvasGroup이 없습니다.", slotPrefab);
+            string[] actionButtonPaths =
+            {
+                "Assets/GridSquad/Prefabs/UI/CombatActionButton.prefab",
+                "Assets/GridSquad/Resources/UI/CombatActionButton.prefab"
+            };
+            foreach (string actionButtonPath in actionButtonPaths)
+            {
+                GameObject actionButton = AssetDatabase.LoadAssetAtPath<GameObject>(actionButtonPath);
+                CombatActionButtonView view = actionButton != null
+                    ? actionButton.GetComponent<CombatActionButtonView>()
+                    : null;
+                RectTransform rect = actionButton != null
+                    ? actionButton.transform as RectTransform
+                    : null;
+                if (view == null || rect == null || rect.sizeDelta != new Vector2(72f, 72f))
+                    errors += LogError($"액션 버튼이 72x72 정사각형이 아닙니다: {actionButtonPath}", actionButton);
+                if (view == null || view.CooldownFill == null || view.CooldownFill.sprite == null)
+                    errors += LogError($"액션 버튼 Fill 스프라이트가 비어 있습니다: {actionButtonPath}", actionButton);
+            }
+            GameObject tooltipPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(
+                "Assets/GridSquad/Resources/UI/UiTooltip.prefab");
+            if (tooltipPrefab == null || tooltipPrefab.GetComponent<UiTooltipPresenter>() == null)
+                errors += LogError("공용 툴팁 프리팹 구성이 완전하지 않습니다.", tooltipPrefab);
+            GameObject detailRowPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(
+                "Assets/GridSquad/Resources/UI/UiTooltipRow.prefab");
+            if (detailRowPrefab == null || detailRowPrefab.GetComponent<UiTooltipRowView>() == null)
+                errors += LogError("상세 정보 행 프리팹 구성이 완전하지 않습니다.", detailRowPrefab);
             return errors;
         }
 

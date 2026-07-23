@@ -14,7 +14,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::GridSquad.UnitStatDefinition
   statId: damage_multiplier
   displayName: "\uD53C\uD574 \uBC30\uC728"
+  description: "\uBB34\uAE30 \uD53C\uD574\uB7C9\uC5D0 \uACF1\uD574\uC9C0\uB294 \uBC30\uC728\uC785\uB2C8\uB2E4. 1\uC740 \uD45C\uC900 \uD53C\uD574\uB7C9\uC785\uB2C8\uB2E4."
   defaultValue: 1
   minimumValue: 0.1
   roundToInteger: 0
   hudOrder: 30
+  category: 1
+  displayFormat: 2

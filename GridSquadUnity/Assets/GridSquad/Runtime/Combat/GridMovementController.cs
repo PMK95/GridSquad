@@ -191,6 +191,30 @@ namespace GridSquad
 
             StopMovementAtCurrentCell();
             transform.position = gridMap.GridToWorld(CurrentCell);
+            if (!TryCalculateForcedDisplacementDestination(
+                    sourceCell,
+                    maximumCells,
+                    out GridCoordinate destination))
+            {
+                return false;
+            }
+
+            GridCoordinate previous = CurrentCell;
+            entity.SetCurrentCell(destination);
+            gridMap.MoveOccupant(entity, previous, destination);
+            transform.position = gridMap.GridToWorld(destination);
+            return true;
+        }
+
+        public bool TryCalculateForcedDisplacementDestination(
+            GridCoordinate sourceCell,
+            int maximumCells,
+            out GridCoordinate destination)
+        {
+            destination = CurrentCell;
+            if (gridMap == null || entity == null || maximumCells <= 0)
+                return false;
+
             int xDelta = CurrentCell.X - sourceCell.X;
             int zDelta = CurrentCell.Z - sourceCell.Z;
             int xStep = Mathf.Abs(xDelta) >= Mathf.Abs(zDelta) ? System.Math.Sign(xDelta) : 0;
@@ -198,7 +222,6 @@ namespace GridSquad
             if (xStep == 0 && zStep == 0)
                 return false;
 
-            GridCoordinate destination = CurrentCell;
             for (int step = 0; step < maximumCells; step++)
             {
                 GridCoordinate candidate = new(destination.X + xStep, destination.Z + zStep);
@@ -206,14 +229,7 @@ namespace GridSquad
                     break;
                 destination = candidate;
             }
-            if (destination == CurrentCell)
-                return false;
-
-            GridCoordinate previous = CurrentCell;
-            entity.SetCurrentCell(destination);
-            gridMap.MoveOccupant(entity, previous, destination);
-            transform.position = gridMap.GridToWorld(destination);
-            return true;
+            return destination != CurrentCell;
         }
 
         private void TryRebuildPathAroundBlockingEntity()

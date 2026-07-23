@@ -197,6 +197,8 @@ namespace GridSquad
                 view.name = $"PlayerActionSlot{slotIndex + 1}";
                 view.Bind(() => inputController?.BeginSelectedActionFromHud(capturedSlotIndex));
                 view.SetContent("비어 있음", hotkeys[slotIndex], "미장착", null);
+                view.SetCooldownProgress(0f, 0f);
+                view.ClearTooltipContent();
                 generatedActionButtons.Add(view);
             }
         }
@@ -424,8 +426,9 @@ namespace GridSquad
                     status = isControllableAlly ? runtimeState.StatusText : "명령 불가";
                     if (!runtimeState.IsEquipped)
                         status = "미장착";
-                    if (runtimeState.Definition != null && runtimeState.Definition.Icon != null)
-                        icon = runtimeState.Definition.Icon;
+                    Sprite displayedIcon = CombatActionPresentation.GetDisplayedIcon(selected, runtimeState);
+                    if (displayedIcon != null)
+                        icon = displayedIcon;
                     if (view.NameText != null)
                         view.NameText.text = runtimeState.Definition != null
                             ? runtimeState.Definition.DisplayName
@@ -443,10 +446,11 @@ namespace GridSquad
                 ApplyActionButtonState(view, equipped, interactable, active, status, icon);
             }
 
-            RefreshGeneratedPlayerActionButtons(isControllableAlly, actionController);
+            RefreshGeneratedPlayerActionButtons(selected, isControllableAlly, actionController);
         }
 
         private void RefreshGeneratedPlayerActionButtons(
+            Combatant selected,
             bool isControllableAlly,
             CombatActionController actionController)
         {
@@ -465,12 +469,32 @@ namespace GridSquad
                 string status = !isControllableAlly
                     ? "명령 불가"
                     : state.Definition == null ? "미장착" : state.StatusText;
-                Sprite icon = state.Definition != null ? state.Definition.Icon : null;
+                Sprite icon = CombatActionPresentation.GetDisplayedIcon(selected, state);
                 view.SetContent(
                     state.Definition != null ? state.Definition.DisplayName : "비어 있음",
                     hotkeys[slotIndex],
                     status,
                     icon);
+                float cooldownDuration = state.Definition != null
+                    ? state.Definition.CooldownSeconds
+                    : 0f;
+                view.SetCooldownProgress(state.CooldownRemaining, cooldownDuration);
+                if (state.Definition != null)
+                {
+                    view.SetTooltipContent(
+                        state.Definition.DisplayName,
+                        state.Definition.Description,
+                        hotkeys[slotIndex],
+                        state.Definition.TargetingMode,
+                        cooldownDuration,
+                        state.CooldownRemaining,
+                        status,
+                        state.SourceDisplayName);
+                }
+                else
+                {
+                    view.ClearTooltipContent();
+                }
                 view.SetState(
                     interactable,
                     active ? ActiveActionColor : equipped ? EnabledActionColor : DisabledActionColor,

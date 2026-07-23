@@ -1,5 +1,5 @@
+using System;
 using System.Collections.Generic;
-using System.Text;
 using UnityEngine;
 using UnityEngine.Serialization;
 using UnityEngine.UI;
@@ -30,6 +30,9 @@ namespace GridSquad
 
         private readonly List<GameObject> generatedEquipmentViews = new();
         private readonly List<GameObject> generatedInventoryViews = new();
+        private readonly List<GameObject> generatedDetailViews = new();
+        private RectTransform detailListContent;
+        private UiTooltipRowView detailRowPrefab;
         private Combatant selectedCombatant;
         private UnitDetailTab activeTab;
         private bool rebuildDirty;
@@ -42,6 +45,7 @@ namespace GridSquad
 
         private void Awake()
         {
+            EnsureDetailList();
             BindButtons();
             Hide();
         }
@@ -115,11 +119,15 @@ namespace GridSquad
             }
             ClearGeneratedViews(generatedEquipmentViews);
             ClearGeneratedViews(generatedInventoryViews);
+            ClearGeneratedViews(generatedDetailViews);
             bool showEquipmentInventory = activeTab == UnitDetailTab.EquipmentInventory;
             SetContainerVisible(paperDollPanel, showEquipmentInventory);
             SetInventoryPanelVisible(showEquipmentInventory);
             if (summaryText != null)
+            {
                 summaryText.gameObject.SetActive(!showEquipmentInventory);
+                summaryText.enabled = false;
+            }
             bool canEditEquipmentInventory = showEquipmentInventory
                 && selectedCombatant.Team == Team.Ally;
             if (inventoryDropTarget != null)
@@ -143,42 +151,83 @@ namespace GridSquad
 
         private void ShowStats()
         {
-            StringBuilder builder = new();
+            EnsureDetailList();
+            bool hasCarryCapacity = false;
+            UnitStatCategory? previousCategory = null;
             foreach (UnitRuntimeStatEntry stat in selectedCombatant.EffectiveStats)
             {
                 if (stat.Definition == null)
                     continue;
-                builder.Append(stat.Definition.DisplayName)
-                    .Append("  ")
-                    .Append(stat.Definition.RoundToInteger
-                        ? Mathf.RoundToInt(stat.Value).ToString()
-                        : stat.Value.ToString("0.##"))
-                    .Append('\n');
+                if (previousCategory != stat.Definition.Category)
+                {
+                    previousCategory = stat.Definition.Category;
+                    CreateDetailRow(
+                        null,
+                        GetStatCategoryLabel(stat.Definition.Category),
+                        string.Empty,
+                        default,
+                        false);
+                }
+                hasCarryCapacity |= stat.Definition.StatId == "carry_capacity";
+                UnitStatDefinition capturedDefinition = stat.Definition;
+                CreateDynamicDetailRow(
+                    null,
+                    capturedDefinition.DisplayName,
+                    capturedDefinition.FormatValue(stat.Value),
+                    () => UiTooltipContentFactory.CreateStat(
+                        selectedCombatant,
+                        capturedDefinition));
+                if (capturedDefinition.StatId == "maximum_health")
+                {
+                    string currentHealthValue =
+                        $"{selectedCombatant.CurrentHealth} / {selectedCombatant.MaximumHealth}";
+                    CreateDetailRow(
+                        null,
+                        "현재 체력",
+                        currentHealthValue,
+                        new UiTooltipContent(
+                            null,
+                            "현재 체력",
+                            currentHealthValue,
+                            "현재 남아 있는 체력입니다. 0이 되면 전투 불능이 됩니다.",
+                            $"최대 체력  {selectedCombatant.MaximumHealth}",
+                            string.Empty));
+                }
             }
-            builder.Append("현재 체력  ")
-                .Append(selectedCombatant.CurrentHealth)
-                .Append(" / ")
-                .Append(selectedCombatant.MaximumHealth)
-                .Append("\n휴대 한도  ")
-                .Append(selectedCombatant.CarryCapacity.ToString("0.##"))
-                .Append("kg");
-            SetSummary(builder.ToString());
+            if (!hasCarryCapacity)
+            {
+                CreateDetailRow(
+                    null,
+                    "휴대 한도",
+                    $"{selectedCombatant.CarryCapacity:0.##}kg",
+                    new UiTooltipContent(
+                        null,
+                        "휴대 한도",
+                        $"{selectedCombatant.CarryCapacity:0.##}kg",
+                        "과적재 판정 전에 휴대할 수 있는 인벤토리 최대 무게입니다.",
+                        string.Empty,
+                        string.Empty));
+            }
         }
 
         private void ShowTraits()
         {
-            StringBuilder builder = new();
+            EnsureDetailList();
             if (selectedCombatant.Traits.Count == 0)
-                builder.Append("특성 없음");
+            {
+                CreateDetailRow(null, "특성 없음", string.Empty, default, false);
+                return;
+            }
             foreach (UnitTraitDefinition trait in selectedCombatant.Traits)
             {
                 if (trait == null)
                     continue;
-                if (builder.Length > 0)
-                    builder.Append("\n\n");
-                builder.Append(trait.DisplayName).Append("\n").Append(trait.Description);
+                CreateDetailRow(
+                    trait.Icon,
+                    trait.DisplayName,
+                    string.Empty,
+                    UiTooltipContentFactory.CreateTrait(trait));
             }
-            SetSummary(builder.ToString());
         }
 
         private void ShowEquipmentInventory()
@@ -317,6 +366,8 @@ namespace GridSquad
                 selectedCombatant.EquipmentLoadout.EquipmentChanged += MarkRebuildDirty;
             if (selectedCombatant?.Health != null)
                 selectedCombatant.Health.HealthChanged += HandleHealthChanged;
+            if (selectedCombatant != null)
+                selectedCombatant.StatsChanged += HandleStatsChanged;
         }
 
         private void UnsubscribeFromSelectedCombatant()
@@ -327,6 +378,8 @@ namespace GridSquad
                 selectedCombatant.EquipmentLoadout.EquipmentChanged -= MarkRebuildDirty;
             if (selectedCombatant?.Health != null)
                 selectedCombatant.Health.HealthChanged -= HandleHealthChanged;
+            if (selectedCombatant != null)
+                selectedCombatant.StatsChanged -= HandleStatsChanged;
         }
 
         private void MarkRebuildDirty()
@@ -335,6 +388,11 @@ namespace GridSquad
         }
 
         private void HandleHealthChanged(EntityHealth _)
+        {
+            MarkRebuildDirty();
+        }
+
+        private void HandleStatsChanged(Combatant _)
         {
             MarkRebuildDirty();
         }
@@ -348,13 +406,109 @@ namespace GridSquad
             closeButton?.onClick.AddListener(Hide);
         }
 
-        private void SetSummary(string value)
+        private void EnsureDetailList()
         {
-            if (summaryText != null)
+            if (summaryText == null || detailListContent != null)
+                return;
+            detailRowPrefab = Resources.Load<UiTooltipRowView>("UI/UiTooltipRow");
+
+            GameObject scrollObject = new("DetailScroll", typeof(RectTransform), typeof(ScrollRect));
+            scrollObject.transform.SetParent(summaryText.transform, false);
+            RectTransform scrollRectTransform = scrollObject.GetComponent<RectTransform>();
+            scrollRectTransform.anchorMin = Vector2.zero;
+            scrollRectTransform.anchorMax = Vector2.one;
+            scrollRectTransform.offsetMin = scrollRectTransform.offsetMax = Vector2.zero;
+
+            GameObject viewportObject = new(
+                "Viewport",
+                typeof(RectTransform),
+                typeof(CanvasRenderer),
+                typeof(Image),
+                typeof(Mask));
+            viewportObject.transform.SetParent(scrollObject.transform, false);
+            RectTransform viewportRect = viewportObject.GetComponent<RectTransform>();
+            viewportRect.anchorMin = Vector2.zero;
+            viewportRect.anchorMax = Vector2.one;
+            viewportRect.offsetMin = viewportRect.offsetMax = Vector2.zero;
+            Image viewportImage = viewportObject.GetComponent<Image>();
+            viewportImage.color = new Color(0f, 0f, 0f, 0.01f);
+            viewportImage.raycastTarget = true;
+            viewportObject.GetComponent<Mask>().showMaskGraphic = false;
+
+            GameObject contentObject = new(
+                "Content",
+                typeof(RectTransform),
+                typeof(VerticalLayoutGroup),
+                typeof(ContentSizeFitter));
+            contentObject.transform.SetParent(viewportObject.transform, false);
+            detailListContent = contentObject.GetComponent<RectTransform>();
+            detailListContent.anchorMin = new Vector2(0f, 1f);
+            detailListContent.anchorMax = Vector2.one;
+            detailListContent.pivot = new Vector2(0.5f, 1f);
+            detailListContent.anchoredPosition = Vector2.zero;
+            detailListContent.sizeDelta = Vector2.zero;
+            VerticalLayoutGroup layout = contentObject.GetComponent<VerticalLayoutGroup>();
+            layout.spacing = 6f;
+            layout.childControlWidth = true;
+            layout.childControlHeight = false;
+            layout.childForceExpandWidth = true;
+            layout.childForceExpandHeight = false;
+            contentObject.GetComponent<ContentSizeFitter>().verticalFit =
+                ContentSizeFitter.FitMode.PreferredSize;
+
+            ScrollRect scroll = scrollObject.GetComponent<ScrollRect>();
+            scroll.viewport = viewportRect;
+            scroll.content = detailListContent;
+            scroll.horizontal = false;
+            scroll.vertical = true;
+            scroll.movementType = ScrollRect.MovementType.Clamped;
+            scroll.scrollSensitivity = 24f;
+        }
+
+        private void CreateDetailRow(
+            Sprite icon,
+            string displayName,
+            string value,
+            UiTooltipContent tooltip,
+            bool showTooltip = true)
+        {
+            EnsureDetailList();
+            if (detailListContent == null)
+                return;
+            UiTooltipRowView row = detailRowPrefab != null
+                ? Instantiate(detailRowPrefab, detailListContent)
+                : UiTooltipRowView.Create(detailListContent);
+            row.Bind(icon, displayName, value, tooltip, showTooltip);
+            generatedDetailViews.Add(row.gameObject);
+        }
+
+        private void CreateDynamicDetailRow(
+            Sprite icon,
+            string displayName,
+            string value,
+            Func<UiTooltipContent> tooltipProvider,
+            bool showTooltip = true)
+        {
+            EnsureDetailList();
+            if (detailListContent == null)
+                return;
+            UiTooltipRowView row = detailRowPrefab != null
+                ? Instantiate(detailRowPrefab, detailListContent)
+                : UiTooltipRowView.Create(detailListContent);
+            row.Bind(icon, displayName, value, tooltipProvider, showTooltip);
+            generatedDetailViews.Add(row.gameObject);
+        }
+
+        private static string GetStatCategoryLabel(UnitStatCategory category)
+        {
+            return category switch
             {
-                summaryText.gameObject.SetActive(true);
-                summaryText.text = value;
-            }
+                UnitStatCategory.Survivability => "생존",
+                UnitStatCategory.Offense => "공격",
+                UnitStatCategory.Mobility => "기동",
+                UnitStatCategory.Utility => "지원",
+                _ => "기타"
+            };
         }
 
         private static string GetTabLabel(UnitDetailTab tab)

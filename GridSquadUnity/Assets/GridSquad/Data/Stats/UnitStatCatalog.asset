@@ -16,4 +16,6 @@ MonoBehaviour:
   movementSpeedMultiplier: {fileID: 11400000, guid: 5334004fe7134e3bbf45984a145712cb, type: 2}
   hitChanceBonusPercent: {fileID: 11400000, guid: a5944a7364a14b79976b8d5290268113, type: 2}
   damageMultiplier: {fileID: 11400000, guid: 7b106af550824e58b6ad9afa06890461, type: 2}
+  defense: {fileID: 11400000, guid: 36e00270f09941aaaa06432fe9ee5aed, type: 2}
+  fireRateMultiplier: {fileID: 11400000, guid: 3c15c76f4c1b4d0482e0a707587c5f0b, type: 2}
   carryCapacity: {fileID: 11400000, guid: 8943ec9c869dccc439b4f7d5c2cdd77d, type: 2}

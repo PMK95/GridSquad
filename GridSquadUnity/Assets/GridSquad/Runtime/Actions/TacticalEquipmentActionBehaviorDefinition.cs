@@ -323,6 +323,9 @@ namespace GridSquad
                     break;
                 case TacticalEquipmentActionEffect.CombatStim:
                     Actor.ApplyStim(
+                        $"action:{Runtime.RuntimeKey}:stim",
+                        Runtime.Definition.DisplayName,
+                        Runtime.Definition.Icon,
                         behavior.DurationSeconds,
                         behavior.MovementSpeedMultiplier,
                         behavior.FireIntervalMultiplier);

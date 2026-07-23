@@ -174,6 +174,7 @@ namespace GridSquad.Editor
             recoveryArmor.SetEditorEquipmentPresentation(
                 "rapid_recovery_armor", "급속회복 상의", "착용 중 급속 회복 행동을 제공합니다.", null, 6f);
             recoveryArmor.SetEditorArmorSlotKind(EquipmentSlotKind.Torso);
+            recoveryArmor.SetEditorDefense(12);
             recoveryArmor.SetEditorActionGrants(new[]
             {
                 new ItemActionGrant(recoveryAction, ItemActionAvailability.Equipped)
@@ -238,6 +239,7 @@ namespace GridSquad.Editor
             ExpandedEquipmentAssetFactory.EnsureExpandedEquipmentAssets();
             CreateEquipmentUiPrefabs();
             CreateSelectionUiPrefabs();
+            DeveloperInventoryPanelPrefabFactory.CreateAndAttachDeveloperInventoryPanel();
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
             Debug.Log("[장비 시스템] 슬롯, 장비, 무기 효과, 통합 선택 UI 에셋 마이그레이션 완료");
@@ -280,11 +282,45 @@ namespace GridSquad.Editor
         private static void EnsureCarryCapacityStat()
         {
             const string catalogPath = StatDataRoot + "/UnitStatCatalog.asset";
-            const string statPath = StatDataRoot + "/CarryCapacityStat.asset";
-            UnitStatDefinition carryCapacity = EnsureAsset<UnitStatDefinition>(statPath);
+            UnitStatDefinition carryCapacity = EnsureAsset<UnitStatDefinition>(
+                StatDataRoot + "/CarryCapacityStat.asset");
+            UnitStatDefinition defense = EnsureAsset<UnitStatDefinition>(
+                StatDataRoot + "/DefenseStat.asset");
+            UnitStatDefinition fireRate = EnsureAsset<UnitStatDefinition>(
+                StatDataRoot + "/FireRateStat.asset");
             carryCapacity.SetEditorConfiguration(
-                "carry_capacity", "휴대 한도", 30f, 0f, false, 500);
+                "carry_capacity",
+                "휴대 한도",
+                30f,
+                0f,
+                false,
+                500,
+                "과적재 판정 전에 휴대할 수 있는 인벤토리 최대 무게입니다.",
+                UnitStatCategory.Utility,
+                UnitStatDisplayFormat.Kilograms);
+            defense.SetEditorConfiguration(
+                "defense",
+                "방어력",
+                0f,
+                0f,
+                true,
+                10,
+                "피해를 감소시키는 수치입니다. 방어력이 높아질수록 추가 효율은 점차 줄어듭니다.",
+                UnitStatCategory.Survivability,
+                UnitStatDisplayFormat.Integer);
+            fireRate.SetEditorConfiguration(
+                "fire_rate_multiplier",
+                "사격 속도",
+                1f,
+                0.1f,
+                false,
+                40,
+                "조준과 반복 사격 속도에 적용되는 배율입니다. 100%가 표준 속도입니다.",
+                UnitStatCategory.Offense,
+                UnitStatDisplayFormat.PercentMultiplier);
             EditorUtility.SetDirty(carryCapacity);
+            EditorUtility.SetDirty(defense);
+            EditorUtility.SetDirty(fireRate);
             UnitStatCatalog catalog = AssetDatabase.LoadAssetAtPath<UnitStatCatalog>(catalogPath);
             if (catalog == null)
                 return;
@@ -293,7 +329,9 @@ namespace GridSquad.Editor
                 catalog.MovementSpeedMultiplier,
                 catalog.HitChanceBonusPercent,
                 catalog.DamageMultiplier,
-                carryCapacity);
+                carryCapacity,
+                defense,
+                fireRate);
             EditorUtility.SetDirty(catalog);
         }
 
@@ -410,8 +448,6 @@ namespace GridSquad.Editor
                     root.AddComponent<UnitInventory>();
                 if (root.GetComponent<UnitItemInteractionController>() == null)
                     root.AddComponent<UnitItemInteractionController>();
-                if (root.GetComponent<CombatantContextCommandProvider>() == null)
-                    root.AddComponent<CombatantContextCommandProvider>();
                 if (root.GetComponent<CombatantItemContextCommandProvider>() == null)
                     root.AddComponent<CombatantItemContextCommandProvider>();
                 equipmentLoadout.SetEditorConfiguration(layout, Array.Empty<EquipmentSlotAssignment>());
@@ -784,7 +820,7 @@ namespace GridSquad.Editor
         private static CombatActionButtonView CreateCombatActionButtonPrefab()
         {
             GameObject root = new("CombatActionButton", typeof(RectTransform), typeof(Image), typeof(Button), typeof(CombatActionButtonView));
-            root.GetComponent<RectTransform>().sizeDelta = new Vector2(132f, 92f);
+            root.GetComponent<RectTransform>().sizeDelta = new Vector2(72f, 72f);
             root.GetComponent<Image>().color = new Color(0.08f, 0.13f, 0.18f, 0.98f);
             GameObject prefab = PrefabUtility.SaveAsPrefabAsset(root, CombatActionButtonPrefabPath);
             UnityEngine.Object.DestroyImmediate(root);
@@ -794,7 +830,7 @@ namespace GridSquad.Editor
         private static Button CreateContextCommandButtonPrefab()
         {
             GameObject root = new("ContextCommandButton", typeof(RectTransform), typeof(Image), typeof(Button));
-            root.GetComponent<RectTransform>().sizeDelta = new Vector2(268f, 38f);
+            root.GetComponent<RectTransform>().sizeDelta = new Vector2(268f, 52f);
             root.GetComponent<Image>().color = new Color(0.08f, 0.12f, 0.16f, 1f);
             CreateText("Label", root.transform, "명령", 15, TextAnchor.MiddleLeft).rectTransform.offsetMin = new Vector2(12f, 0f);
             GameObject prefab = PrefabUtility.SaveAsPrefabAsset(root, ContextCommandButtonPrefabPath);

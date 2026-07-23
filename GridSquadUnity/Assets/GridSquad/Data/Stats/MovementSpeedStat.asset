@@ -13,8 +13,11 @@ MonoBehaviour:
   m_Name: MovementSpeedStat
   m_EditorClassIdentifier: Assembly-CSharp::GridSquad.UnitStatDefinition
   statId: movement_speed_multiplier
-  displayName: "\uC774\uB3D9 \uBC30\uC728"
+  displayName: "\uC774\uB3D9 \uC18D\uB3C4"
+  description: "\uAE30\uBCF8 \uC774\uB3D9 \uC18D\uB3C4\uC5D0 \uACF1\uD574\uC9C0\uB294 \uBC30\uC728\uC785\uB2C8\uB2E4. 1\uC740 \uD45C\uC900 \uC18D\uB3C4\uC785\uB2C8\uB2E4."
   defaultValue: 1
   minimumValue: 0.1
   roundToInteger: 0
   hudOrder: 10
+  category: 2
+  displayFormat: 2

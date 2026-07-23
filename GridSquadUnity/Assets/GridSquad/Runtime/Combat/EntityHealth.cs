@@ -35,6 +35,20 @@ namespace GridSquad
             initialized = true;
         }
 
+        public void UpdateMaximumHealthWithoutHealing(int newMaximumHealth)
+        {
+            int previousMaximumHealth = maximumHealth;
+            int previousHealth = currentHealth;
+            maximumHealth = Mathf.Max(1, newMaximumHealth);
+            currentHealth = Mathf.Min(currentHealth, maximumHealth);
+            if (!initialized)
+                return;
+            if (previousMaximumHealth != maximumHealth || previousHealth != currentHealth)
+                HealthChanged?.Invoke(this);
+            if (previousHealth > 0 && currentHealth == 0)
+                HealthDepleted?.Invoke(this);
+        }
+
         public int ApplyDamage(int damage)
         {
             if (!IsAlive)

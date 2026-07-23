@@ -109,7 +109,16 @@ namespace GridSquad
 
     public abstract class EquippableDefinition : ItemDefinition
     {
+        [SerializeField] private UnitStatModifier[] statModifiers = Array.Empty<UnitStatModifier>();
+
         public abstract EquipmentCategory Category { get; }
+        public System.Collections.Generic.IReadOnlyList<UnitStatModifier> StatModifiers
+            => statModifiers ?? Array.Empty<UnitStatModifier>();
+
+#if UNITY_EDITOR
+        public void SetEditorStatModifiers(UnitStatModifier[] newStatModifiers)
+            => statModifiers = newStatModifiers ?? Array.Empty<UnitStatModifier>();
+#endif
     }
 
     [Serializable]
