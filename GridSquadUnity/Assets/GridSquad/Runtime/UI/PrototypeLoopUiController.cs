@@ -53,6 +53,10 @@ namespace GridSquad
 
         private void BuildRoster()
         {
+            IReadOnlyList<string> savedUnitIds = PrototypeRosterSelectionFile.Load();
+            HashSet<string> savedUnitIdSet = new(savedUnitIds);
+            int maximumSelectionCount = GetMaximumSelectionCount();
+
             foreach (Toggle toggle in rosterToggles)
                 if (toggle != null)
                     Destroy(toggle.gameObject);
@@ -71,11 +75,16 @@ namespace GridSquad
                         application.Catalog.GetRequiredUnit(unit.UnitDefinitionId);
                     label.text = BuildUnitLabel(unit, definition);
                 }
-                toggle.SetIsOnWithoutNotify(false);
+                bool restoreSelection = savedUnitIdSet.Contains(unit.UnitInstanceId)
+                    && selectedUnitIds.Count < maximumSelectionCount;
+                if (restoreSelection)
+                    selectedUnitIds.Add(unit.UnitInstanceId);
+                toggle.SetIsOnWithoutNotify(restoreSelection);
                 toggle.onValueChanged.AddListener(
                     selected => ChangeUnitSelection(capturedUnit.UnitInstanceId, toggle, selected));
                 rosterToggles.Add(toggle);
             }
+            PrototypeRosterSelectionFile.Save(selectedUnitIds);
         }
 
         private static string BuildUnitLabel(UnitState unit, UnitDefinition definition)
@@ -102,10 +111,11 @@ namespace GridSquad
         {
             if (selected)
             {
-                if (selectedUnitIds.Count >= 3)
+                int maximumSelectionCount = GetMaximumSelectionCount();
+                if (selectedUnitIds.Count >= maximumSelectionCount)
                 {
                     toggle.SetIsOnWithoutNotify(false);
-                    baseStatusText.text = "최대 3명까지 선발할 수 있습니다.";
+                    baseStatusText.text = $"최대 {maximumSelectionCount}명까지 선발할 수 있습니다.";
                     return;
                 }
                 if (!selectedUnitIds.Contains(unitId))
@@ -115,8 +125,14 @@ namespace GridSquad
             {
                 selectedUnitIds.Remove(unitId);
             }
+            PrototypeRosterSelectionFile.Save(selectedUnitIds);
             Refresh();
         }
+
+        private int GetMaximumSelectionCount()
+            => application?.DefaultMission != null
+                ? application.DefaultMission.MaximumSquadSize
+                : 3;
 
         private void LaunchMission()
         {

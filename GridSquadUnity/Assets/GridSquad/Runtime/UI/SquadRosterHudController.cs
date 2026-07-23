@@ -80,6 +80,7 @@ namespace GridSquad
 
         private readonly List<Combatant> friendlyCombatants = new();
         private readonly List<CombatActionButtonView> generatedActionButtons = new();
+        private SelectionInspectController enhancedSelectionUi;
         private bool detailsVisible;
 
         private static readonly Color EnabledActionColor = new(0.12f, 0.18f, 0.23f, 0.96f);
@@ -103,7 +104,7 @@ namespace GridSquad
                 selectedActionBar.SetActive(false);
             BindRosterButtons();
             BindActionButtons();
-            BuildPlayerActionButtonsFromPrefab();
+            BindDetailsButton();
             SetDetailsVisible(false);
         }
 
@@ -122,6 +123,7 @@ namespace GridSquad
         {
             foreach (RosterCardView card in rosterCards)
                 card?.Button?.onClick.RemoveAllListeners();
+            detailsButton?.onClick.RemoveListener(ToggleSelectedUnitDetails);
         }
 
         private void Update()
@@ -133,6 +135,11 @@ namespace GridSquad
                 ? inputController.SelectedCombatant
                 : null;
             RefreshRosterCards(selected);
+            if (IsEnhancedSelectionUiAvailable())
+            {
+                HideLegacySelectionUi();
+                return;
+            }
             RefreshSelectedEntityPanel(
                 inputController != null ? inputController.SelectedEntity : null,
                 selected);
@@ -177,6 +184,14 @@ namespace GridSquad
             }
         }
 
+        private void BindDetailsButton()
+        {
+            if (detailsButton == null)
+                return;
+            detailsButton.onClick.RemoveListener(ToggleSelectedUnitDetails);
+            detailsButton.onClick.AddListener(ToggleSelectedUnitDetails);
+        }
+
         private void BuildPlayerActionButtonsFromPrefab()
         {
             if (playerActionButtonPrefab == null || playerActionButtonContainer == null)
@@ -207,6 +222,24 @@ namespace GridSquad
                 view.ClearTooltipContent();
                 generatedActionButtons.Add(view);
             }
+        }
+
+        private bool IsEnhancedSelectionUiAvailable()
+        {
+            if (enhancedSelectionUi == null)
+                enhancedSelectionUi = FindFirstObjectByType<SelectionInspectController>();
+            return enhancedSelectionUi != null;
+        }
+
+        private void HideLegacySelectionUi()
+        {
+            if (selectedUnitPanel != null && selectedUnitPanel.gameObject.activeSelf)
+                selectedUnitPanel.gameObject.SetActive(false);
+            if (selectedActionBar != null && selectedActionBar.activeSelf)
+                selectedActionBar.SetActive(false);
+            if (detailsPanel != null && detailsPanel.activeSelf)
+                detailsPanel.SetActive(false);
+            detailsVisible = false;
         }
 
         private void SelectFriendlyRosterCard(int cardIndex)
