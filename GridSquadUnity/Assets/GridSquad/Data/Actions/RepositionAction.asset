@@ -15,7 +15,7 @@ MonoBehaviour:
   actionId: reposition
   displayName: "\uC704\uCE58 \uBCC0\uACBD"
   description: 
-  icon: {fileID: 0}
+  icon: {fileID: 21300000, guid: 1083a5f6761f0764395cf2e4469f83a4, type: 3}
   behavior: {fileID: 11400000, guid: 8973fc98a11b4c5c995298423de10af5, type: 2}
   automaticInFullAuto: 1
   automaticInSemiAuto: 0

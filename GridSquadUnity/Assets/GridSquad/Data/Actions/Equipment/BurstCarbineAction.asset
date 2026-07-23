@@ -1,0 +1,26 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8902b82866e050b47b51d1dab1451d0a, type: 3}
+  m_Name: BurstCarbineAction
+  m_EditorClassIdentifier: Assembly-CSharp::GridSquad.CombatActionDefinition
+  actionId: burst_carbine_three_round
+  displayName: "3\uC810\uC0AC"
+  description: "6\uCE78 \uC548\uC758 \uC801\uC5D0\uAC8C 30 \uD53C\uD574\uB97C \uC9D1\uC911\uD569\uB2C8\uB2E4."
+  icon: {fileID: 21300000, guid: 12cdaecc41c53e44094731602d90761e, type: 3}
+  behavior: {fileID: 11400000, guid: 0da59cb404cb22442afdbfcb949bb0e1, type: 2}
+  automaticInFullAuto: 1
+  automaticInSemiAuto: 1
+  startingCharges: -1
+  cooldownSeconds: 10
+  windupSeconds: 0.35
+  playerSlotOrder: 330
+  displayKind: 0

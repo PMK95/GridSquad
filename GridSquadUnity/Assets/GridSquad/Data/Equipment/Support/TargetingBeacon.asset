@@ -1,0 +1,30 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b559c9d56b989cd42bd7b04501a10c53, type: 3}
+  m_Name: TargetingBeacon
+  m_EditorClassIdentifier: Assembly-CSharp::GridSquad.AdditionalEquipmentDefinition
+  equipmentId: targeting_beacon
+  displayName: "\uD45C\uC801 \uC9C0\uC2DC\uAE30"
+  description: "\uC6D0\uAC70\uB9AC \uD45C\uC801\uC744 \uC870\uBA85\uD558\uB294 \uD734\uB300\uC2DD
+    \uC13C\uC11C\uC785\uB2C8\uB2E4."
+  icon: {fileID: 21300000, guid: 9fc95541840426c44a67c521145da125, type: 3}
+  worldPresentationPrefab: {fileID: 4784537006302144784, guid: 303bfbc4805f17d4298a5efb5d55e8e7, type: 3}
+  weight: 1.6
+  maximumStack: 1
+  actionGrants:
+  - action: {fileID: 11400000, guid: e35a0bb7c9aca0e458642a324c59e60d, type: 2}
+    availability: 0
+  grantedActions:
+  - {fileID: 11400000, guid: e35a0bb7c9aca0e458642a324c59e60d, type: 2}
+  passiveKind: 0
+  maximumPassiveCharges: 1
+  passiveRechargeSeconds: 10

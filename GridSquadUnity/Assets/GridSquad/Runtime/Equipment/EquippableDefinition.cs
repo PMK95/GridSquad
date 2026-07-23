@@ -63,6 +63,7 @@ namespace GridSquad
         [SerializeField] private string displayName = "장비";
         [SerializeField, TextArea(2, 4)] private string description;
         [SerializeField] private Sprite icon;
+        [SerializeField] private GameObject worldPresentationPrefab;
         [SerializeField, Min(0f)] private float weight = 1f;
         [SerializeField, Min(1)] private int maximumStack = 1;
         [SerializeField] private ItemActionGrant[] actionGrants = Array.Empty<ItemActionGrant>();
@@ -75,6 +76,7 @@ namespace GridSquad
         }
         public string Description => description;
         public Sprite Icon => icon;
+        public GameObject WorldPresentationPrefab => worldPresentationPrefab;
         public float Weight => Mathf.Max(0f, weight);
         public int MaximumStack => Mathf.Max(1, maximumStack);
         public bool IsStackable => MaximumStack > 1;
@@ -99,6 +101,9 @@ namespace GridSquad
 
         public void SetEditorActionGrants(ItemActionGrant[] newActionGrants)
             => actionGrants = newActionGrants ?? Array.Empty<ItemActionGrant>();
+
+        public void SetEditorWorldPresentationPrefab(GameObject newWorldPresentationPrefab)
+            => worldPresentationPrefab = newWorldPresentationPrefab;
 #endif
     }
 

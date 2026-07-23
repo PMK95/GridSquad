@@ -66,6 +66,19 @@ namespace GridSquad
             StoreActiveAmmo();
         }
 
+        public int ReplenishAmmunition(int amount)
+        {
+            if (Weapon == null || !Weapon.UsesAmmo || amount <= 0)
+                return 0;
+            int remaining = amount;
+            int magazineAdded = Mathf.Min(MagazineCapacity - currentMagazineAmmo, remaining);
+            currentMagazineAmmo += magazineAdded;
+            remaining -= magazineAdded;
+            reserveAmmo += remaining;
+            StoreActiveAmmo();
+            return magazineAdded + remaining;
+        }
+
         private void LoadActiveWeaponState()
         {
             owner.SetLegacyWeaponDefinition(weaponLoadout.ActiveDefinition);

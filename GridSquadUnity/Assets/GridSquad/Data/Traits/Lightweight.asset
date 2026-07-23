@@ -15,7 +15,7 @@ MonoBehaviour:
   displayName: "\uACBD\uB7C9\uD654"
   description: "\uCCB4\uB825 100\uC744 \uD76C\uC0DD\uD574 \uC774\uB3D9\uC774 25%
     \uBE68\uB77C\uC9C0\uACE0 \uD53C\uD574\uAC00 5% \uAC10\uC18C\uD569\uB2C8\uB2E4."
-  icon: {fileID: 0}
+  icon: {fileID: 21300000, guid: 4ca0e652b76c9af4ba9e608ca13fb291, type: 3}
   modifiers:
   - definition: {fileID: 11400000, guid: d6148edf0b514418b78b4e24153b352a, type: 2}
     operation: 0
@@ -26,3 +26,4 @@ MonoBehaviour:
   - definition: {fileID: 11400000, guid: 7b106af550824e58b6ad9afa06890461, type: 2}
     operation: 0
     value: -0.05
+  grantedActions: []

@@ -36,6 +36,7 @@ namespace GridSquad
         public Team? TargetTeam => entity != null ? entity.TargetTeam : null;
         public bool IsCover => cover;
         public TacticalEntity Entity => entity;
+        public Combatant Combatant => combatant;
 
         private void Awake()
         {

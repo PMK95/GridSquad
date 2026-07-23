@@ -277,7 +277,8 @@ namespace GridSquad
                             null);
                     }
                 }
-                if (item.Definition is AdditionalEquipmentDefinition additional)
+                if (item.Definition.ActionGrants.Count == 0
+                    && item.Definition is AdditionalEquipmentDefinition additional)
                 {
                     foreach (CombatActionDefinition action in additional.GrantedActions)
                     {

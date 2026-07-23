@@ -1,0 +1,27 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 906f863fe8221dd45bdb5099c7c37e11, type: 3}
+  m_Name: ReconVisor
+  m_EditorClassIdentifier: Assembly-CSharp::GridSquad.ArmorDefinition
+  equipmentId: recon_visor
+  displayName: "\uC815\uCC30 \uBC14\uC774\uC800"
+  description: "\uC804\uC220 \uC2A4\uCE94 \uAE30\uB2A5\uC774 \uB2EC\uB9B0 \uACBD\uB7C9
+    \uBA38\uB9AC \uC7A5\uBE44\uC785\uB2C8\uB2E4."
+  icon: {fileID: 21300000, guid: 8527d602d47638540958ce07658dd8a7, type: 3}
+  worldPresentationPrefab: {fileID: 5961633299580647842, guid: 2b4db8d138647d74bb2752fcb3cf9ce8, type: 3}
+  weight: 1.5
+  maximumStack: 1
+  actionGrants:
+  - action: {fileID: 11400000, guid: 7fbe3caa8226f1e4c89b0771742f7d9f, type: 2}
+    availability: 0
+  maximumBlockCount: 2
+  armorSlotKind: 2

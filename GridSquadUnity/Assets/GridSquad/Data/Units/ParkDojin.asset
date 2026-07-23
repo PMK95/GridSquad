@@ -35,13 +35,19 @@ MonoBehaviour:
   traits:
   - {fileID: 11400000, guid: a44f505abfb5eea45b6640b4d54d765d, type: 2}
   defaultEquipmentAssignments:
-  - slot: {fileID: 11400000, guid: 1abd5e2fdfd6c5a45a464223f7468a11, type: 2}
-    equipment: {fileID: 11400000, guid: b1076ddc85f74194098437ce0ac37102, type: 2}
-  - slot: {fileID: 11400000, guid: f047e62e7553af144acaf5b5f0ed0c51, type: 2}
+  - slot: {fileID: 11400000, guid: df04ceaf7a55a844fa85de275b8250c2, type: 2}
+    equipment: {fileID: 0}
+  - slot: {fileID: 11400000, guid: 2c18d826929ff07428060513e00ff766, type: 2}
+    equipment: {fileID: 0}
+  - slot: {fileID: 11400000, guid: aff0e6fa0799aa64ca3e55322ef768cc, type: 2}
+    equipment: {fileID: 0}
+  - slot: {fileID: 11400000, guid: 4c08e38a066164342a458d70a14c6380, type: 2}
     equipment: {fileID: 0}
   - slot: {fileID: 11400000, guid: 54ad9f9bd6f2dd54fa0c47d67323016c, type: 2}
     equipment: {fileID: 0}
   - slot: {fileID: 11400000, guid: c38fd40ee40942041a7fe836b20b03b1, type: 2}
+    equipment: {fileID: 0}
+  - slot: {fileID: 11400000, guid: f047e62e7553af144acaf5b5f0ed0c51, type: 2}
     equipment: {fileID: 0}
   startingInventoryItems:
   - definition: {fileID: 11400000, guid: fe826854c04049d46a2e0c277a5603f4, type: 2}

@@ -117,6 +117,16 @@ namespace GridSquad
         public void SetFireIntervalMultiplier(float multiplier)
             => fireCycle.SetFireIntervalMultiplier(multiplier);
 
+        public int ReplenishAmmunition(int amount)
+        {
+            int replenished = weaponRuntime != null
+                ? weaponRuntime.ReplenishAmmunition(amount)
+                : 0;
+            if (replenished > 0)
+                fireCycle?.Reset(true);
+            return replenished;
+        }
+
         public void ResumePresentationAfterHitReaction()
             => fireCycle.ResumePresentationAfterHitReaction();
 

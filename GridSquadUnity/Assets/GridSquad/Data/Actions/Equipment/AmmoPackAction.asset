@@ -1,0 +1,27 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8902b82866e050b47b51d1dab1451d0a, type: 3}
+  m_Name: AmmoPackAction
+  m_EditorClassIdentifier: Assembly-CSharp::GridSquad.CombatActionDefinition
+  actionId: ammo_pack_replenish
+  displayName: "\uC804\uC220 \uD0C4\uC57D \uBCF4\uAE09"
+  description: "\uD604\uC7AC \uBB34\uAE30\uC5D0 \uD0C4\uC57D 36\uBC1C\uC744 \uC989\uC2DC
+    \uBCF4\uAE09\uD569\uB2C8\uB2E4."
+  icon: {fileID: 21300000, guid: 2be1c4067702b6f4aabada34c1c6b68e, type: 3}
+  behavior: {fileID: 11400000, guid: 150028506375ae9418f766c332f91062, type: 2}
+  automaticInFullAuto: 1
+  automaticInSemiAuto: 1
+  startingCharges: -1
+  cooldownSeconds: 28
+  windupSeconds: 0.8
+  playerSlotOrder: 343
+  displayKind: 0

@@ -5223,6 +5223,7 @@ GameObject:
   - component: {fileID: 4724346965568170978}
   - component: {fileID: 1235458209011331595}
   - component: {fileID: 4729455658105895088}
+  - component: {fileID: 5463829721892372373}
   m_Layer: 9
   m_Name: UnitBase
   m_TagString: Untagged
@@ -5305,6 +5306,7 @@ MonoBehaviour:
   equipmentLoadout: {fileID: 6112390649436766364}
   inventory: {fileID: 4538160773337184229}
   itemInteractionController: {fileID: 4724346965568170978}
+  offHandMount: {fileID: 5463829721892372373}
   entity: {fileID: 8230458415219826830}
   health: {fileID: 4267403006316358537}
   shootableTarget: {fileID: 4087255740657042790}
@@ -5683,6 +5685,19 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3dc0249db8ef9364495319f160e6bd37, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GridSquad.CombatantItemContextCommandProvider
+--- !u!114 &5463829721892372373
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2985916207501052990}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 674b81f2a82de764f9d375a1de0600d9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::GridSquad.OffHandMount
+  offHandSocket: {fileID: 7343877681480518632}
 --- !u!1 &3846169453653415163
 GameObject:
   m_ObjectHideFlags: 0
@@ -11487,6 +11502,37 @@ MonoBehaviour:
         TargetTransform: {fileID: 0}
         Direction: {x: 0, y: 1, z: 0}
         AttachmentTransform: {fileID: 0}
+--- !u!1 &6128694250952988996
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 7343877681480518632}
+  m_Layer: 0
+  m_Name: OffHandSocket
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &7343877681480518632
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6128694250952988996}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0.7071068, z: 0, w: 0.7071068}
+  m_LocalPosition: {x: 0, y: 0.06, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1641646754172178752}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &6419410754955429200
 GameObject:
   m_ObjectHideFlags: 0
@@ -12664,6 +12710,14 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 3985621338371824881}
     m_Modifications:
+    - target: {fileID: 1857190007078802493, guid: c9ccec5ad1333e84788bb92068db7218, type: 3}
+      propertyPath: meleeAttackClip
+      value: 
+      objectReference: {fileID: 4043807988371827432, guid: b26221f86a9f3b94a86d460207ba6812, type: 3}
+    - target: {fileID: 1857190007078802493, guid: c9ccec5ad1333e84788bb92068db7218, type: 3}
+      propertyPath: shieldBlockClip
+      value: 
+      objectReference: {fileID: -2762736084733417904, guid: b26221f86a9f3b94a86d460207ba6812, type: 3}
     - target: {fileID: 8568820801503062435, guid: c9ccec5ad1333e84788bb92068db7218, type: 3}
       propertyPath: m_Name
       value: CharacterModel
@@ -12711,7 +12765,10 @@ PrefabInstance:
     m_RemovedComponents:
     - {fileID: 3764517613255413824, guid: c9ccec5ad1333e84788bb92068db7218, type: 3}
     m_RemovedGameObjects: []
-    m_AddedGameObjects: []
+    m_AddedGameObjects:
+    - targetCorrespondingSourceObject: {fileID: 4130450318668513478, guid: c9ccec5ad1333e84788bb92068db7218, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 7343877681480518632}
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: c9ccec5ad1333e84788bb92068db7218, type: 3}
 --- !u!137 &668937663146789536 stripped
@@ -12727,6 +12784,11 @@ SkinnedMeshRenderer:
 --- !u!137 &1369650642001131001 stripped
 SkinnedMeshRenderer:
   m_CorrespondingSourceObject: {fileID: 4367358766390518911, guid: c9ccec5ad1333e84788bb92068db7218, type: 3}
+  m_PrefabInstance: {fileID: 3430058087019041158}
+  m_PrefabAsset: {fileID: 0}
+--- !u!4 &1641646754172178752 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 4130450318668513478, guid: c9ccec5ad1333e84788bb92068db7218, type: 3}
   m_PrefabInstance: {fileID: 3430058087019041158}
   m_PrefabAsset: {fileID: 0}
 --- !u!137 &1976081683060146859 stripped

@@ -1,0 +1,26 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8902b82866e050b47b51d1dab1451d0a, type: 3}
+  m_Name: ReactiveVestAction
+  m_EditorClassIdentifier: Assembly-CSharp::GridSquad.CombatActionDefinition
+  actionId: reactive_vest_barrier
+  displayName: "\uBC18\uC751 \uBC29\uBCBD"
+  description: "10\uCD08 \uB3D9\uC548 \uB2E4\uC74C \uD53C\uD574 2\uD68C\uB97C \uB9C9\uC2B5\uB2C8\uB2E4."
+  icon: {fileID: 21300000, guid: 90ecb937d26a7fe47abdfce011507210, type: 3}
+  behavior: {fileID: 11400000, guid: 78db27012db1c53429e62987a684ad54, type: 2}
+  automaticInFullAuto: 1
+  automaticInSemiAuto: 1
+  startingCharges: -1
+  cooldownSeconds: 24
+  windupSeconds: 0.5
+  playerSlotOrder: 312
+  displayKind: 0

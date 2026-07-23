@@ -1,0 +1,27 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8902b82866e050b47b51d1dab1451d0a, type: 3}
+  m_Name: MedicalDroneAction
+  m_EditorClassIdentifier: Assembly-CSharp::GridSquad.CombatActionDefinition
+  actionId: medical_drone_repair
+  displayName: "\uCE58\uB8CC \uB4DC\uB860"
+  description: "\uCE58\uB8CC \uB4DC\uB860\uC744 \uAC00\uB3D9\uD574 \uC790\uC2E0\uC758
+    \uCCB4\uB825\uC744 30 \uD68C\uBCF5\uD569\uB2C8\uB2E4."
+  icon: {fileID: 21300000, guid: dc6680d75f8dffe44a2df92bef0eb6f4, type: 3}
+  behavior: {fileID: 11400000, guid: ce1ac2c4bf0473f489089a88550126a0, type: 2}
+  automaticInFullAuto: 1
+  automaticInSemiAuto: 1
+  startingCharges: -1
+  cooldownSeconds: 20
+  windupSeconds: 0.7
+  playerSlotOrder: 340
+  displayKind: 0

@@ -111,13 +111,15 @@ namespace GridSquad
             GameObject root = new($"WorldItem_{droppedItem.Definition.DisplayName}");
             root.AddComponent<TacticalEntity>();
             root.AddComponent<SphereCollider>();
-            GameObject visual = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            GameObject visual = droppedItem.Definition.WorldPresentationPrefab != null
+                ? Instantiate(droppedItem.Definition.WorldPresentationPrefab, root.transform, false)
+                : CreateFallbackItemVisual(root.transform);
             visual.name = "ItemVisual";
-            visual.transform.SetParent(root.transform, false);
-            visual.transform.localPosition = Vector3.up * 0.16f;
-            visual.transform.localScale = Vector3.one * 0.28f;
-            Destroy(visual.GetComponent<Collider>());
-            if (visual.TryGetComponent(out Renderer renderer))
+            visual.transform.localPosition += Vector3.up * 0.16f;
+            foreach (Collider visualCollider in visual.GetComponentsInChildren<Collider>(true))
+                Destroy(visualCollider);
+            if (droppedItem.Definition.WorldPresentationPrefab == null
+                && visual.TryGetComponent(out Renderer renderer))
             {
                 MaterialPropertyBlock properties = new();
                 properties.SetColor("_BaseColor", new Color(0.2f, 0.8f, 1f, 1f));
@@ -127,6 +129,14 @@ namespace GridSquad
             WorldItemPickup pickup = root.AddComponent<WorldItemPickup>();
             pickup.Initialize(droppedItem, gridMap, targetCell);
             return pickup;
+        }
+
+        private static GameObject CreateFallbackItemVisual(Transform parent)
+        {
+            GameObject visual = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            visual.transform.SetParent(parent, false);
+            visual.transform.localScale = Vector3.one * 0.28f;
+            return visual;
         }
 
         private void Register()

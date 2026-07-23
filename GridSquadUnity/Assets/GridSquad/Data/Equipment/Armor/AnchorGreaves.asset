@@ -1,0 +1,27 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 906f863fe8221dd45bdb5099c7c37e11, type: 3}
+  m_Name: AnchorGreaves
+  m_EditorClassIdentifier: Assembly-CSharp::GridSquad.ArmorDefinition
+  equipmentId: anchor_greaves
+  displayName: "\uACE0\uC815\uC2DD \uAC01\uAC11"
+  description: "\uC9C0\uBA74 \uACE0\uC815 \uC7A5\uCE58\uAC00 \uB2EC\uB9B0 \uC911\uD615
+    \uD558\uCCB4 \uC7A5\uAC11\uC785\uB2C8\uB2E4."
+  icon: {fileID: 21300000, guid: 950c44f8fc2be4147be43a7c65abc1cd, type: 3}
+  worldPresentationPrefab: {fileID: 6799604006276845378, guid: 6a6315408067967479e48a49f25436a4, type: 3}
+  weight: 5
+  maximumStack: 1
+  actionGrants:
+  - action: {fileID: 11400000, guid: 091e3f457c9126746948b261e12274cb, type: 2}
+    availability: 0
+  maximumBlockCount: 5
+  armorSlotKind: 4

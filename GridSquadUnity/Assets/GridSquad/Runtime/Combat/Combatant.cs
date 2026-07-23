@@ -39,6 +39,7 @@ namespace GridSquad
         [SerializeField] private EquipmentLoadout equipmentLoadout;
         [SerializeField] private UnitInventory inventory;
         [SerializeField] private UnitItemInteractionController itemInteractionController;
+        [SerializeField] private OffHandMount offHandMount;
 
         [Header("능력 컴포넌트")]
         [SerializeField] private TacticalEntity entity;
@@ -135,6 +136,9 @@ namespace GridSquad
         public float StimRemainingSeconds => statusEffectController != null
             ? statusEffectController.StimRemainingSeconds
             : 0f;
+        public int TemporaryBarrierCharges => statusEffectController != null
+            ? statusEffectController.TemporaryBarrierCharges
+            : 0;
         public float MuzzleHeight => rangedAttackController != null
             ? rangedAttackController.MuzzleHeight
             : 1.25f;
@@ -226,6 +230,7 @@ namespace GridSquad
             statusEffectController.Initialize(rangedAttackController);
             facingController.Initialize(this, movementController, tuning, visualRoot);
             equipmentLoadout.EquipmentChanged += HandleEquipmentChanged;
+            RefreshOffHandPresentation();
 
             health.DamageApplied += HandleDamageApplied;
             health.HealthDepleted += HandleHealthDepleted;
@@ -354,6 +359,30 @@ namespace GridSquad
         public float PlayDashAnimation()
             => animationController != null ? animationController.PlayDashAction() : 0f;
 
+        public float PlayMeleeActionAnimation()
+            => animationController != null ? animationController.PlayMeleeAction() : 0f;
+
+        public float PlaySpecialWeaponAttackAnimation()
+        {
+            WeaponAttackMode attackMode = Weapon != null && Weapon.AttackBehavior != null
+                ? Weapon.AttackBehavior.Mode
+                : WeaponAttackMode.Hitscan;
+            return animationController != null
+                ? animationController.PlayWeaponAction(attackMode)
+                : 0f;
+        }
+
+        public float PlayShieldBlockAnimation()
+            => animationController != null ? animationController.PlayShieldBlockAction() : 0f;
+
+        public void ApplyTemporaryBarrier(int charges, float durationSeconds)
+            => statusEffectController?.ApplyTemporaryBarrier(charges, durationSeconds);
+
+        public int ReplenishWeaponAmmunition(int amount)
+            => rangedAttackController != null
+                ? rangedAttackController.ReplenishAmmunition(amount)
+                : 0;
+
         public void ApplyDamage(int damage)
         {
             ApplyDamage(new CombatDamageRequest(null, null, damage));
@@ -362,6 +391,14 @@ namespace GridSquad
         public CombatDamageResult ApplyDamage(CombatDamageRequest request)
         {
             int requestedDamage = Mathf.Max(0, request.Damage);
+            if (requestedDamage > 0
+                && statusEffectController != null
+                && statusEffectController.TryConsumeTemporaryBarrier(out int barrierRemaining))
+            {
+                feedbackPresenter?.PlayBlockFeedback(CurrentAimCenter);
+                Debug.Log($"[임시 방벽] {DisplayName}이 피해를 막았습니다. 남은 횟수 {barrierRemaining}");
+                return new CombatDamageResult(requestedDamage, 0, true);
+            }
             if (requestedDamage > 0
                 && equipmentLoadout != null
                 && equipmentLoadout.TryBlockDamage(
@@ -513,6 +550,9 @@ namespace GridSquad
                 : GetComponent<UnitItemInteractionController>();
             if (itemInteractionController == null)
                 itemInteractionController = gameObject.AddComponent<UnitItemInteractionController>();
+            offHandMount = offHandMount != null ? offHandMount : GetComponent<OffHandMount>();
+            if (offHandMount == null)
+                offHandMount = gameObject.AddComponent<OffHandMount>();
             if (GetComponent<CombatantContextCommandProvider>() == null)
                 gameObject.AddComponent<CombatantContextCommandProvider>();
             if (GetComponent<CombatantItemContextCommandProvider>() == null)
@@ -545,7 +585,16 @@ namespace GridSquad
         {
             weaponLoadout?.RefreshEquippedWeapon();
             rangedAttackController?.RefreshEquippedWeapon();
+            RefreshOffHandPresentation();
             GetComponent<CombatActionController>()?.RefreshRuntimeActionsFromLoadout();
+        }
+
+        private void RefreshOffHandPresentation()
+        {
+            EquipmentSlotDefinition rightHand = equipmentLoadout?.GetSlot(EquipmentSlotKind.RightHand);
+            OffHandDefinition definition = equipmentLoadout?.GetItemInstance(rightHand)?.Definition
+                as OffHandDefinition;
+            offHandMount?.RefreshPresentation(definition);
         }
 
         private void EnterDeadState()

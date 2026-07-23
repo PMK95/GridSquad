@@ -1,0 +1,27 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8902b82866e050b47b51d1dab1451d0a, type: 3}
+  m_Name: SmokeProjectorAction
+  m_EditorClassIdentifier: Assembly-CSharp::GridSquad.CombatActionDefinition
+  actionId: smoke_projector_screen
+  displayName: "\uC5F0\uB9C9 \uC804\uAC1C"
+  description: "\uC5F0\uB9C9 \uC5C4\uD3D0\uB85C 9\uCD08 \uB3D9\uC548 \uB2E4\uC74C
+    \uD53C\uD574 2\uD68C\uB97C \uB9C9\uC2B5\uB2C8\uB2E4."
+  icon: {fileID: 21300000, guid: f6bad5dd215b2e84e8ba0160afec5207, type: 3}
+  behavior: {fileID: 11400000, guid: 774d6c7387018ce46aca80b0478b9fb0, type: 2}
+  automaticInFullAuto: 1
+  automaticInSemiAuto: 1
+  startingCharges: -1
+  cooldownSeconds: 22
+  windupSeconds: 0.55
+  playerSlotOrder: 341
+  displayKind: 0

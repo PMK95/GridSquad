@@ -235,6 +235,7 @@ namespace GridSquad.Editor
                 grenadeAction, stimAction);
             EnsureCarryCapacityStat();
             ConfigureUnitBase(layout);
+            ExpandedEquipmentAssetFactory.EnsureExpandedEquipmentAssets();
             CreateEquipmentUiPrefabs();
             CreateSelectionUiPrefabs();
             AssetDatabase.SaveAssets();

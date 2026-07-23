@@ -1,0 +1,30 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b559c9d56b989cd42bd7b04501a10c53, type: 3}
+  m_Name: SmokeProjector
+  m_EditorClassIdentifier: Assembly-CSharp::GridSquad.AdditionalEquipmentDefinition
+  equipmentId: smoke_projector
+  displayName: "\uC5F0\uB9C9 \uD22C\uC0AC\uAE30"
+  description: "\uD53C\uD574\uB97C \uD758\uB824\uB0B4\uB294 \uC804\uC220 \uC5F0\uB9C9
+    \uC7A5\uCE58\uC785\uB2C8\uB2E4."
+  icon: {fileID: 21300000, guid: f6bad5dd215b2e84e8ba0160afec5207, type: 3}
+  worldPresentationPrefab: {fileID: 5642280236642154982, guid: df4615cd8f739194f902d69ca8a5d614, type: 3}
+  weight: 1.8
+  maximumStack: 1
+  actionGrants:
+  - action: {fileID: 11400000, guid: ab7c9821a4786a84ab3e8c187c371fa2, type: 2}
+    availability: 0
+  grantedActions:
+  - {fileID: 11400000, guid: ab7c9821a4786a84ab3e8c187c371fa2, type: 2}
+  passiveKind: 0
+  maximumPassiveCharges: 1
+  passiveRechargeSeconds: 10

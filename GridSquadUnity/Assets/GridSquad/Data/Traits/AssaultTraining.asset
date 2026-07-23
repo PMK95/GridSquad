@@ -14,8 +14,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::GridSquad.UnitTraitDefinition
   displayName: "\uB3CC\uACA9 \uD6C8\uB828"
   description: "\uC774\uB3D9 \uC18D\uB3C4\uAC00 10% \uC99D\uAC00\uD569\uB2C8\uB2E4."
-  icon: {fileID: 0}
+  icon: {fileID: 21300000, guid: a6063fea71d457a428b327a9adbb02a5, type: 3}
   modifiers:
   - definition: {fileID: 11400000, guid: 5334004fe7134e3bbf45984a145712cb, type: 2}
     operation: 0
     value: 0.1
+  grantedActions: []
