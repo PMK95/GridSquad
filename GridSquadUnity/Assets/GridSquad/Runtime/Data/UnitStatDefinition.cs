@@ -293,7 +293,8 @@ namespace GridSquad
                     in equipmentLoadout.EnumerateEquippedItems())
                 {
                     ItemInstance item = pair.Value;
-                    if (item?.Definition is not EquippableDefinition equipment)
+                    if (item?.Definition is not EquippableDefinition equipment
+                        || item.Durability <= 0)
                         continue;
 
                     List<UnitStatModifier> modifiers = new();

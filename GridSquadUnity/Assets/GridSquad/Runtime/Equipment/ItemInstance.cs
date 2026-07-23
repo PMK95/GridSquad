@@ -25,6 +25,26 @@ namespace GridSquad
                 magazineAmmo = Mathf.Max(1, weapon.MagazineCapacity);
                 reserveAmmo = Mathf.Max(0, weapon.StartingReserveAmmo);
             }
+            if (definition is EquippableDefinition equipment)
+                durability = equipment.MaximumDurability;
+        }
+
+        public ItemInstance(
+            string instanceId,
+            ItemDefinition definition,
+            int quantity,
+            int durability,
+            int magazineAmmo,
+            int reserveAmmo)
+        {
+            this.instanceId = string.IsNullOrWhiteSpace(instanceId)
+                ? Guid.NewGuid().ToString("N")
+                : instanceId;
+            this.definition = definition;
+            this.quantity = Mathf.Max(0, quantity);
+            this.durability = Mathf.Max(0, durability);
+            this.magazineAmmo = Mathf.Max(0, magazineAmmo);
+            this.reserveAmmo = Mathf.Max(0, reserveAmmo);
         }
 
         public string InstanceId
@@ -74,6 +94,19 @@ namespace GridSquad
         }
 
         public void SetDurability(int value) => durability = Mathf.Max(0, value);
+
+        public int ApplyWear(int amount)
+        {
+            int previous = Durability;
+            durability = Mathf.Max(0, durability - Mathf.Max(0, amount));
+            return previous - durability;
+        }
+
+        public void Repair()
+        {
+            if (definition is EquippableDefinition equipment)
+                durability = equipment.MaximumDurability;
+        }
 
         public void SetWeaponAmmo(int newMagazineAmmo, int newReserveAmmo)
         {

@@ -12,6 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d280abd9e7d4b184d9e86d5826bee3da, type: 3}
   m_Name: HanSeoyun
   m_EditorClassIdentifier: Assembly-CSharp::GridSquad.UnitDefinition
+  unitId: hanseoyun
   displayName: "\uD55C\uC11C\uC724"
   roleName: "\uAE30\uB3D9\uBCD1"
   description: "\uAC00\uBCBC\uC6B4 \uC7A5\uBE44\uC640 \uB6F0\uC5B4\uB09C \uD604\uC7A5

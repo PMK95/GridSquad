@@ -35,6 +35,16 @@ namespace GridSquad
             initialized = true;
         }
 
+        public void InitializeWithCurrentHealth(int newMaximumHealth, int newCurrentHealth)
+        {
+            maximumHealth = Mathf.Max(1, newMaximumHealth);
+            currentHealth = Mathf.Clamp(newCurrentHealth, 0, maximumHealth);
+            initialized = true;
+            HealthChanged?.Invoke(this);
+            if (currentHealth == 0)
+                HealthDepleted?.Invoke(this);
+        }
+
         public void UpdateMaximumHealthWithoutHealing(int newMaximumHealth)
         {
             int previousMaximumHealth = maximumHealth;

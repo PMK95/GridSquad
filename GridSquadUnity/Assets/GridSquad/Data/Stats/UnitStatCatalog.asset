@@ -19,3 +19,4 @@ MonoBehaviour:
   defense: {fileID: 11400000, guid: 36e00270f09941aaaa06432fe9ee5aed, type: 2}
   fireRateMultiplier: {fileID: 11400000, guid: 3c15c76f4c1b4d0482e0a707587c5f0b, type: 2}
   carryCapacity: {fileID: 11400000, guid: 8943ec9c869dccc439b4f7d5c2cdd77d, type: 2}
+  traumaResistance: {fileID: 11400000, guid: c2781b71469086b43832b8b432d0a6f8, type: 2}

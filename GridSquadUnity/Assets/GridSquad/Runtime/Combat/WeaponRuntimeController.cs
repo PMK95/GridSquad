@@ -51,6 +51,11 @@ namespace GridSquad
             return true;
         }
 
+        public void ApplyActiveWeaponWear()
+        {
+            weaponLoadout?.ApplyActiveWeaponWear();
+        }
+
         public int CalculateReloadAmount()
         {
             if (Weapon != null && !Weapon.UsesAmmo)

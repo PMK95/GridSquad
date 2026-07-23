@@ -191,6 +191,68 @@ namespace GridSquad
             return null;
         }
 
+        public void LoadMissionState(
+            MissionUnitState missionUnit,
+            GameContentCatalog catalog)
+        {
+            if (missionUnit == null)
+                throw new ArgumentNullException(nameof(missionUnit));
+            if (catalog == null)
+                throw new ArgumentNullException(nameof(catalog));
+
+            InitializeRuntimeReferencesIfNeeded();
+            items.Clear();
+            equipmentLoadout?.ClearEquippedItems();
+            foreach (ItemState state in missionUnit.Items)
+            {
+                if (state == null || state.IsDepleted)
+                    continue;
+                ItemDefinition definition = catalog.GetRequiredItem(state.ItemDefinitionId);
+                AddWithoutWeightCheck(new ItemInstance(
+                    state.ItemInstanceId,
+                    definition,
+                    state.Quantity,
+                    state.Durability,
+                    state.MagazineAmmo,
+                    state.ReserveAmmo));
+            }
+
+            foreach (EquipmentSlotState slotState in missionUnit.Equipment)
+            {
+                ItemInstance item = Find(slotState.ItemInstanceId);
+                EquipmentSlotDefinition slot = equipmentLoadout?.GetSlot(slotState.SlotId);
+                if (item == null || slot == null)
+                    continue;
+                equipmentLoadout.TryRestoreEquippedItem(slot, item, this, out _);
+            }
+            defaultsApplied = true;
+            InventoryChanged?.Invoke();
+        }
+
+        public void WriteMissionState(MissionUnitState missionUnit)
+        {
+            if (missionUnit == null)
+                throw new ArgumentNullException(nameof(missionUnit));
+            InitializeRuntimeReferencesIfNeeded();
+
+            List<ItemState> itemStates = new();
+            List<EquipmentSlotState> equipmentStates = new();
+            foreach (ItemInstance item in items)
+                AddItemState(itemStates, item);
+            foreach (KeyValuePair<EquipmentSlotDefinition, ItemInstance> pair
+                     in equipmentLoadout.EnumerateEquippedItems())
+            {
+                AddItemState(itemStates, pair.Value);
+                if (pair.Key != null && pair.Value != null)
+                {
+                    equipmentStates.Add(new EquipmentSlotState(
+                        pair.Key.SlotId,
+                        pair.Value.InstanceId));
+                }
+            }
+            missionUnit.ReplaceItems(itemStates, equipmentStates);
+        }
+
         public IEnumerable<CombatActionGrant> EnumerateCarriedCombatActionGrants()
         {
             foreach (ItemInstance item in items)
@@ -272,6 +334,19 @@ namespace GridSquad
                 items.Add(added);
                 remaining -= stack;
             }
+        }
+
+        private static void AddItemState(List<ItemState> target, ItemInstance item)
+        {
+            if (item?.Definition == null || item.Quantity <= 0)
+                return;
+            target.Add(new ItemState(
+                item.InstanceId,
+                item.Definition.ItemId,
+                item.Quantity,
+                item.Durability,
+                item.MagazineAmmo,
+                item.ReserveAmmo));
         }
 
         private void RemoveInvalidEntries()

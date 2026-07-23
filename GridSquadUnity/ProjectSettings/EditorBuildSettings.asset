@@ -6,6 +6,9 @@ EditorBuildSettings:
   serializedVersion: 2
   m_Scenes:
   - enabled: 1
+    path: Assets/GridSquad/Scenes/BasePrototype.unity
+    guid: bdf329311ca762a419af3c2b4fd49fcf
+  - enabled: 1
     path: Assets/GridSquad/Scenes/CombatFeasibility.unity
     guid: 76f4a7ec4d27b214eaedcbf25d3db340
   m_configObjects:

@@ -26,11 +26,16 @@ namespace GridSquad
         [Min(0.05f)] public float ReloadDuration = 1.6f;
         [Min(1f)] public float RangeInCells = 10f;
         [Range(0f, 100f)] public float BaseHitChancePercent = 75f;
+        [Header("트라우마")]
+        [SerializeField, Min(0f)] private float traumaMultiplier = 1f;
+        [SerializeField, Min(0f)] private float fixedTrauma;
 
         public WeaponAttackBehaviorDefinition AttackBehavior => attackBehavior;
         public System.Collections.Generic.IReadOnlyList<WeaponHitEffectDefinition> HitEffects => hitEffects;
         public bool UsesAmmo => attackBehavior == null || attackBehavior.UsesAmmo;
         public int AttackDamage => attackBehavior != null ? attackBehavior.CalculateDamage(this) : Damage;
+        public float TraumaMultiplier => Mathf.Max(0f, traumaMultiplier);
+        public float FixedTrauma => Mathf.Max(0f, fixedTrauma);
 
         public void ApplyHitEffects(Combatant attacker, ShootableTarget target)
         {
@@ -49,6 +54,14 @@ namespace GridSquad
         {
             attackBehavior = newAttackBehavior;
             hitEffects = newHitEffects ?? System.Array.Empty<WeaponHitEffectDefinition>();
+        }
+
+        public void SetEditorTraumaConfiguration(
+            float newTraumaMultiplier,
+            float newFixedTrauma)
+        {
+            traumaMultiplier = Mathf.Max(0f, newTraumaMultiplier);
+            fixedTrauma = Mathf.Max(0f, newFixedTrauma);
         }
 #endif
     }

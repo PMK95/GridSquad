@@ -56,6 +56,7 @@ namespace GridSquad
 
         public event Action<Combatant> Died;
         public event Action<Combatant> StatsChanged;
+        public event Action<Combatant, CombatDamageRequest, CombatDamageResult> DamageResolved;
 
         public Team Team => team;
         public UnitDefinition UnitDefinition => unitDefinition;
@@ -483,7 +484,56 @@ namespace GridSquad
                 requestedDamage,
                 EffectiveDefense);
             int applied = health != null ? health.ApplyDamage(mitigatedDamage) : 0;
-            return new CombatDamageResult(requestedDamage, applied, false);
+            if (applied > 0)
+                equipmentLoadout?.ApplyArmorWearAfterHealthDamage();
+            float generatedTrauma = TraumaCalculator.Calculate(
+                applied,
+                request.Weapon != null ? request.Weapon.TraumaMultiplier : 1f,
+                request.Weapon != null && applied > 0 ? request.Weapon.FixedTrauma : 0f);
+            CombatDamageResult result = new(
+                requestedDamage,
+                applied,
+                false,
+                generatedTrauma);
+            DamageResolved?.Invoke(this, request, result);
+            return result;
+        }
+
+        public void InitializeMissionHealth(int newMaximumHealth, int currentHealth)
+        {
+            maximumHealth = Mathf.Max(1, newMaximumHealth);
+            health?.InitializeWithCurrentHealth(maximumHealth, currentHealth);
+        }
+
+        public void ApplyMissionState(
+            MissionUnitState state,
+            UnitDefinition definition,
+            GameContentCatalog catalog)
+        {
+            if (state == null)
+                throw new ArgumentNullException(nameof(state));
+            if (definition == null)
+                throw new ArgumentNullException(nameof(definition));
+            if (catalog == null)
+                throw new ArgumentNullException(nameof(catalog));
+
+            unitDefinition = definition;
+            statCatalog = catalog.StatCatalog;
+            inventory?.LoadMissionState(state, catalog);
+            effectiveStats.Rebuild(
+                statCatalog,
+                unitDefinition.BaseStatValues,
+                unitDefinition.Traits,
+                equipmentLoadout);
+            GetComponent<CombatActionLoadout>()
+                ?.ApplyUnitDefinitionDefaults(unitDefinition);
+            GetComponent<CombatActionController>()
+                ?.RefreshRuntimeActionsFromLoadout();
+            InitializeMissionHealth(
+                state.MaximumHealthAtLaunch,
+                state.CurrentHealth);
+            RefreshOffHandPresentation();
+            ApplyEffectiveStatsAfterRecalculation(false);
         }
 
         private static int CalculateDamageAfterDefense(int requestedDamage, float defense)

@@ -1,0 +1,25 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ecc321b8dc8541f4fb83ecc4a0f06031, type: 3}
+  m_Name: TraumaResistanceStat
+  m_EditorClassIdentifier: Assembly-CSharp::GridSquad.UnitStatDefinition
+  statId: trauma_resistance
+  displayName: "\uD2B8\uB77C\uC6B0\uB9C8 \uC800\uD56D"
+  description: "\uD6C4\uC720\uC99D \uB2E8\uACC4\uC5D0 \uB3C4\uB2EC\uD558\uAE30 \uC704\uD55C
+    \uB204\uC801 \uD2B8\uB77C\uC6B0\uB9C8 \uAE30\uC900\uC744 \uBC31\uBD84\uC728\uB85C
+    \uC870\uC815\uD569\uB2C8\uB2E4."
+  defaultValue: 0
+  minimumValue: -90
+  roundToInteger: 0
+  hudOrder: 80
+  category: 0
+  displayFormat: 3

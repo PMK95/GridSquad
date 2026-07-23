@@ -25,12 +25,18 @@ namespace GridSquad
         public readonly int RequestedDamage;
         public readonly int AppliedDamage;
         public readonly bool BlockedByArmor;
+        public readonly float GeneratedTrauma;
 
-        public CombatDamageResult(int requestedDamage, int appliedDamage, bool blockedByArmor)
+        public CombatDamageResult(
+            int requestedDamage,
+            int appliedDamage,
+            bool blockedByArmor,
+            float generatedTrauma = 0f)
         {
             RequestedDamage = requestedDamage;
             AppliedDamage = appliedDamage;
             BlockedByArmor = blockedByArmor;
+            GeneratedTrauma = generatedTrauma;
         }
     }
 }

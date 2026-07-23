@@ -60,7 +60,7 @@ namespace GridSquad
     {
         [SerializeField] private string equipmentId = "equipment";
         [FormerlySerializedAs("DisplayName")]
-        [SerializeField] private string displayName = "장비";
+        [SerializeField] private string displayName = "??";
         [SerializeField, TextArea(2, 4)] private string description;
         [SerializeField] private Sprite icon;
         [SerializeField] private GameObject worldPresentationPrefab;
@@ -68,6 +68,7 @@ namespace GridSquad
         [SerializeField, Min(1)] private int maximumStack = 1;
         [SerializeField] private ItemActionGrant[] actionGrants = Array.Empty<ItemActionGrant>();
 
+        public string ItemId => equipmentId;
         public string EquipmentId => equipmentId;
         public string DisplayName
         {
@@ -110,14 +111,24 @@ namespace GridSquad
     public abstract class EquippableDefinition : ItemDefinition
     {
         [SerializeField] private UnitStatModifier[] statModifiers = Array.Empty<UnitStatModifier>();
+        [SerializeField, Min(1)] private int maximumDurability = 100;
+        [SerializeField, Min(0)] private int wearPerUse = 1;
 
         public abstract EquipmentCategory Category { get; }
+        public int MaximumDurability => Mathf.Max(1, maximumDurability);
+        public int WearPerUse => Mathf.Max(0, wearPerUse);
         public System.Collections.Generic.IReadOnlyList<UnitStatModifier> StatModifiers
             => statModifiers ?? Array.Empty<UnitStatModifier>();
 
 #if UNITY_EDITOR
         public void SetEditorStatModifiers(UnitStatModifier[] newStatModifiers)
             => statModifiers = newStatModifiers ?? Array.Empty<UnitStatModifier>();
+
+        public void SetEditorDurability(int newMaximumDurability, int newWearPerUse)
+        {
+            maximumDurability = Mathf.Max(1, newMaximumDurability);
+            wearPerUse = Mathf.Max(0, newWearPerUse);
+        }
 #endif
     }
 

@@ -25,23 +25,27 @@ namespace GridSquad
     {
         private const int WeaponSlotCount = 2;
 
+        [Header("저장 식별자")]
+        [SerializeField] private string unitId = "unit";
+
         [Header("표시 정보")]
-        [SerializeField] private string displayName = "유닛";
-        [SerializeField] private string roleName = "전투원";
+        [SerializeField] private string displayName = "대원";
+        [SerializeField] private string roleName = "미지정";
         [SerializeField, TextArea(2, 5)] private string description;
         [SerializeField] private Sprite portrait;
         [SerializeField] private Color accentColor = new(0.2f, 0.75f, 0.9f, 1f);
 
-        [Header("기본 스탯")]
+        [Header("기본 능력치")]
         [SerializeField] private UnitStatValue[] baseStatValues = Array.Empty<UnitStatValue>();
 
-        [Header("기본 로드아웃")]
+        [Header("기본 전투 구성")]
         [SerializeField] private WeaponDefinition[] defaultWeapons = new WeaponDefinition[WeaponSlotCount];
         [SerializeField] private CombatActionDefinition[] actionDefinitions = Array.Empty<CombatActionDefinition>();
         [SerializeField] private UnitTraitDefinition[] traits = Array.Empty<UnitTraitDefinition>();
         [SerializeField] private EquipmentSlotAssignment[] defaultEquipmentAssignments = Array.Empty<EquipmentSlotAssignment>();
         [SerializeField] private StartingInventoryItem[] startingInventoryItems = Array.Empty<StartingInventoryItem>();
 
+        public string UnitId => unitId;
         public string DisplayName => string.IsNullOrWhiteSpace(displayName) ? name : displayName;
         public string RoleName => roleName;
         public string Description => description;
@@ -76,6 +80,8 @@ namespace GridSquad
             CombatActionDefinition[] newActionDefinitions,
             UnitTraitDefinition[] newTraits)
         {
+            if (string.IsNullOrWhiteSpace(unitId) || unitId == "unit")
+                unitId = name;
             displayName = newDisplayName;
             roleName = newRoleName;
             description = newDescription;
@@ -92,6 +98,9 @@ namespace GridSquad
 
         public void SetEditorStartingInventory(StartingInventoryItem[] newStartingItems)
             => startingInventoryItems = newStartingItems ?? Array.Empty<StartingInventoryItem>();
+
+        public void SetEditorUnitId(string newUnitId)
+            => unitId = newUnitId;
 #endif
     }
 }

@@ -83,6 +83,16 @@ namespace GridSquad
             return null;
         }
 
+        public EquipmentSlotDefinition GetSlot(string slotId)
+        {
+            if (layout == null || string.IsNullOrWhiteSpace(slotId))
+                return null;
+            foreach (EquipmentSlotDefinition slot in layout.Slots)
+                if (slot != null && slot.SlotId == slotId)
+                    return slot;
+            return null;
+        }
+
         public EquipmentSlotDefinition GetSlot(EquipmentCategory category, int categoryIndex)
         {
             if (layout == null || categoryIndex < 0)
@@ -157,6 +167,30 @@ namespace GridSquad
             return true;
         }
 
+        public bool TryRestoreEquippedItem(
+            EquipmentSlotDefinition slot,
+            ItemInstance item,
+            UnitInventory ownerInventory,
+            out string failureReason)
+        {
+            if (slot == null || item?.Definition is not EquippableDefinition equipment)
+                return Fail("복원할 장비 또는 슬롯이 없습니다.", out failureReason);
+            if (!EquipmentSlotCompatibility.CanAssign(slot, equipment))
+            {
+                return Fail(
+                    $"{equipment.DisplayName}은(는) {slot.DisplayName} 슬롯에 복원할 수 없습니다.",
+                    out failureReason);
+            }
+            inventory = ownerInventory != null ? ownerInventory : inventory;
+            inventory?.Remove(item);
+            ReturnSlotItemToInventory(slot);
+            equippedItems[slot] = item;
+            InitializePassiveState(item);
+            NotifyEquipmentChanged();
+            failureReason = string.Empty;
+            return true;
+        }
+
         public bool TryUnequip(EquipmentSlotDefinition slot, out string failureReason)
         {
             ItemInstance item = GetItemInstance(slot);
@@ -192,6 +226,33 @@ namespace GridSquad
             return item != null ? Mathf.Max(0, Mathf.RoundToInt(item.Durability)) : 0;
         }
 
+        public int ApplyItemWear(ItemInstance item, int amount)
+        {
+            if (item == null || !equippedItems.ContainsValue(item))
+                return 0;
+            int applied = item.ApplyWear(amount);
+            if (applied <= 0)
+                return 0;
+            EquipmentSlotDefinition slot = FindSlotForItem(item);
+            int maximum = item.Definition is EquippableDefinition equipment
+                ? equipment.MaximumDurability
+                : item.Durability;
+            DurabilityChanged?.Invoke(slot, item.Durability, maximum);
+            if (item.Durability == 0)
+                NotifyEquipmentChanged();
+            return applied;
+        }
+
+        public void ApplyArmorWearAfterHealthDamage()
+        {
+            foreach (ItemInstance item in equippedItems.Values)
+            {
+                if (item?.Definition is not ArmorDefinition armor || item.Durability <= 0)
+                    continue;
+                ApplyItemWear(item, armor.WearPerUse);
+            }
+        }
+
         public void InitializeForBattle()
         {
             battleInitialized = true;
@@ -207,6 +268,7 @@ namespace GridSquad
             foreach (ItemInstance item in equippedItems.Values)
             {
                 if (item?.Definition is not AdditionalEquipmentDefinition support
+                    || item.Durability <= 0
                     || support.PassiveKind != SupportEquipmentPassiveKind.RegeneratingBallisticPlate)
                 {
                     continue;
@@ -217,9 +279,7 @@ namespace GridSquad
                     continue;
                 remaining--;
                 passiveCharges[item.InstanceId] = remaining;
-                item.SetDurability(remaining);
-                EquipmentSlotDefinition slot = FindSlotForItem(item);
-                DurabilityChanged?.Invoke(slot, remaining, maximum);
+                ApplyItemWear(item, support.WearPerUse);
                 plate = support;
                 return true;
             }
@@ -233,7 +293,8 @@ namespace GridSquad
         {
             foreach (ItemInstance item in equippedItems.Values)
             {
-                if (item?.Definition is not ArmorDefinition equippedArmor)
+                if (item?.Definition is not ArmorDefinition equippedArmor
+                    || item.Durability <= 0)
                     continue;
                 armor = equippedArmor;
                 maximum = Mathf.Max(1, equippedArmor.MaximumBlockCount);
@@ -251,6 +312,7 @@ namespace GridSquad
             foreach (ItemInstance item in equippedItems.Values)
             {
                 if (item?.Definition is not AdditionalEquipmentDefinition support
+                    || item.Durability <= 0
                     || support.PassiveKind != SupportEquipmentPassiveKind.RegeneratingBallisticPlate)
                 {
                     continue;
@@ -273,8 +335,9 @@ namespace GridSquad
             foreach (KeyValuePair<EquipmentSlotDefinition, ItemInstance> pair in equippedItems)
             {
                 ItemInstance item = pair.Value;
-                if (item?.Definition == null)
+                if (item?.Definition == null || item.Durability <= 0)
                     continue;
+                ItemInstance capturedItem = item;
                 foreach (ItemActionGrant grant in item.Definition.ActionGrants)
                 {
                     if (grant.Action != null && grant.Availability == ItemActionAvailability.Equipped)
@@ -283,7 +346,11 @@ namespace GridSquad
                             $"item:{item.InstanceId}",
                             item.Definition.DisplayName,
                             grant.Action,
-                            null);
+                            () => ApplyEquippedActionWear(
+                                capturedItem,
+                                capturedItem.Definition is EquippableDefinition equipment
+                                    ? equipment.WearPerUse
+                                    : 0));
                     }
                 }
                 if (item.Definition.ActionGrants.Count == 0
@@ -297,7 +364,9 @@ namespace GridSquad
                                 $"item:{item.InstanceId}",
                                 item.Definition.DisplayName,
                                 action,
-                                null);
+                                () => ApplyEquippedActionWear(
+                                    capturedItem,
+                                    additional.WearPerUse));
                         }
                     }
                 }
@@ -314,7 +383,7 @@ namespace GridSquad
         {
             List<string> names = new();
             foreach (ItemInstance item in equippedItems.Values)
-                if (item?.Definition is AdditionalEquipmentDefinition)
+                if (item?.Definition is AdditionalEquipmentDefinition && item.Durability > 0)
                     names.Add(item.Definition.DisplayName);
             return names.Count > 0 ? string.Join(", ", names) : "미장착";
         }
@@ -336,6 +405,8 @@ namespace GridSquad
                 return Fail("장비 슬롯이 없습니다.", out failureReason);
             if (item?.Definition is not EquippableDefinition equipment)
                 return Fail("장착할 수 없는 아이템입니다.", out failureReason);
+            if (item.Durability <= 0)
+                return Fail("내구도가 0인 장비는 장착할 수 없습니다.", out failureReason);
 
             if (!EquipmentSlotCompatibility.CanAssign(slot, equipment))
                 return Fail($"{equipment.DisplayName}은(는) {slot.DisplayName} 슬롯에 장착할 수 없습니다.", out failureReason);
@@ -349,6 +420,7 @@ namespace GridSquad
             {
                 ItemInstance item = pair.Value;
                 if (item?.Definition is not AdditionalEquipmentDefinition support
+                    || item.Durability <= 0
                     || support.PassiveKind != SupportEquipmentPassiveKind.RegeneratingBallisticPlate)
                 {
                     continue;
@@ -368,8 +440,6 @@ namespace GridSquad
                     progress -= support.PassiveRechargeSeconds;
                     remaining++;
                     passiveCharges[item.InstanceId] = remaining;
-                    item.SetDurability(remaining);
-                    DurabilityChanged?.Invoke(pair.Key, remaining, maximum);
                 }
                 passiveRechargeProgress[item.InstanceId] = progress;
             }
@@ -382,12 +452,9 @@ namespace GridSquad
             {
                 return;
             }
-            int charges = item.Durability > 0
-                ? Mathf.Min(item.Durability, support.MaximumPassiveCharges)
-                : support.MaximumPassiveCharges;
+            int charges = item.Durability > 0 ? support.MaximumPassiveCharges : 0;
             passiveCharges[item.InstanceId] = charges;
             passiveRechargeProgress[item.InstanceId] = 0f;
-            item.SetDurability(charges);
         }
 
         private void ReturnSlotItemToInventory(EquipmentSlotDefinition slot)
@@ -396,6 +463,14 @@ namespace GridSquad
                 return;
             equippedItems.Remove(slot);
             inventory?.AddReturnedEquipment(item);
+        }
+
+        private bool ApplyEquippedActionWear(ItemInstance item, int amount)
+        {
+            if (item == null || item.Durability <= 0)
+                return false;
+            ApplyItemWear(item, amount);
+            return true;
         }
 
         private EquipmentSlotDefinition FindSlotForItem(ItemInstance item)

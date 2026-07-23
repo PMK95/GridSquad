@@ -12,6 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d280abd9e7d4b184d9e86d5826bee3da, type: 3}
   m_Name: ParkDojin
   m_EditorClassIdentifier: Assembly-CSharp::GridSquad.UnitDefinition
+  unitId: parkdojin
   displayName: "\uBC15\uB3C4\uC9C4"
   roleName: "\uB3CC\uACA9\uBCD1"
   description: "\uB3CC\uACA9 \uD6C8\uB828\uC744 \uBC1B\uC740 \uACF5\uACA9\uC218\uB85C

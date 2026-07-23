@@ -1,0 +1,26 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 0}
+  m_Name: PrototypeEncounter2
+  m_EditorClassIdentifier: Assembly-CSharp:GridSquad:EncounterDefinition
+  encounterId: prototype_encounter_2
+  allySpawnIds:
+  - ally_1
+  - ally_2
+  - ally_3
+  enemySpawns:
+  - spawnId: enemy_1
+    unitDefinition: {fileID: 11400000, guid: aecaacb74440b294aa9e9dba20547d97, type: 2}
+  - spawnId: enemy_2
+    unitDefinition: {fileID: 11400000, guid: 02e7645f8c143234e929e27a1913f67f, type: 2}
+  - spawnId: enemy_3
+    unitDefinition: {fileID: 11400000, guid: 3d0ffafa6a0c5ef4d84ba462b0209858, type: 2}

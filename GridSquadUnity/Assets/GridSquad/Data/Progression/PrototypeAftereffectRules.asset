@@ -1,0 +1,21 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 0}
+  m_Name: PrototypeAftereffectRules
+  m_EditorClassIdentifier: Assembly-CSharp:GridSquad:AftereffectRuleSet
+  minorThresholdRatio: 0.5
+  majorThresholdRatio: 1
+  severeThresholdRatio: 2
+  definitions:
+  - {fileID: 11400000, guid: ae4ec6482d3efff4b8a16feb0fc074f2, type: 2}
+  - {fileID: 11400000, guid: e24cf1c12d42e4b4d92a1bf53ad60dca, type: 2}
+  - {fileID: 11400000, guid: 7f088aea67111d34fac94704ee15bc5e, type: 2}

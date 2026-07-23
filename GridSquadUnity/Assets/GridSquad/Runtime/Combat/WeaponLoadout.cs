@@ -37,7 +37,10 @@ namespace GridSquad
             if (slotIndex != 0)
                 return null;
             EquipmentSlotDefinition leftHand = equipmentLoadout?.GetSlot(EquipmentSlotKind.LeftHand);
-            WeaponDefinition equipped = equipmentLoadout?.GetItemInstance(leftHand)?.Definition as WeaponDefinition;
+            ItemInstance item = equipmentLoadout?.GetItemInstance(leftHand);
+            if (item == null || item.Durability <= 0)
+                return null;
+            WeaponDefinition equipped = item.Definition as WeaponDefinition;
             return equipped;
         }
 
@@ -78,6 +81,14 @@ namespace GridSquad
         public void StoreActiveAmmo(int magazineAmmo, int reserveAmmo)
         {
             ActiveItemInstance?.SetWeaponAmmo(magazineAmmo, reserveAmmo);
+        }
+
+        public void ApplyActiveWeaponWear()
+        {
+            ItemInstance item = ActiveItemInstance;
+            if (item?.Definition is not WeaponDefinition definition)
+                return;
+            equipmentLoadout?.ApplyItemWear(item, definition.WearPerUse);
         }
 
         private bool EquipPresentation(out string failureReason)

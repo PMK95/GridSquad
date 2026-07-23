@@ -13,6 +13,7 @@ namespace GridSquad
         [SerializeField] private UnitStatDefinition defense;
         [SerializeField] private UnitStatDefinition fireRateMultiplier;
         [SerializeField] private UnitStatDefinition carryCapacity;
+        [SerializeField] private UnitStatDefinition traumaResistance;
 
         public UnitStatDefinition MaximumHealth => maximumHealth;
         public UnitStatDefinition MovementSpeedMultiplier => movementSpeedMultiplier;
@@ -21,6 +22,7 @@ namespace GridSquad
         public UnitStatDefinition Defense => defense;
         public UnitStatDefinition FireRateMultiplier => fireRateMultiplier;
         public UnitStatDefinition CarryCapacity => carryCapacity;
+        public UnitStatDefinition TraumaResistance => traumaResistance;
 
         public IEnumerable<UnitStatDefinition> CoreStats
         {
@@ -33,6 +35,7 @@ namespace GridSquad
                 yield return defense;
                 yield return fireRateMultiplier;
                 yield return carryCapacity;
+                yield return traumaResistance;
             }
         }
 
@@ -44,7 +47,8 @@ namespace GridSquad
             UnitStatDefinition newDamageMultiplier,
             UnitStatDefinition newCarryCapacity = null,
             UnitStatDefinition newDefense = null,
-            UnitStatDefinition newFireRateMultiplier = null)
+            UnitStatDefinition newFireRateMultiplier = null,
+            UnitStatDefinition newTraumaResistance = null)
         {
             maximumHealth = newMaximumHealth;
             movementSpeedMultiplier = newMovementSpeedMultiplier;
@@ -53,6 +57,7 @@ namespace GridSquad
             defense = newDefense;
             fireRateMultiplier = newFireRateMultiplier;
             carryCapacity = newCarryCapacity;
+            traumaResistance = newTraumaResistance;
         }
 #endif
     }

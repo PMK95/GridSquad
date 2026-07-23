@@ -23,6 +23,7 @@ namespace GridSquad
         public bool BattleStarted => battleStarted;
         public CombatControlMode AllyControlMode => allyControlMode;
         public bool AllyFullAutoEnabled => allyControlMode == CombatControlMode.FullAutomatic;
+        public event System.Action<BattleResult> BattleConcluded;
 
         private void Awake()
         {
@@ -32,6 +33,8 @@ namespace GridSquad
 
         private IEnumerator Start()
         {
+            if (PrototypeGameApplication.Instance != null)
+                yield break;
             SetAllyControlMode(CombatControlMode.PlayerMovementAutomaticActions);
             yield return null;
             StartBattleWithCurrentLoadouts();
@@ -63,6 +66,18 @@ namespace GridSquad
                     ?.StartBehaviorForBattle();
             }
             Debug.Log("[전투 준비] 모든 유닛의 무기 로드아웃 초기화 완료");
+        }
+
+        public void ConfigureCombatants(IReadOnlyList<Combatant> stageCombatants)
+        {
+            if (battleStarted)
+                throw new System.InvalidOperationException("전투 시작 후에는 전투원 구성을 바꿀 수 없습니다.");
+            if (stageCombatants == null)
+                throw new System.ArgumentNullException(nameof(stageCombatants));
+            combatants = new Combatant[stageCombatants.Count];
+            for (int index = 0; index < stageCombatants.Count; index++)
+                combatants[index] = stageCombatants[index];
+            battleFinished = false;
         }
 
         public Combatant FindClosestShootableEnemy(Combatant requester, bool allowPeek)
@@ -182,6 +197,7 @@ namespace GridSquad
                 ? BattleResult.Victory
                 : BattleResult.Defeat;
             StopCombatBeforeResultPresentation();
+            BattleConcluded?.Invoke(result);
             hud.SetAllyFullAutoInteractable(false);
             StartCoroutine(ShowBattleResultAfterDeath(
                 result,

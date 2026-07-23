@@ -12,6 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d280abd9e7d4b184d9e86d5826bee3da, type: 3}
   m_Name: ChoiYujin
   m_EditorClassIdentifier: Assembly-CSharp::GridSquad.UnitDefinition
+  unitId: choiyujin
   displayName: "\uCD5C\uC720\uC9C4"
   roleName: "\uAE30\uB3D9\uBCD1"
   description: "\uACBD\uB7C9 \uC7A5\uBE44\uB85C \uC804\uC7A5\uC744 \uB113\uAC8C \uD65C\uC6A9\uD558\uBA70

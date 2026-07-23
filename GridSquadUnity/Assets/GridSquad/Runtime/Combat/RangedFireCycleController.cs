@@ -197,6 +197,7 @@ namespace GridSquad
                 : FireSingleAttack(target, evaluation, attackSequence, attackMode != WeaponAttackMode.Melee);
             if (!fired)
                 return false;
+            weaponRuntime.ApplyActiveWeaponWear();
             animationController?.PlayWeaponAttack(
                 attackMode);
             return true;

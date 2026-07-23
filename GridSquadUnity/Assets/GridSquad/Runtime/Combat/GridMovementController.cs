@@ -49,6 +49,12 @@ namespace GridSquad
             ReleaseGridRegistration();
         }
 
+        public void RemoveFromStageGrid()
+        {
+            ClearPathAndReservations();
+            ReleaseGridRegistration();
+        }
+
         public bool SetMoveDestination(GridCoordinate destination)
         {
             if (owner == null || !owner.IsAlive || owner.IsReloading || gridMap == null)
