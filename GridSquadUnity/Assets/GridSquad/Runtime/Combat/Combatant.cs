@@ -519,6 +519,8 @@ namespace GridSquad
 
             unitDefinition = definition;
             statCatalog = catalog.StatCatalog;
+            gameObject.name = definition.DisplayName;
+            entity?.ConfigureRuntime(DisplayName, team, entity.CurrentCell);
             inventory?.LoadMissionState(state, catalog);
             effectiveStats.Rebuild(
                 statCatalog,

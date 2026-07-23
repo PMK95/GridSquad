@@ -16,6 +16,8 @@ namespace GridSquad
         private readonly List<MissionCombatantStateBridge> activeBridges = new();
         private GameFlowCoordinator flow;
         private bool transitionRunning;
+        private bool requestedStageSceneLoaded;
+        private string requestedStageScenePath;
 
         public static PrototypeGameApplication Instance { get; private set; }
         public event Action StateChanged;
@@ -145,9 +147,28 @@ namespace GridSquad
             StageLaunchRequest request = flow.CreateNextStageLaunchRequest();
             flow.NotifyStageInitializationStarted();
             Time.timeScale = 1f;
+            requestedStageSceneLoaded = false;
+            requestedStageScenePath = request.Stage.ScenePath;
+            SceneManager.sceneLoaded += HandleRequestedStageSceneLoaded;
             AsyncOperation load = SceneManager.LoadSceneAsync(request.Stage.ScenePath);
-            while (load != null && !load.isDone)
+            if (load == null)
+            {
+                SceneManager.sceneLoaded -= HandleRequestedStageSceneLoaded;
+                flow.NotifyFailure($"스테이지 씬 로드를 시작하지 못했습니다: {request.Stage.ScenePath}");
+                transitionRunning = false;
+                yield break;
+            }
+
+            float timeoutAt = Time.realtimeSinceStartup + 30f;
+            while (!requestedStageSceneLoaded && Time.realtimeSinceStartup < timeoutAt)
                 yield return null;
+            SceneManager.sceneLoaded -= HandleRequestedStageSceneLoaded;
+            if (!requestedStageSceneLoaded)
+            {
+                flow.NotifyFailure($"스테이지 씬 로드 시간이 초과되었습니다: {request.Stage.ScenePath}");
+                transitionRunning = false;
+                yield break;
+            }
             yield return null;
 
             try
@@ -162,6 +183,19 @@ namespace GridSquad
                 yield break;
             }
             transitionRunning = false;
+        }
+
+        private void HandleRequestedStageSceneLoaded(Scene scene, LoadSceneMode mode)
+        {
+            requestedStageSceneLoaded =
+                string.Equals(
+                    scene.path,
+                    requestedStageScenePath,
+                    StringComparison.Ordinal)
+                || string.Equals(
+                    scene.name,
+                    System.IO.Path.GetFileNameWithoutExtension(requestedStageScenePath),
+                    StringComparison.Ordinal);
         }
 
         private void ConfigureLoadedCombatStage(StageLaunchRequest request)

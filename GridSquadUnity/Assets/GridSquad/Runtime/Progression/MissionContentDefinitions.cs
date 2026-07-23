@@ -201,6 +201,7 @@ namespace GridSquad
         [SerializeField] private MissionDefinition[] missions = Array.Empty<MissionDefinition>();
         [SerializeField] private AftereffectRuleSet aftereffectRules;
         [SerializeField] private UnitStatCatalog statCatalog;
+        [SerializeField] private EquipmentLayoutDefinition equipmentLayout;
 
         private readonly Dictionary<string, UnitDefinition> unitsById = new();
         private readonly Dictionary<string, ItemDefinition> itemsById = new();
@@ -211,6 +212,7 @@ namespace GridSquad
         public IReadOnlyList<MissionDefinition> Missions => missions;
         public AftereffectRuleSet AftereffectRules => aftereffectRules;
         public UnitStatCatalog StatCatalog => statCatalog;
+        public EquipmentLayoutDefinition EquipmentLayout => equipmentLayout;
 
         public void BuildIndexes()
         {
@@ -265,13 +267,15 @@ namespace GridSquad
             ItemDefinition[] newItems,
             MissionDefinition[] newMissions,
             AftereffectRuleSet newAftereffectRules,
-            UnitStatCatalog newStatCatalog)
+            UnitStatCatalog newStatCatalog,
+            EquipmentLayoutDefinition newEquipmentLayout)
         {
             units = newUnits ?? Array.Empty<UnitDefinition>();
             items = newItems ?? Array.Empty<ItemDefinition>();
             missions = newMissions ?? Array.Empty<MissionDefinition>();
             aftereffectRules = newAftereffectRules;
             statCatalog = newStatCatalog;
+            equipmentLayout = newEquipmentLayout;
         }
 #endif
     }

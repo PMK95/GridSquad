@@ -102,6 +102,8 @@ namespace GridSquad
             if (selectedActionBar != null)
                 selectedActionBar.SetActive(false);
             BindRosterButtons();
+            BindActionButtons();
+            BuildPlayerActionButtonsFromPrefab();
             SetDetailsVisible(false);
         }
 
@@ -131,6 +133,10 @@ namespace GridSquad
                 ? inputController.SelectedCombatant
                 : null;
             RefreshRosterCards(selected);
+            RefreshSelectedEntityPanel(
+                inputController != null ? inputController.SelectedEntity : null,
+                selected);
+            RefreshSelectedActionBar(selected);
         }
 
         private void RefreshFriendlyCombatants()

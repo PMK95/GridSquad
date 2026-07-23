@@ -1,0 +1,30 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b559c9d56b989cd42bd7b04501a10c53, type: 3}
+  m_Name: BasicUtilityPouch
+  m_EditorClassIdentifier: Assembly-CSharp::GridSquad.AdditionalEquipmentDefinition
+  equipmentId: basic_utility_pouch
+  displayName: "\uAE30\uBCF8\uD615 \uC804\uC220 \uD30C\uC6B0\uCE58"
+  description: "\uD2B9\uC218 \uAE30\uB2A5 \uC5C6\uC774 \uBB3C\uD488\uC744 \uACE0\uC815\uD558\uB294
+    \uD45C\uC900 \uC804\uC220 \uD30C\uC6B0\uCE58\uC785\uB2C8\uB2E4."
+  icon: {fileID: 21300000, guid: 70c554ea40cf35849ae041d5067311e1, type: 2}
+  worldPresentationPrefab: {fileID: 0}
+  weight: 0.8
+  maximumStack: 1
+  actionGrants: []
+  statModifiers: []
+  maximumDurability: 100
+  wearPerUse: 1
+  grantedActions: []
+  passiveKind: 0
+  maximumPassiveCharges: 1
+  passiveRechargeSeconds: 10

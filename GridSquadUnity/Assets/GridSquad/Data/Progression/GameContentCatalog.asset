@@ -27,6 +27,14 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 293b678e92f5eaf44bee7b5031657342, type: 2}
   - {fileID: 11400000, guid: 61eee12f2cad6b449a3bef53fe868367, type: 2}
   - {fileID: 11400000, guid: 4c93be5dba62ff6419f0791110c838a3, type: 2}
+  - {fileID: 11400000, guid: 3de6a088dab0f754d8e4271b95bb9e16, type: 2}
+  - {fileID: 11400000, guid: cdc30f5927517bb41914f4e41a5f1eea, type: 2}
+  - {fileID: 11400000, guid: b72923c4d0537c445aac201ee529bc42, type: 2}
+  - {fileID: 11400000, guid: afe22591aba832b4faae42ca6f754d22, type: 2}
+  - {fileID: 11400000, guid: 6ca65aad3dfe30540ba13bf708b3f0b3, type: 2}
+  - {fileID: 11400000, guid: 27d1ba8be58fba3408e21bf58ed93317, type: 2}
+  - {fileID: 11400000, guid: 8bb4cb3a27824ca4a80c67b0291c594a, type: 2}
+  - {fileID: 11400000, guid: 85f0abe5ab8e3c74dbb4ba46618182b1, type: 2}
   - {fileID: 11400000, guid: f83bb65a44afe7b4996abf3e120cd6dd, type: 2}
   - {fileID: 11400000, guid: 50c2b50417203ed4797386caf31c1d42, type: 2}
   - {fileID: 11400000, guid: c951414ebb3e40d41a74dd46bdfdde1e, type: 2}
@@ -52,3 +60,4 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 40150c81411be1e419bd80872268fe9d, type: 2}
   aftereffectRules: {fileID: 11400000, guid: 736f5d933fbfe4d44ac3a97f7c716ad6, type: 2}
   statCatalog: {fileID: 11400000, guid: 8da798c53026486bb111d5dfb2ec5f06, type: 2}
+  equipmentLayout: {fileID: 11400000, guid: b997ff44880c3024e98f9e013733fefe, type: 2}

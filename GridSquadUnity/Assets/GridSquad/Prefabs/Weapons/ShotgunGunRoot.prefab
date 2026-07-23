@@ -261,7 +261,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::GridSquad.WeaponPresentation
   gunAim: {fileID: 2043951039463644434}
   muzzle: {fileID: 2211681348279640293}
-  fireFeedbacks: {fileID: 0}
+  fireFeedbacks: {fileID: 568041427521656957}
   aimAxis: {x: 0, y: 0, z: 1}
   recoilDistance: 0.045
   recoilDuration: 0.09
@@ -293,6 +293,80 @@ Transform:
   m_LocalPosition: {x: 0, y: 0, z: 0.9}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
-  m_Children: []
+  m_Children:
+  - {fileID: 3220337033063895558}
   m_Father: {fileID: 2043951039463644434}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1001 &6532946765975173542
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 2211681348279640293}
+    m_Modifications:
+    - target: {fileID: 4266898759497276921, guid: 00cbf29ad0530f344ac1a9251cc0fe08, type: 3}
+      propertyPath: m_Name
+      value: MuzzleMMF
+      objectReference: {fileID: 0}
+    - target: {fileID: 8509937425751190432, guid: 00cbf29ad0530f344ac1a9251cc0fe08, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8509937425751190432, guid: 00cbf29ad0530f344ac1a9251cc0fe08, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8509937425751190432, guid: 00cbf29ad0530f344ac1a9251cc0fe08, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8509937425751190432, guid: 00cbf29ad0530f344ac1a9251cc0fe08, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 8509937425751190432, guid: 00cbf29ad0530f344ac1a9251cc0fe08, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8509937425751190432, guid: 00cbf29ad0530f344ac1a9251cc0fe08, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8509937425751190432, guid: 00cbf29ad0530f344ac1a9251cc0fe08, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8509937425751190432, guid: 00cbf29ad0530f344ac1a9251cc0fe08, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8509937425751190432, guid: 00cbf29ad0530f344ac1a9251cc0fe08, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8509937425751190432, guid: 00cbf29ad0530f344ac1a9251cc0fe08, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: 00cbf29ad0530f344ac1a9251cc0fe08, type: 3}
+--- !u!114 &568041427521656957 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 6722650295213416923, guid: 00cbf29ad0530f344ac1a9251cc0fe08, type: 3}
+  m_PrefabInstance: {fileID: 6532946765975173542}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6da43522623d4704e979466dc7650b65, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: MoreMountains.Tools::MoreMountains.Feedbacks.MMF_Player
+--- !u!4 &3220337033063895558 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 8509937425751190432, guid: 00cbf29ad0530f344ac1a9251cc0fe08, type: 3}
+  m_PrefabInstance: {fileID: 6532946765975173542}
+  m_PrefabAsset: {fileID: 0}

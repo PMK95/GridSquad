@@ -15,6 +15,10 @@ namespace GridSquad.Editor
     public static class PrototypeLoopConfigurator
     {
         private const string DataRoot = "Assets/GridSquad/Data/Progression";
+        private const string BasicEquipmentRoot = "Assets/GridSquad/Data/Equipment/Basic";
+        private const string BasicIconRoot = "Assets/GridSquad/Art/UI/Equipment/Generated/Basic";
+        private const string BasicAtlasPath =
+            "Assets/GridSquad/Art/UI/Equipment/Generated/BasicEquipmentAtlas.png";
         private const string PrefabRoot = "Assets/GridSquad/Prefabs/UI";
         private const string BaseScenePath = "Assets/GridSquad/Scenes/BasePrototype.unity";
         private const string CombatScenePath = "Assets/GridSquad/Scenes/CombatFeasibility.unity";
@@ -23,6 +27,9 @@ namespace GridSquad.Editor
         public static void ConfigurePrototypeLoop()
         {
             EnsureFolder(DataRoot);
+            EnsureFolder(BasicEquipmentRoot);
+            EnsureFolder(BasicIconRoot);
+            ConfigureBasicEquipment();
             UnitStatCatalog statCatalog =
                 AssetDatabase.LoadAssetAtPath<UnitStatCatalog>(
                     "Assets/GridSquad/Data/Stats/UnitStatCatalog.asset");
@@ -146,12 +153,16 @@ namespace GridSquad.Editor
 
             GameContentCatalog catalog = CreateOrLoad<GameContentCatalog>(
                 $"{DataRoot}/GameContentCatalog.asset");
+            EquipmentLayoutDefinition equipmentLayout =
+                AssetDatabase.LoadAssetAtPath<EquipmentLayoutDefinition>(
+                    "Assets/GridSquad/Data/Equipment/Layouts/CombatEquipmentLayout.asset");
             catalog.SetEditorConfiguration(
                 units,
                 items,
                 new[] { mission },
                 rules,
-                statCatalog);
+                statCatalog,
+                equipmentLayout);
             EditorUtility.SetDirty(catalog);
             catalog.BuildIndexes();
             _ = new BaseStateFactory().Create(catalog);
@@ -187,6 +198,210 @@ namespace GridSquad.Editor
                 new[] { modifier });
             EditorUtility.SetDirty(definition);
             return definition;
+        }
+
+        private static void ConfigureBasicEquipment()
+        {
+            Texture2D atlas = AssetDatabase.LoadAssetAtPath<Texture2D>(BasicAtlasPath);
+            if (atlas == null)
+                throw new InvalidOperationException($"기본형 장비 아이콘 아틀라스가 없습니다: {BasicAtlasPath}");
+
+            int cellWidth = atlas.width / 3;
+            int cellHeight = atlas.height / 3;
+            Sprite[] icons =
+            {
+                CreateOrLoadSprite("BasicRifle", atlas, 0, 2, cellWidth, cellHeight),
+                CreateOrLoadSprite("BasicShield", atlas, 1, 2, cellWidth, cellHeight),
+                CreateOrLoadSprite("BasicHelmet", atlas, 2, 2, cellWidth, cellHeight),
+                CreateOrLoadSprite("BasicVest", atlas, 0, 1, cellWidth, cellHeight),
+                CreateOrLoadSprite("BasicLegGuards", atlas, 1, 1, cellWidth, cellHeight),
+                CreateOrLoadSprite("BasicGloves", atlas, 2, 1, cellWidth, cellHeight),
+                CreateOrLoadSprite("BasicBoots", atlas, 0, 0, cellWidth, cellHeight),
+                CreateOrLoadSprite("BasicUtilityPouch", atlas, 1, 0, cellWidth, cellHeight)
+            };
+
+            WeaponDefinition rifle = CreateOrLoad<WeaponDefinition>(
+                $"{BasicEquipmentRoot}/BasicRifle.asset");
+            WeaponDefinition rifleReference =
+                AssetDatabase.LoadAssetAtPath<WeaponDefinition>(
+                    "Assets/GridSquad/Data/Equipment/Weapons/Definitions/ARWeaponDefinition.asset");
+            rifle.SetEditorEquipmentPresentation(
+                "basic_rifle",
+                "기본형 소총",
+                "추가 특수 능력이 없는 표준 제식 소총입니다.",
+                icons[0],
+                4.2f,
+                1);
+            rifle.SetEditorStatModifiers(Array.Empty<UnitStatModifier>());
+            rifle.SetEditorActionGrants(Array.Empty<ItemActionGrant>());
+            rifle.SetEditorDurability(100, 1);
+            rifle.SetEditorHandedness(WeaponHandedness.TwoHanded);
+            if (rifleReference != null)
+            {
+                rifle.PresentationPrefab = rifleReference.PresentationPrefab;
+                rifle.Damage = rifleReference.Damage;
+                rifle.AimEnterDuration = rifleReference.AimEnterDuration;
+                rifle.AimedShotInterval = rifleReference.AimedShotInterval;
+                rifle.MagazineCapacity = rifleReference.MagazineCapacity;
+                rifle.StartingReserveAmmo = rifleReference.StartingReserveAmmo;
+                rifle.ReloadDuration = rifleReference.ReloadDuration;
+                rifle.RangeInCells = rifleReference.RangeInCells;
+                rifle.BaseHitChancePercent = rifleReference.BaseHitChancePercent;
+                rifle.SetEditorAttackConfiguration(
+                    rifleReference.AttackBehavior,
+                    rifleReference.HitEffects.ToArray());
+                rifle.SetEditorWorldPresentationPrefab(
+                    rifleReference.WorldPresentationPrefab);
+            }
+            EditorUtility.SetDirty(rifle);
+
+            OffHandDefinition shield = CreateOrLoad<OffHandDefinition>(
+                $"{BasicEquipmentRoot}/BasicShield.asset");
+            OffHandDefinition shieldReference =
+                AssetDatabase.LoadAssetAtPath<OffHandDefinition>(
+                    "Assets/GridSquad/Data/Equipment/Weapons/Definitions/RiotShield.asset");
+            ConfigureBasicEquippable(
+                shield,
+                "basic_shield",
+                "기본형 보조 방패",
+                "추가 특수 능력이 없는 표준 보조 방패입니다.",
+                icons[1],
+                3.5f);
+            shield.SetEditorPresentationPrefab(shieldReference?.PresentationPrefab);
+            shield.SetEditorWorldPresentationPrefab(
+                shieldReference?.WorldPresentationPrefab);
+            EditorUtility.SetDirty(shield);
+
+            CreateBasicArmor(
+                "BasicHelmet",
+                "basic_helmet",
+                "기본형 전투 헬멧",
+                icons[2],
+                EquipmentSlotKind.Head,
+                2,
+                1.8f);
+            CreateBasicArmor(
+                "BasicVest",
+                "basic_vest",
+                "기본형 방탄복",
+                icons[3],
+                EquipmentSlotKind.Torso,
+                4,
+                4.5f);
+            CreateBasicArmor(
+                "BasicLegGuards",
+                "basic_leg_guards",
+                "기본형 다리 보호대",
+                icons[4],
+                EquipmentSlotKind.Legs,
+                2,
+                2.8f);
+            CreateBasicArmor(
+                "BasicGloves",
+                "basic_gloves",
+                "기본형 전술 장갑",
+                icons[5],
+                EquipmentSlotKind.Hands,
+                1,
+                1.2f);
+            CreateBasicArmor(
+                "BasicBoots",
+                "basic_boots",
+                "기본형 전투화",
+                icons[6],
+                EquipmentSlotKind.Feet,
+                1,
+                1.6f);
+
+            AdditionalEquipmentDefinition pouch =
+                CreateOrLoad<AdditionalEquipmentDefinition>(
+                    $"{BasicEquipmentRoot}/BasicUtilityPouch.asset");
+            ConfigureBasicEquippable(
+                pouch,
+                "basic_utility_pouch",
+                "기본형 전술 파우치",
+                "특수 기능 없이 물품을 고정하는 표준 전술 파우치입니다.",
+                icons[7],
+                0.8f);
+            pouch.SetEditorGrantedActions(Array.Empty<CombatActionDefinition>());
+            pouch.SetEditorPassiveConfiguration(
+                SupportEquipmentPassiveKind.None,
+                1,
+                10f);
+            EditorUtility.SetDirty(pouch);
+        }
+
+        private static void CreateBasicArmor(
+            string assetName,
+            string id,
+            string displayName,
+            Sprite icon,
+            EquipmentSlotKind slotKind,
+            int defense,
+            float weight)
+        {
+            ArmorDefinition armor = CreateOrLoad<ArmorDefinition>(
+                $"{BasicEquipmentRoot}/{assetName}.asset");
+            ConfigureBasicEquippable(
+                armor,
+                id,
+                displayName,
+                "특수 기능 없이 기본 방호만 제공하는 표준 장비입니다.",
+                icon,
+                weight);
+            armor.SetEditorArmorSlotKind(slotKind);
+            armor.SetEditorDefense(defense);
+            armor.SetEditorMaximumBlockCount(100);
+            EditorUtility.SetDirty(armor);
+        }
+
+        private static void ConfigureBasicEquippable(
+            EquippableDefinition equipment,
+            string id,
+            string displayName,
+            string description,
+            Sprite icon,
+            float weight)
+        {
+            equipment.SetEditorEquipmentPresentation(
+                id,
+                displayName,
+                description,
+                icon,
+                weight,
+                1);
+            equipment.SetEditorStatModifiers(Array.Empty<UnitStatModifier>());
+            equipment.SetEditorActionGrants(Array.Empty<ItemActionGrant>());
+            equipment.SetEditorDurability(100, 1);
+        }
+
+        private static Sprite CreateOrLoadSprite(
+            string name,
+            Texture2D atlas,
+            int column,
+            int row,
+            int cellWidth,
+            int cellHeight)
+        {
+            string path = $"{BasicIconRoot}/{name}.asset";
+            Sprite existing = AssetDatabase.LoadAssetAtPath<Sprite>(path);
+            if (existing != null)
+                return existing;
+            Rect rect = new(
+                column * cellWidth,
+                row * cellHeight,
+                cellWidth,
+                cellHeight);
+            Sprite sprite = Sprite.Create(
+                atlas,
+                rect,
+                new Vector2(0.5f, 0.5f),
+                100f,
+                0,
+                SpriteMeshType.FullRect);
+            sprite.name = name;
+            AssetDatabase.CreateAsset(sprite, path);
+            return sprite;
         }
 
         private static GameObject CreateApplicationPrefab(GameContentCatalog catalog)

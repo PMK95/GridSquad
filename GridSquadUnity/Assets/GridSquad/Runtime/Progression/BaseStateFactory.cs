@@ -19,16 +19,21 @@ namespace GridSquad
                 UnitState unit = new(
                     Guid.NewGuid().ToString("N"),
                     definition.UnitId);
-                AddDefaultEquipment(definition, unit);
+                AddDefaultEquipment(catalog, definition, unit);
                 AddStartingInventory(definition, unit);
                 state.AddUnit(unit);
             }
             return state;
         }
 
-        private static void AddDefaultEquipment(UnitDefinition definition, UnitState unit)
+        private static void AddDefaultEquipment(
+            GameContentCatalog catalog,
+            UnitDefinition definition,
+            UnitState unit)
         {
             HashSet<ItemDefinition> assignedDefinitions = new();
+            HashSet<string> occupiedSlotIds = new();
+            bool hasEquippedPrimaryWeapon = false;
             foreach (EquipmentSlotAssignment assignment in definition.DefaultEquipmentAssignments)
             {
                 if (assignment.Slot == null || assignment.Equipment == null)
@@ -39,14 +44,46 @@ namespace GridSquad
                     assignment.Slot.SlotId,
                     item.ItemInstanceId));
                 assignedDefinitions.Add(assignment.Equipment);
+                occupiedSlotIds.Add(assignment.Slot.SlotId);
+                hasEquippedPrimaryWeapon |=
+                    assignment.Slot.SlotKind == EquipmentSlotKind.LeftHand
+                    && assignment.Equipment is WeaponDefinition;
             }
 
             for (int index = 0; index < definition.DefaultWeapons.Count; index++)
             {
                 WeaponDefinition weapon = definition.GetDefaultWeapon(index);
-                if (weapon != null && !assignedDefinitions.Contains(weapon))
-                    unit.AddItem(CreateItemState(weapon, 1));
+                if (weapon == null || assignedDefinitions.Contains(weapon))
+                    continue;
+                ItemState item = CreateItemState(weapon, 1);
+                unit.AddItem(item);
+                if (index != 0 || hasEquippedPrimaryWeapon)
+                    continue;
+                EquipmentSlotDefinition leftHand = FindSlot(
+                    catalog.EquipmentLayout,
+                    EquipmentSlotKind.LeftHand);
+                if (leftHand == null)
+                    throw new InvalidOperationException("장비 레이아웃에 왼손 슬롯이 없습니다.");
+                if (!occupiedSlotIds.Add(leftHand.SlotId))
+                    throw new InvalidOperationException(
+                        $"{definition.DisplayName}의 왼손 슬롯에 기본 무기를 장착할 수 없습니다.");
+                unit.AddEquipment(new EquipmentSlotState(
+                    leftHand.SlotId,
+                    item.ItemInstanceId));
+                hasEquippedPrimaryWeapon = true;
             }
+        }
+
+        private static EquipmentSlotDefinition FindSlot(
+            EquipmentLayoutDefinition layout,
+            EquipmentSlotKind slotKind)
+        {
+            if (layout == null)
+                return null;
+            foreach (EquipmentSlotDefinition slot in layout.Slots)
+                if (slot != null && slot.SlotKind == slotKind)
+                    return slot;
+            return null;
         }
 
         private static void AddStartingInventory(UnitDefinition definition, UnitState unit)
