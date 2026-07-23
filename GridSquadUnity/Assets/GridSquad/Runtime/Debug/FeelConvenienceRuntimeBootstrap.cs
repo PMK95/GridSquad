@@ -3,10 +3,9 @@ using UnityEngine;
 
 namespace GridSquad
 {
-    [DefaultExecutionOrder(-1000)]
     public sealed class FeelConvenienceRuntimeBootstrap : MonoBehaviour
     {
-        private void Awake()
+        public static void InitializeRuntime()
         {
             MMSaveLoadManager.SaveLoadMethod = new MMSaveLoadManagerMethodJson();
         }

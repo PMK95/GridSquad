@@ -19,21 +19,27 @@ namespace GridSquad
 
         private readonly List<ItemDefinition> availableItems = new();
         private bool developerModeEnabled;
+        private bool runtimeInitialized;
 
         private void Awake()
         {
-            inputController = inputController != null
-                ? inputController
-                : FindAnyObjectByType<TacticalInputController>();
             developerModeButton?.onClick.AddListener(ToggleDeveloperMode);
             addItemButton?.onClick.AddListener(AddSelectedItemToSelectedAlly);
             PopulateItemDropdown();
             SetDeveloperModeEnabled(false);
         }
 
+        public void InitializeRuntime(TacticalInputController newInputController)
+        {
+            inputController = newInputController != null
+                ? newInputController
+                : inputController;
+            runtimeInitialized = true;
+        }
+
         private void Update()
         {
-            if (!developerModeEnabled || targetText == null)
+            if (!runtimeInitialized || !developerModeEnabled || targetText == null)
                 return;
 
             Combatant selectedAlly = GetSelectedAlly();

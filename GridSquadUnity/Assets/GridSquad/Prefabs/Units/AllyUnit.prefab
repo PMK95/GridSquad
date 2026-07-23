@@ -8,6 +8,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 490199836271315870, guid: 20c722ded39798149befeae630a834e5, type: 3}
+      propertyPath: unitDefinition
+      value: 
+      objectReference: {fileID: 11400000, guid: 02e7645f8c143234e929e27a1913f67f, type: 2}
     - target: {fileID: 2985916207501052990, guid: 20c722ded39798149befeae630a834e5, type: 3}
       propertyPath: m_Name
       value: AllyUnit

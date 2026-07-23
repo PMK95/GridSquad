@@ -3,6 +3,13 @@ using UnityEngine;
 
 namespace GridSquad
 {
+    public enum PreparedShotStatus
+    {
+        Waiting,
+        Fired,
+        Failed
+    }
+
     [DisallowMultipleComponent]
     public sealed class RangedFireCycleController : MonoBehaviour
     {
@@ -21,6 +28,8 @@ namespace GridSquad
         private bool reloadAnimationStarted;
         private float fireIntervalMultiplier = 1f;
         private int attackSequence;
+        private ShootableTarget retainedAimTarget;
+        private bool aimRetentionValid;
 
         public FireCycleState FireState => fireCycleState;
         public bool IsReloading => fireCycleState == FireCycleState.Reloading;
@@ -129,6 +138,127 @@ namespace GridSquad
             }
         }
 
+        public bool TryBeginPreparedShot(
+            ShootableTarget target,
+            out float windupDuration,
+            out string failureReason)
+        {
+            windupDuration = 0f;
+            if (Weapon == null)
+            {
+                failureReason = "사용할 무기가 없습니다.";
+                return false;
+            }
+            if (IsReloading)
+            {
+                failureReason = "재장전 중입니다.";
+                return false;
+            }
+            if (target == null || !target.IsAlive || target.TargetTeam == owner.Team)
+            {
+                failureReason = "유효한 사격 대상이 없습니다.";
+                return false;
+            }
+
+            bool retainAim = aimRetentionValid
+                && retainedAimTarget == target
+                && !owner.IsMoving;
+            aimingTarget = target;
+            fireCycleState = FireCycleState.Aiming;
+            windupDuration = retainAim
+                ? 0f
+                : Weapon.AimEnterDuration * fireIntervalMultiplier;
+            fireStateRemainingSeconds = windupDuration;
+            animationController?.BeginAimingAt(
+                target.AimCenterTransform,
+                Mathf.Max(0.01f, windupDuration));
+            failureReason = string.Empty;
+            return true;
+        }
+
+        public PreparedShotStatus TickPreparedShot(
+            float deltaTime,
+            out string failureReason)
+        {
+            failureReason = string.Empty;
+            if (Weapon == null || aimingTarget == null || !aimingTarget.IsAlive)
+            {
+                InvalidateRetainedAim();
+                failureReason = "사격 대상이 유효하지 않습니다.";
+                return PreparedShotStatus.Failed;
+            }
+            if (owner.IsMoving)
+            {
+                InvalidateRetainedAim();
+                failureReason = "이동 중에는 사격할 수 없습니다.";
+                return PreparedShotStatus.Failed;
+            }
+            if (IsReloading)
+            {
+                failureReason = "재장전 중입니다.";
+                return PreparedShotStatus.Failed;
+            }
+
+            fireStateRemainingSeconds = Mathf.Max(
+                0f,
+                fireStateRemainingSeconds - Mathf.Max(0f, deltaTime));
+            targeting.RefreshShotEvaluation();
+            if (!targeting.CurrentShotEvaluation.CanShoot)
+            {
+                failureReason = "현재 사격 조건을 충족하지 못했습니다.";
+                return PreparedShotStatus.Failed;
+            }
+            if (fireStateRemainingSeconds > 0f
+                || !IsAimAlignedWithCurrentTarget()
+                || (animationController != null && !animationController.IsAimReady))
+            {
+                return PreparedShotStatus.Waiting;
+            }
+            if (weaponRuntime.CurrentMagazineAmmo <= 0)
+            {
+                InvalidateRetainedAim();
+                BeginReload(0f);
+                failureReason = "탄창이 비어 있습니다.";
+                return PreparedShotStatus.Failed;
+            }
+            if (!FireCurrentShot())
+            {
+                InvalidateRetainedAim();
+                failureReason = "사격 실행에 실패했습니다.";
+                return PreparedShotStatus.Failed;
+            }
+
+            retainedAimTarget = aimingTarget;
+            aimRetentionValid = true;
+            fireCycleState = FireCycleState.AimedFiring;
+            fireStateRemainingSeconds = 0f;
+            if (weaponRuntime.CurrentMagazineAmmo <= 0)
+            {
+                InvalidateRetainedAim();
+                BeginReload(CalculatePostShotReloadDelay());
+            }
+            return PreparedShotStatus.Fired;
+        }
+
+        public float GetPreparedShotRecoveryDuration()
+        {
+            if (Weapon == null)
+                return 0f;
+            float interval = Weapon.AimedShotInterval * fireIntervalMultiplier;
+            float animationDuration = animationController != null
+                ? animationController.ShotDuration
+                : 0f;
+            return Mathf.Max(interval, animationDuration);
+        }
+
+        public void CompletePreparedShotRecovery()
+        {
+            if (IsReloading)
+                return;
+            fireCycleState = FireCycleState.AimedFiring;
+            fireStateRemainingSeconds = 0f;
+        }
+
         public void Reset(bool cancelReload = false)
         {
             if (IsReloading && !cancelReload)
@@ -139,6 +269,7 @@ namespace GridSquad
             pendingReloadAmmo = 0;
             reloadElapsedSeconds = 0f;
             reloadAnimationStarted = false;
+            InvalidateRetainedAim();
             animationController?.StopAiming();
             if (cancelReload)
                 animationController?.CompleteReload();
@@ -294,6 +425,7 @@ namespace GridSquad
 
         private void BeginReload(float shotAnimationDelay)
         {
+            InvalidateRetainedAim();
             if (weaponRuntime.CurrentMagazineAmmo >= weaponRuntime.MagazineCapacity)
             {
                 fireCycleState = FireCycleState.WaitingForAim;
@@ -345,6 +477,12 @@ namespace GridSquad
             fireStateRemainingSeconds = 0f;
             animationController?.StopAiming();
             animationController?.BeginReload(Weapon.ReloadDuration);
+        }
+
+        private void InvalidateRetainedAim()
+        {
+            retainedAimTarget = null;
+            aimRetentionValid = false;
         }
     }
 }

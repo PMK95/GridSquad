@@ -409,14 +409,9 @@ namespace GridSquadEditor
                 "director",
                 "resultPanel",
                 "resultText",
-                "selectedInfoPanel",
-                "selectedInfoTitleText",
-                "selectedInfoBodyText",
                 "selectionChangedFeedbacks",
                 "automaticModeChangedFeedbacks",
                 "resultPanelFeedbacks");
-            if (hud.transform.Find("SelectedInfoPanel") == null)
-                throw new InvalidOperationException("선택 캐릭터 정보 패널이 씬 HUD에 없습니다.");
             if (hud.transform.Find("AllyFullAutoButton") == null)
                 throw new InvalidOperationException("아군 자동전투 토글 버튼이 HUD에 없습니다.");
 
@@ -723,7 +718,7 @@ namespace GridSquadEditor
                 true,
                 true,
                 -1,
-                0.5f,
+                0f,
                 0f);
             SetPlayerActionOrder(basicAttack, 0);
 
@@ -1489,20 +1484,6 @@ namespace GridSquadEditor
                 new Vector2(20f, -145f),
                 new Vector2(320f, 46f),
                 new Vector2(0f, 1f));
-            Text controls = CreateText("Controls", canvasObject.transform, 18, TextAnchor.LowerLeft);
-            controls.text = "LMB Select/Use | RMB Move | T Target | Tab Mode | G/V/X/C Action Slots | Esc Cancel | Space Pause | 1/2/3/4 Speed | F1 Debug | R Restart";
-            SetHudRect(controls.rectTransform, new Vector2(20f, 20f), new Vector2(1200f, 36f), new Vector2(0f, 0f));
-
-            Image selectedInfoPanel = CreateImage("SelectedInfoPanel", canvasObject.transform, new Color(0.035f, 0.045f, 0.06f, 0.92f));
-            SetHudRect(selectedInfoPanel.rectTransform, new Vector2(-24f, -24f), new Vector2(410f, 470f), new Vector2(1f, 1f));
-            Text selectedInfoTitle = CreateText("SelectedInfoTitle", selectedInfoPanel.transform, 26, TextAnchor.UpperLeft);
-            selectedInfoTitle.fontStyle = FontStyle.Bold;
-            selectedInfoTitle.color = new Color(0.35f, 0.85f, 1f, 1f);
-            SetHudRect(selectedInfoTitle.rectTransform, new Vector2(18f, -18f), new Vector2(374f, 42f), new Vector2(0f, 1f));
-            Text selectedInfoBody = CreateText("SelectedInfoBody", selectedInfoPanel.transform, 19, TextAnchor.UpperLeft);
-            selectedInfoBody.lineSpacing = 1.1f;
-            SetHudRect(selectedInfoBody.rectTransform, new Vector2(18f, -66f), new Vector2(374f, 380f), new Vector2(0f, 1f));
-
             Image resultPanel = CreateImage("ResultPanel", canvasObject.transform, new Color(0f, 0f, 0f, 0.78f));
             SetHudRect(resultPanel.rectTransform, Vector2.zero, new Vector2(620f, 250f), new Vector2(0.5f, 0.5f));
             Text resultText = CreateText("ResultText", resultPanel.transform, 48, TextAnchor.MiddleCenter);
@@ -1515,9 +1496,6 @@ namespace GridSquadEditor
                 debugText,
                 resultPanel.gameObject,
                 resultText,
-                selectedInfoPanel.gameObject,
-                selectedInfoTitle,
-                selectedInfoBody,
                 allyFullAutoButton,
                 allyFullAutoButtonText,
                 director,

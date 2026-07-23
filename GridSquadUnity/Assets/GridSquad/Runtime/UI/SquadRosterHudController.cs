@@ -49,7 +49,6 @@ namespace GridSquad
         [Header("연결")]
         [SerializeField] private CombatDirector director;
         [SerializeField] private TacticalInputController inputController;
-        [SerializeField] private CombatHudController legacyHud;
 
         [Header("아군 로스터")]
         [SerializeField] private GameObject friendlyRosterPanel;
@@ -82,22 +81,24 @@ namespace GridSquad
         private readonly List<CombatActionButtonView> generatedActionButtons = new();
         private SelectionInspectController enhancedSelectionUi;
         private bool detailsVisible;
+        private bool runtimeInitialized;
 
         private static readonly Color EnabledActionColor = new(0.12f, 0.18f, 0.23f, 0.96f);
         private static readonly Color ActiveActionColor = new(0.12f, 0.55f, 0.7f, 1f);
         private static readonly Color DisabledActionColor = new(0.055f, 0.065f, 0.075f, 0.92f);
         private static readonly Color DisabledIconColor = new(0.35f, 0.38f, 0.4f, 0.72f);
 
-        private void Awake()
+        public void InitializeRuntime(
+            CombatDirector newDirector,
+            TacticalInputController newInputController,
+            SelectionInspectController newEnhancedSelectionUi)
         {
-            if (director == null)
-                director = FindFirstObjectByType<CombatDirector>();
-            if (inputController == null)
-                inputController = FindFirstObjectByType<TacticalInputController>();
-            if (legacyHud == null)
-                legacyHud = GetComponent<CombatHudController>();
+            if (runtimeInitialized)
+                return;
+            director = newDirector != null ? newDirector : director;
+            inputController = newInputController != null ? newInputController : inputController;
+            enhancedSelectionUi = newEnhancedSelectionUi;
 
-            legacyHud?.SetLegacySelectedInfoVisible(false);
             if (selectedUnitPanel != null)
                 selectedUnitPanel.gameObject.SetActive(false);
             if (selectedActionBar != null)
@@ -106,10 +107,6 @@ namespace GridSquad
             BindActionButtons();
             BindDetailsButton();
             SetDetailsVisible(false);
-        }
-
-        private void Start()
-        {
             RefreshFriendlyCombatants();
             if (inputController != null
                 && inputController.SelectedCombatant == null
@@ -117,6 +114,7 @@ namespace GridSquad
             {
                 inputController.SelectCombatantFromRoster(friendlyCombatants[0]);
             }
+            runtimeInitialized = true;
         }
 
         private void OnDestroy()
@@ -128,6 +126,8 @@ namespace GridSquad
 
         private void Update()
         {
+            if (!runtimeInitialized)
+                return;
             if (friendlyCombatants.Count == 0)
                 RefreshFriendlyCombatants();
 
@@ -226,8 +226,6 @@ namespace GridSquad
 
         private bool IsEnhancedSelectionUiAvailable()
         {
-            if (enhancedSelectionUi == null)
-                enhancedSelectionUi = FindFirstObjectByType<SelectionInspectController>();
             return enhancedSelectionUi != null;
         }
 
@@ -517,7 +515,7 @@ namespace GridSquad
                 float cooldownDuration = state.Definition != null
                     ? state.Definition.CooldownSeconds
                     : 0f;
-                view.SetCooldownProgress(state.CooldownRemaining, cooldownDuration);
+                view.SetExecutionProgress(state, cooldownDuration);
                 if (state.Definition != null)
                 {
                     view.SetTooltipContent(
@@ -779,7 +777,6 @@ namespace GridSquad
         public void SetEditorReferences(
             CombatDirector newDirector,
             TacticalInputController newInputController,
-            CombatHudController newLegacyHud,
             GameObject newFriendlyRosterPanel,
             RosterCardView[] newRosterCards,
             RectTransform newSelectedUnitPanel,
@@ -799,7 +796,6 @@ namespace GridSquad
         {
             director = newDirector;
             inputController = newInputController;
-            legacyHud = newLegacyHud;
             friendlyRosterPanel = newFriendlyRosterPanel;
             rosterCards = newRosterCards ?? Array.Empty<RosterCardView>();
             selectedUnitPanel = newSelectedUnitPanel;

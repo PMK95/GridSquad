@@ -13,11 +13,6 @@ namespace GridSquad
 
         public MissionUnitState MissionUnit => missionUnit;
 
-        private void Awake()
-        {
-            combatant = GetComponent<Combatant>();
-        }
-
         private void OnDestroy()
         {
             Unbind();
@@ -27,6 +22,9 @@ namespace GridSquad
         {
             if (state == null)
                 throw new ArgumentNullException(nameof(state));
+            combatant = combatant != null ? combatant : GetComponent<Combatant>();
+            if (combatant == null)
+                throw new InvalidOperationException("임무 상태를 연결할 Combatant가 없습니다.");
             Unbind();
             missionUnit = state;
             combatant.InitializeMissionHealth(
@@ -43,6 +41,12 @@ namespace GridSquad
                 return;
             missionUnit.ApplyCombatResult(combatant.CurrentHealth, 0f);
             combatant.Inventory?.WriteMissionState(missionUnit);
+        }
+
+        public void UnbindFromMission()
+        {
+            Unbind();
+            missionUnit = null;
         }
 
         private void HandleDamageResolved(

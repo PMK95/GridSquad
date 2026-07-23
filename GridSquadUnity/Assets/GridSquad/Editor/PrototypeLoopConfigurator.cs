@@ -20,6 +20,9 @@ namespace GridSquad.Editor
         private const string BasicAtlasPath =
             "Assets/GridSquad/Art/UI/Equipment/Generated/BasicEquipmentAtlas.png";
         private const string PrefabRoot = "Assets/GridSquad/Prefabs/UI";
+        private const string EntryScenePath = "Assets/GridSquad/Scenes/Entry.unity";
+        private const string LoadingScenePath =
+            "Assets/GridSquad/Scenes/GridSquadLoading.unity";
         private const string BaseScenePath = "Assets/GridSquad/Scenes/BasePrototype.unity";
         private const string CombatScenePath = "Assets/GridSquad/Scenes/CombatFeasibility.unity";
 
@@ -171,6 +174,8 @@ namespace GridSquad.Editor
             CreateBaseScene(applicationPrefab);
             EditorBuildSettings.scenes = new[]
             {
+                new EditorBuildSettingsScene(EntryScenePath, true),
+                new EditorBuildSettingsScene(LoadingScenePath, true),
                 new EditorBuildSettingsScene(BaseScenePath, true),
                 new EditorBuildSettingsScene(CombatScenePath, true)
             };

@@ -15,6 +15,7 @@ namespace GridSquad
         private bool debugVisible;
         private bool battleFinished;
         private bool battleStarted;
+        private bool runtimeInitialized;
         private CombatControlMode allyControlMode = CombatControlMode.PlayerMovementAutomaticActions;
 
         public IReadOnlyList<Combatant> Combatants => combatants;
@@ -25,36 +26,40 @@ namespace GridSquad
         public bool AllyFullAutoEnabled => allyControlMode == CombatControlMode.FullAutomatic;
         public event System.Action<BattleResult> BattleConcluded;
 
-        private void Awake()
+        public void InitializeRuntime(MMTimeManager newTimeManager = null)
         {
-            if (timeManager == null)
-                timeManager = FindFirstObjectByType<MMTimeManager>();
-        }
-
-        private IEnumerator Start()
-        {
-            if (PrototypeGameApplication.Instance != null)
-                yield break;
-            SetAllyControlMode(CombatControlMode.PlayerMovementAutomaticActions);
-            yield return null;
-            StartBattleWithCurrentLoadouts();
-        }
-
-        public void StartBattleWithCurrentLoadouts()
-        {
-            if (battleStarted || battleFinished)
+            if (runtimeInitialized)
                 return;
+            timeManager = newTimeManager != null ? newTimeManager : timeManager;
+            runtimeInitialized = true;
+        }
+
+        public bool TryStartBattleWithCurrentLoadouts(out string failureReason)
+        {
+            InitializeRuntime(timeManager);
+            if (battleStarted)
+            {
+                failureReason = string.Empty;
+                return true;
+            }
+            if (battleFinished)
+            {
+                failureReason = "이미 종료된 전투는 다시 시작할 수 없습니다.";
+                return false;
+            }
 
             foreach (Combatant combatant in combatants)
             {
                 if (combatant == null)
                     continue;
-                if (!combatant.InitializeWeaponLoadoutForBattle(out string failureReason))
+                if (!combatant.InitializeWeaponLoadoutForBattle(
+                        out string loadoutFailureReason))
                 {
-                    string message = $"전투 시작 실패: {combatant.DisplayName} - {failureReason}";
-                    Debug.LogError($"[전투 준비] {combatant.name}: {failureReason}");
-                    hud?.SetActionMessage(message);
-                    return;
+                    failureReason =
+                        $"전투 시작 실패: {combatant.DisplayName} - {loadoutFailureReason}";
+                    Debug.LogError($"[전투 준비] {combatant.name}: {loadoutFailureReason}");
+                    hud?.SetActionMessage(failureReason);
+                    return false;
                 }
             }
 
@@ -66,6 +71,8 @@ namespace GridSquad
                     ?.StartBehaviorForBattle();
             }
             Debug.Log("[전투 준비] 모든 유닛의 무기 로드아웃 초기화 완료");
+            failureReason = string.Empty;
+            return true;
         }
 
         public void ConfigureCombatants(IReadOnlyList<Combatant> stageCombatants)

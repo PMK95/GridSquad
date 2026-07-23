@@ -83,7 +83,7 @@ namespace GridSquad
 
     internal sealed class StatModifierActionExecutor : CombatActionExecutorBase
     {
-        private float windupRemaining;
+        private float recoveryDuration;
 
         public StatModifierActionExecutor(
             CombatActionController owner,
@@ -113,16 +113,20 @@ namespace GridSquad
             Actor.PrepareForExclusiveCombatAction();
             float animationDuration = PlayConfiguredAnimation(
                 Runtime.GetBehavior<StatModifierActionBehaviorDefinition>().AnimationKind);
-            windupRemaining = Mathf.Max(
+            float windupDuration = Mathf.Max(
                 Runtime.Definition.WindupSeconds,
                 animationDuration * 0.45f);
+            recoveryDuration = Mathf.Max(
+                Runtime.Definition.RecoverySeconds,
+                animationDuration - windupDuration);
+            Runtime.BeginWindup(windupDuration);
             return true;
         }
 
         public override CombatActionExecutionStatus Tick(float deltaTime)
         {
-            windupRemaining -= deltaTime;
-            if (windupRemaining > 0f)
+            if (Runtime.Phase == CombatActionExecutionPhase.Windup
+                && Runtime.PhaseRemaining > 0f)
                 return CombatActionExecutionStatus.Running;
 
             StatModifierActionBehaviorDefinition behavior =
@@ -130,27 +134,39 @@ namespace GridSquad
             if (behavior == null)
                 return CombatActionExecutionStatus.Failed;
 
-            Runtime.ConsumeChargeAndStartCooldown();
-            string sourceKey = $"action:{Runtime.RuntimeKey}:stat";
-            if (behavior.Lifetime == UnitStatModifierLifetime.Timed)
+            if (!Runtime.EffectCommitted)
             {
-                Actor.AddTimedStatModifiers(
-                    sourceKey,
-                    Runtime.Definition.DisplayName,
-                    Runtime.Definition.Icon,
-                    UnitStatModifierSourceKind.Action,
-                    behavior.Modifiers,
-                    behavior.DurationSeconds);
+                string sourceKey = $"action:{Runtime.RuntimeKey}:stat";
+                UnitStatModifierHandle handle;
+                if (behavior.Lifetime == UnitStatModifierLifetime.Timed)
+                {
+                    handle = Actor.AddTimedStatModifiers(
+                        sourceKey,
+                        Runtime.Definition.DisplayName,
+                        Runtime.Definition.Icon,
+                        UnitStatModifierSourceKind.Action,
+                        behavior.Modifiers,
+                        behavior.DurationSeconds);
+                }
+                else
+                {
+                    handle = Actor.AddPersistentStatModifiers(
+                        sourceKey,
+                        Runtime.Definition.DisplayName,
+                        Runtime.Definition.Icon,
+                        UnitStatModifierSourceKind.Action,
+                        behavior.Modifiers);
+                }
+                if (!handle.IsValid)
+                    return CombatActionExecutionStatus.Failed;
+                Runtime.CommitEffect(recoveryDuration);
+                return CombatActionExecutionStatus.Running;
             }
-            else
-            {
-                Actor.AddPersistentStatModifiers(
-                    sourceKey,
-                    Runtime.Definition.DisplayName,
-                    Runtime.Definition.Icon,
-                    UnitStatModifierSourceKind.Action,
-                    behavior.Modifiers);
-            }
+            if (Runtime.Phase == CombatActionExecutionPhase.Active)
+                Runtime.BeginRecovery(recoveryDuration);
+            if (Runtime.PhaseRemaining > 0f)
+                return CombatActionExecutionStatus.Running;
+            Runtime.CompleteActionAndStartCooldown();
             return CombatActionExecutionStatus.Completed;
         }
 

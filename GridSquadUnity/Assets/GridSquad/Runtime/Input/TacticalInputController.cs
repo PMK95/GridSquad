@@ -34,6 +34,7 @@ namespace GridSquad
         private string targetingActionRuntimeKey;
         private bool paused;
         private float activeTimeScale = 1f;
+        private bool runtimeInitialized;
 
         public bool Paused => paused;
         public float ActiveTimeScale => activeTimeScale;
@@ -42,14 +43,11 @@ namespace GridSquad
         public bool IsTargetCommandActive => targetingMode && targetingActionDefinition == null;
         public CombatActionDefinition TargetingActionDefinition => targetingActionDefinition;
 
-        private void Awake()
+        public void InitializeRuntime(MMTimeManager newTimeManager = null)
         {
-            if (timeManager == null)
-                timeManager = FindFirstObjectByType<MMTimeManager>();
-            if (contextMenu == null)
-                contextMenu = FindFirstObjectByType<ContextFloatingMenuController>();
-            if (detailWindow == null)
-                detailWindow = FindFirstObjectByType<SelectionDetailWindowController>();
+            if (runtimeInitialized)
+                return;
+            timeManager = newTimeManager != null ? newTimeManager : timeManager;
             if (coverLayerMask.value == 0)
             {
                 int coverLayer = LayerMask.NameToLayer("Cover");
@@ -63,11 +61,15 @@ namespace GridSquad
             hud.SetDebugState(false);
             hud.SetSelectedEntity(null);
             gridCombatIndicator.SetSelectedCombatant(null);
+            runtimeInitialized = true;
+            if (isActiveAndEnabled)
+                tacticalMap.Enable();
         }
 
         private void OnEnable()
         {
-            tacticalMap?.Enable();
+            if (runtimeInitialized)
+                tacticalMap?.Enable();
             if (selectedEntity != null)
             {
                 selectedEntity.BecameUnavailable -= HandleSelectedEntityUnavailable;
@@ -92,6 +94,8 @@ namespace GridSquad
 
         private void Update()
         {
+            if (!runtimeInitialized)
+                return;
             if (director.BattleFinished)
             {
                 if (ActionPressed("ToggleDebug"))

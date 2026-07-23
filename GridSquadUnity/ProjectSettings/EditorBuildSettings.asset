@@ -6,6 +6,12 @@ EditorBuildSettings:
   serializedVersion: 2
   m_Scenes:
   - enabled: 1
+    path: Assets/GridSquad/Scenes/Entry.unity
+    guid: 87f7466722d7e6546ad6f05140d97204
+  - enabled: 1
+    path: Assets/GridSquad/Scenes/GridSquadLoading.unity
+    guid: fa20cfe8ea29b5648bb2bb49d1482384
+  - enabled: 1
     path: Assets/GridSquad/Scenes/BasePrototype.unity
     guid: bdf329311ca762a419af3c2b4fd49fcf
   - enabled: 1

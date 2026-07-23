@@ -20,7 +20,7 @@ MonoBehaviour:
   automaticInFullAuto: 1
   automaticInSemiAuto: 1
   startingCharges: -1
-  cooldownSeconds: 0.5
+  cooldownSeconds: 0
   windupSeconds: 0
   playerSlotOrder: 0
   displayKind: 0

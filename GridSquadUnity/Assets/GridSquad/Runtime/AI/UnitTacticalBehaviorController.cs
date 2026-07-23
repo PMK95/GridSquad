@@ -22,6 +22,7 @@ namespace GridSquad
         [SerializeField] private CombatCommandState commandState;
         [SerializeField] private CombatActionController actionController;
         [SerializeField] private CombatDecisionCoordinator decisionCoordinator;
+        private bool runtimeInitialized;
 
         public bool AutonomousMovementAllowed => CombatControlPolicy.Create(
             combatant != null ? combatant.Team : Team.Ally,
@@ -39,6 +40,13 @@ namespace GridSquad
         private void Awake()
         {
             EnsureAbilityComponents();
+        }
+
+        public void InitializeRuntime()
+        {
+            if (runtimeInitialized)
+                return;
+            EnsureAbilityComponents();
             actionController.ConfigureRuntime(
                 combatant,
                 gridMap,
@@ -52,22 +60,13 @@ namespace GridSquad
                 tuning,
                 commandState,
                 actionController);
+            runtimeInitialized = true;
         }
 
         private void OnEnable()
         {
             if (combatant != null)
                 combatant.Died += HandleCombatantDied;
-        }
-
-        private void Start()
-        {
-            SetControlMode(director != null
-                ? director.GetControlModeFor(combatant)
-                : autonomousMovementDefault
-                    ? CombatControlMode.FullAutomatic
-                    : CombatControlMode.PlayerMovementAutomaticActions);
-            SetAutomaticPeekAllowed(automaticPeekDefault);
         }
 
         private void OnDisable()
@@ -142,8 +141,24 @@ namespace GridSquad
             behaviorAgent?.End();
         }
 
+        public void SuspendUntilBattleStart()
+        {
+            EnsureAbilityComponents();
+            decisionCoordinator?.InterruptCurrentIntent(
+                CombatActionInterruptReason.CombatEnded);
+            commandState?.ClearAllCommands();
+            behaviorAgent?.End();
+        }
+
         public void StartBehaviorForBattle()
         {
+            InitializeRuntime();
+            SetControlMode(director != null
+                ? director.GetControlModeFor(combatant)
+                : autonomousMovementDefault
+                    ? CombatControlMode.FullAutomatic
+                    : CombatControlMode.PlayerMovementAutomaticActions);
+            SetAutomaticPeekAllowed(automaticPeekDefault);
             decisionCoordinator?.ResetForBattle();
             behaviorAgent?.Restart();
         }

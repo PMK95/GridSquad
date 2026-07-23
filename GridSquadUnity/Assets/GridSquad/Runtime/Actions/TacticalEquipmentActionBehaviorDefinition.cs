@@ -99,8 +99,7 @@ namespace GridSquad
             List<CombatActionCandidate> results)
         {
             if (!Runtime.IsAutomaticUseAllowed(context)
-                || Runtime.RemainingCharges == 0
-                || Runtime.CooldownRemaining > 0f)
+                || !Runtime.CanUse(out _))
             {
                 return;
             }
@@ -238,7 +237,7 @@ namespace GridSquad
     internal sealed class TacticalEquipmentActionExecutor : CombatActionExecutorBase
     {
         private CombatActionCandidate activeCandidate;
-        private float windupRemaining;
+        private float recoveryDuration;
 
         public TacticalEquipmentActionExecutor(
             CombatActionController owner,
@@ -280,16 +279,20 @@ namespace GridSquad
             Actor.PrepareForExclusiveCombatAction();
             float animationDuration = PlayConfiguredAnimation(
                 Runtime.GetBehavior<TacticalEquipmentActionBehaviorDefinition>().AnimationKind);
-            windupRemaining = Mathf.Max(
+            float windupDuration = Mathf.Max(
                 Runtime.Definition.WindupSeconds,
                 animationDuration * 0.45f);
+            recoveryDuration = Mathf.Max(
+                Runtime.Definition.RecoverySeconds,
+                animationDuration - windupDuration);
+            Runtime.BeginWindup(windupDuration);
             return true;
         }
 
         public override CombatActionExecutionStatus Tick(float deltaTime)
         {
-            windupRemaining -= deltaTime;
-            if (windupRemaining > 0f)
+            if (Runtime.Phase == CombatActionExecutionPhase.Windup
+                && Runtime.PhaseRemaining > 0f)
                 return CombatActionExecutionStatus.Running;
 
             TacticalEquipmentActionBehaviorDefinition behavior =
@@ -297,8 +300,18 @@ namespace GridSquad
             if (behavior == null)
                 return CombatActionExecutionStatus.Failed;
 
-            Runtime.ConsumeChargeAndStartCooldown();
-            ApplyConfiguredEffect(behavior);
+            if (!Runtime.EffectCommitted)
+            {
+                if (!ApplyConfiguredEffect(behavior))
+                    return CombatActionExecutionStatus.Failed;
+                Runtime.CommitEffect(recoveryDuration);
+                return CombatActionExecutionStatus.Running;
+            }
+            if (Runtime.Phase == CombatActionExecutionPhase.Active)
+                Runtime.BeginRecovery(recoveryDuration);
+            if (Runtime.PhaseRemaining > 0f)
+                return CombatActionExecutionStatus.Running;
+            Runtime.CompleteActionAndStartCooldown();
             return CombatActionExecutionStatus.Completed;
         }
 
@@ -314,13 +327,12 @@ namespace GridSquad
             };
         }
 
-        private void ApplyConfiguredEffect(TacticalEquipmentActionBehaviorDefinition behavior)
+        private bool ApplyConfiguredEffect(TacticalEquipmentActionBehaviorDefinition behavior)
         {
             switch (behavior.Effect)
             {
                 case TacticalEquipmentActionEffect.RestoreHealth:
-                    Actor.RestoreHealth(behavior.EffectAmount);
-                    break;
+                    return Actor.RestoreHealth(behavior.EffectAmount) > 0;
                 case TacticalEquipmentActionEffect.CombatStim:
                     Actor.ApplyStim(
                         $"action:{Runtime.RuntimeKey}:stim",
@@ -329,34 +341,35 @@ namespace GridSquad
                         behavior.DurationSeconds,
                         behavior.MovementSpeedMultiplier,
                         behavior.FireIntervalMultiplier);
-                    break;
+                    return true;
                 case TacticalEquipmentActionEffect.TemporaryBarrier:
                     Actor.ApplyTemporaryBarrier(
                         behavior.EffectAmount,
                         behavior.DurationSeconds);
-                    break;
+                    return true;
                 case TacticalEquipmentActionEffect.ReplenishAmmunition:
-                    Actor.ReplenishWeaponAmmunition(behavior.EffectAmount);
-                    break;
+                    return Actor.ReplenishWeaponAmmunition(behavior.EffectAmount) > 0;
                 case TacticalEquipmentActionEffect.DirectDamage:
-                    ApplyDirectDamage(behavior);
-                    break;
+                    return ApplyDirectDamage(behavior);
+                default:
+                    return false;
             }
         }
 
-        private void ApplyDirectDamage(TacticalEquipmentActionBehaviorDefinition behavior)
+        private bool ApplyDirectDamage(TacticalEquipmentActionBehaviorDefinition behavior)
         {
             ShootableTarget target = activeCandidate.Target;
             if (target == null || !target.IsAlive)
-                return;
+                return false;
             target.ApplyDamage(new CombatDamageRequest(Actor, Actor.Weapon, behavior.EffectAmount));
             Combatant targetCombatant = target.Combatant;
             if (targetCombatant == null)
-                return;
+                return true;
             if (behavior.StunSeconds > 0f)
                 targetCombatant.ApplyStun(behavior.StunSeconds);
             if (behavior.KnockbackCells > 0)
                 targetCombatant.TryApplyKnockback(Actor.CurrentCell, behavior.KnockbackCells);
+            return true;
         }
     }
 }

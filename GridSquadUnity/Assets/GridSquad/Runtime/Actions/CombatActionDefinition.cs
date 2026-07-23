@@ -46,6 +46,15 @@ namespace GridSquad
         Interrupted
     }
 
+    public enum CombatActionExecutionPhase
+    {
+        Idle,
+        Windup,
+        Active,
+        Recovery,
+        Cooldown
+    }
+
     public enum CombatActionDisplayKind
     {
         Active,
@@ -60,7 +69,8 @@ namespace GridSquad
         TargetInvalid,
         CombatEnded,
         OwnerDied,
-        Stunned
+        Stunned,
+        HitReaction
     }
 
     [CreateAssetMenu(menuName = "GridSquad/Combat Action Definition", fileName = "CombatActionDefinition")]
@@ -76,6 +86,7 @@ namespace GridSquad
         [SerializeField, Min(-1)] private int startingCharges = -1;
         [SerializeField, Min(0f)] private float cooldownSeconds;
         [SerializeField, Min(0f)] private float windupSeconds = 0.5f;
+        [SerializeField, Min(0f)] private float recoverySeconds;
         [SerializeField] private int playerSlotOrder = 100;
         [SerializeField] private CombatActionDisplayKind displayKind;
 
@@ -95,6 +106,7 @@ namespace GridSquad
         public int StartingCharges => startingCharges;
         public float CooldownSeconds => cooldownSeconds;
         public float WindupSeconds => windupSeconds;
+        public float RecoverySeconds => recoverySeconds;
         public int PlayerSlotOrder => playerSlotOrder;
         public CombatActionDisplayKind DisplayKind => displayKind;
 
@@ -135,7 +147,8 @@ namespace GridSquad
             bool newAutomaticInSemiAuto,
             int newStartingCharges,
             float newCooldownSeconds,
-            float newWindupSeconds)
+            float newWindupSeconds,
+            float newRecoverySeconds = 0f)
         {
             actionId = newActionId;
             displayName = newDisplayName;
@@ -145,6 +158,7 @@ namespace GridSquad
             startingCharges = newStartingCharges;
             cooldownSeconds = newCooldownSeconds;
             windupSeconds = newWindupSeconds;
+            recoverySeconds = newRecoverySeconds;
         }
 
         public void SetEditorPresentation(string newDescription, Sprite newIcon)

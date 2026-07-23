@@ -162,6 +162,8 @@ namespace GridSquad
                 return true;
             if (combatant.IsStunned)
                 return true;
+            if (combatant.IsHitReacting)
+                return true;
             if (selectedIntent.Candidate.Target != null
                 && !selectedIntent.Candidate.Target.IsAlive)
             {
@@ -191,6 +193,8 @@ namespace GridSquad
                 return CombatActionInterruptReason.OwnerDied;
             if (combatant.IsStunned)
                 return CombatActionInterruptReason.Stunned;
+            if (combatant.IsHitReacting)
+                return CombatActionInterruptReason.HitReaction;
             if (director == null || !director.BattleStarted || director.BattleFinished)
                 return CombatActionInterruptReason.CombatEnded;
             if (selectedIntent.Candidate.Target != null

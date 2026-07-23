@@ -39,8 +39,7 @@ namespace GridSquad
             List<CombatActionCandidate> results)
         {
             if (!Runtime.IsAutomaticUseAllowed(context)
-                || Runtime.RemainingCharges == 0
-                || Runtime.CooldownRemaining > 0f
+                || !Runtime.CanUse(out _)
                 || context.Actor.CurrentHealth >= context.Actor.MaximumHealth)
             {
                 return;
@@ -60,7 +59,7 @@ namespace GridSquad
 
     internal sealed class RestoreHealthExecutor : CombatActionExecutorBase
     {
-        private float windupRemaining;
+        private float recoveryDuration;
 
         public RestoreHealthExecutor(CombatActionController owner, CombatActionRuntime runtime)
             : base(owner, runtime)
@@ -83,17 +82,35 @@ namespace GridSquad
             Actor.StopMovementAtCurrentCell();
             Actor.PrepareForExclusiveCombatAction();
             float animationDuration = Actor.PlayUseItemAnimation();
-            windupRemaining = Mathf.Max(Runtime.Definition.WindupSeconds, animationDuration * 0.5f);
+            float windupDuration = Mathf.Max(
+                Runtime.Definition.WindupSeconds,
+                animationDuration * 0.5f);
+            recoveryDuration = Mathf.Max(
+                Runtime.Definition.RecoverySeconds,
+                animationDuration - windupDuration);
+            Runtime.BeginWindup(windupDuration);
             return true;
         }
 
         public override CombatActionExecutionStatus Tick(float deltaTime)
         {
-            windupRemaining -= deltaTime;
-            if (windupRemaining > 0f)
+            if (Runtime.Phase == CombatActionExecutionPhase.Windup
+                && Runtime.PhaseRemaining > 0f)
                 return CombatActionExecutionStatus.Running;
-            Actor.RestoreHealth(Runtime.GetBehavior<RestoreHealthActionBehaviorDefinition>().RestoreAmount);
-            Runtime.ConsumeChargeAndStartCooldown();
+            if (!Runtime.EffectCommitted)
+            {
+                int restored = Actor.RestoreHealth(
+                    Runtime.GetBehavior<RestoreHealthActionBehaviorDefinition>().RestoreAmount);
+                if (restored <= 0)
+                    return CombatActionExecutionStatus.Failed;
+                Runtime.CommitEffect(recoveryDuration);
+                return CombatActionExecutionStatus.Running;
+            }
+            if (Runtime.Phase == CombatActionExecutionPhase.Active)
+                Runtime.BeginRecovery(recoveryDuration);
+            if (Runtime.PhaseRemaining > 0f)
+                return CombatActionExecutionStatus.Running;
+            Runtime.CompleteActionAndStartCooldown();
             return CombatActionExecutionStatus.Completed;
         }
     }

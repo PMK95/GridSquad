@@ -1,4 +1,3 @@
-using System.Collections;
 using MoreMountains.Tools;
 using UnityEngine;
 
@@ -16,18 +15,22 @@ namespace GridSquad
         [SerializeField] private CombatDirector director;
         [SerializeField] private TacticalInputController inputController;
         private UnitTacticalBehaviorController[] behaviorControllers;
+        private bool runtimeInitialized;
 
-        private void Awake()
+        public void InitializeRuntime(
+            CombatDirector newDirector,
+            TacticalInputController newInputController,
+            UnitTacticalBehaviorController[] newBehaviorControllers)
         {
-            if (director == null)
-                director = FindFirstObjectByType<CombatDirector>();
-            if (inputController == null)
-                inputController = FindFirstObjectByType<TacticalInputController>();
-            if (behaviorControllers == null || behaviorControllers.Length == 0)
-            {
-                behaviorControllers = FindObjectsByType<UnitTacticalBehaviorController>(
-                    FindObjectsSortMode.None);
-            }
+            director = newDirector != null ? newDirector : director;
+            inputController = newInputController != null
+                ? newInputController
+                : inputController;
+            behaviorControllers = newBehaviorControllers
+                ?? behaviorControllers
+                ?? System.Array.Empty<UnitTacticalBehaviorController>();
+            runtimeInitialized = true;
+            SynchronizeMenuControls();
         }
 
         private void OnEnable()
@@ -44,14 +47,10 @@ namespace GridSquad
             MMDebugMenuButtonEvent.Unregister(HandleButtonPressed);
         }
 
-        private IEnumerator Start()
-        {
-            yield return null;
-            SynchronizeMenuControls();
-        }
-
         private void SynchronizeMenuControls()
         {
+            if (!runtimeInitialized)
+                return;
             if (director != null)
             {
                 MMDebugMenuCheckboxEvent.Trigger(

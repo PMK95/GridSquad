@@ -52,6 +52,7 @@ namespace GridSquad
         [SerializeField] private CombatantFacingController facingController;
 
         private bool debugVisible;
+        private bool runtimeInitialized;
         private readonly UnitRuntimeStatCollection effectiveStats = new();
 
         public event Action<Combatant> Died;
@@ -197,7 +198,19 @@ namespace GridSquad
                 animationController = GetComponentInChildren<UnitAnimationController>(true);
             if (feedbackPresenter == null)
                 feedbackPresenter = GetComponentInChildren<CombatantFeedbackPresenter>(true);
+        }
 
+        public void InitializeRuntime()
+        {
+            if (runtimeInitialized)
+                return;
+            EnsureAbilityComponents();
+            if (weaponLoadout == null)
+                weaponLoadout = GetComponent<WeaponLoadout>();
+            if (animationController == null)
+                animationController = GetComponentInChildren<UnitAnimationController>(true);
+            if (feedbackPresenter == null)
+                feedbackPresenter = GetComponentInChildren<CombatantFeedbackPresenter>(true);
             if (unitDefinition != null)
             {
                 inventory?.ApplyUnitDefinitionDefaults(unitDefinition);
@@ -259,11 +272,12 @@ namespace GridSquad
             animationController?.Initialize();
             worldUi?.Initialize(this);
             worldUi?.SetSelected(false);
+            runtimeInitialized = true;
         }
 
         private void Update()
         {
-            if (!IsAlive)
+            if (!runtimeInitialized || !IsAlive)
                 return;
 
             if (effectiveStats.TickTimedModifiers(Time.deltaTime))
@@ -620,6 +634,41 @@ namespace GridSquad
         {
             rangedAttackController?.TickAutomaticFireCycleFromBehavior();
         }
+
+        public bool TryBeginPreparedShot(
+            ShootableTarget target,
+            out float windupDuration,
+            out string failureReason)
+        {
+            if (rangedAttackController == null)
+            {
+                windupDuration = 0f;
+                failureReason = "사격 컴포넌트가 없습니다.";
+                return false;
+            }
+            return rangedAttackController.TryBeginPreparedShot(
+                target,
+                out windupDuration,
+                out failureReason);
+        }
+
+        public PreparedShotStatus TickPreparedShot(
+            float deltaTime,
+            out string failureReason)
+        {
+            if (rangedAttackController != null)
+                return rangedAttackController.TickPreparedShot(deltaTime, out failureReason);
+            failureReason = "사격 컴포넌트가 없습니다.";
+            return PreparedShotStatus.Failed;
+        }
+
+        public float GetPreparedShotRecoveryDuration()
+            => rangedAttackController != null
+                ? rangedAttackController.GetPreparedShotRecoveryDuration()
+                : 0f;
+
+        public void CompletePreparedShotRecovery()
+            => rangedAttackController?.CompletePreparedShotRecovery();
 
         public void ResetBehaviorFireCycle()
         {

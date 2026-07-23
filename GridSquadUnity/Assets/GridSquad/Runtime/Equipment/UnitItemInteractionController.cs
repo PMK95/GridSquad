@@ -11,6 +11,7 @@ namespace GridSquad
         private UnitInventory inventory;
         private WorldItemPickup pendingPickup;
         private CombatHudController hud;
+        private bool runtimeInitialized;
 
         public event Action<string> CommandMessage;
         public WorldItemPickup PendingPickup => pendingPickup;
@@ -19,12 +20,19 @@ namespace GridSquad
         {
             owner = GetComponent<Combatant>();
             inventory = GetComponent<UnitInventory>();
-            hud = FindFirstObjectByType<CombatHudController>();
+        }
+
+        public void InitializeRuntime(CombatHudController newHud)
+        {
+            owner = owner != null ? owner : GetComponent<Combatant>();
+            inventory = inventory != null ? inventory : GetComponent<UnitInventory>();
+            hud = newHud;
+            runtimeInitialized = true;
         }
 
         private void Update()
         {
-            if (pendingPickup == null)
+            if (!runtimeInitialized || pendingPickup == null)
                 return;
             if (!pendingPickup.IsAvailable)
             {

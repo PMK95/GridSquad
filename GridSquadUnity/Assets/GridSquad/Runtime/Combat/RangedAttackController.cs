@@ -96,6 +96,26 @@ namespace GridSquad
         public void TickAutomaticFireCycleFromBehavior()
             => fireCycle.Tick();
 
+        public bool TryBeginPreparedShot(
+            ShootableTarget target,
+            out float windupDuration,
+            out string failureReason)
+            => fireCycle.TryBeginPreparedShot(
+                target,
+                out windupDuration,
+                out failureReason);
+
+        public PreparedShotStatus TickPreparedShot(
+            float deltaTime,
+            out string failureReason)
+            => fireCycle.TickPreparedShot(deltaTime, out failureReason);
+
+        public float GetPreparedShotRecoveryDuration()
+            => fireCycle.GetPreparedShotRecoveryDuration();
+
+        public void CompletePreparedShotRecovery()
+            => fireCycle.CompletePreparedShotRecovery();
+
         public bool InitializeWeaponLoadoutForBattle(out string failureReason)
         {
             bool initialized = weaponRuntime.InitializeLoadoutForBattle(out failureReason);

@@ -64,6 +64,9 @@ namespace GridSquad
             ChangeState(GameFlowState.BaseReady);
         }
 
+        public void NotifyBaseSceneLoading()
+            => ChangeState(GameFlowState.ReturningToBase);
+
         public bool TryStartMission(
             MissionDefinition mission,
             IReadOnlyList<string> selectedUnitIds,

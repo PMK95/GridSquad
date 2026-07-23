@@ -21,6 +21,7 @@ namespace GridSquad
         private bool registered;
         private MaterialPropertyBlock damageFlashProperties;
         private float damageFlashEndTime;
+        private bool runtimeInitialized;
 
         public TacticalEntity Entity => entity;
         public EntityHealth Health => health;
@@ -35,24 +36,6 @@ namespace GridSquad
                 coverCollider = GetComponent<Collider>();
             if (coverRenderer == null)
                 coverRenderer = GetComponent<Renderer>();
-            gridMap = GetComponentInParent<GridMap>();
-            currentCell = gridMap != null ? gridMap.WorldToGrid(transform.position) : default;
-            entity.ConfigureRuntime("엄폐물", null, currentCell);
-            health.Initialize(maximumHealth, true);
-            shootableTarget.ConfigureRuntime(
-                entity,
-                health,
-                null,
-                transform,
-                coverCollider,
-                true);
-            health.DamageApplied += HandleDamageApplied;
-            health.HealthDepleted += HandleHealthDepleted;
-        }
-
-        private void Start()
-        {
-            RegisterWithGridMap();
         }
 
         private void Update()
@@ -78,6 +61,10 @@ namespace GridSquad
         public void ConfigureRuntime(GridMap newGridMap)
         {
             EnsureAbilityComponents();
+            if (coverCollider == null)
+                coverCollider = GetComponent<Collider>();
+            if (coverRenderer == null)
+                coverRenderer = GetComponent<Renderer>();
             gridMap = newGridMap;
             currentCell = gridMap != null ? gridMap.WorldToGrid(transform.position) : default;
             entity.ConfigureRuntime("엄폐물", null, currentCell);
@@ -89,6 +76,12 @@ namespace GridSquad
                 transform,
                 coverCollider != null ? coverCollider : GetComponent<Collider>(),
                 true);
+            if (!runtimeInitialized)
+            {
+                health.DamageApplied += HandleDamageApplied;
+                health.HealthDepleted += HandleHealthDepleted;
+                runtimeInitialized = true;
+            }
             if (Application.isPlaying)
                 RegisterWithGridMap();
         }

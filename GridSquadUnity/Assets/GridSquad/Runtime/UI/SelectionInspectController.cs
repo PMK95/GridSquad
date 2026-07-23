@@ -132,18 +132,30 @@ namespace GridSquad
         private ColorBlock equipmentButtonColors;
         private ColorBlock traitsButtonColors;
         private bool detailButtonColorsCached;
+        private bool runtimeInitialized;
 
         private void Awake()
         {
-            inputController = inputController != null
-                ? inputController
-                : FindFirstObjectByType<TacticalInputController>();
             CacheDetailButtonColors();
+        }
+
+        public void InitializeRuntime(TacticalInputController newInputController)
+        {
+            inputController = newInputController != null
+                ? newInputController
+                : inputController;
+            if (runtimeInitialized)
+                return;
+            if (!detailButtonColorsCached)
+                CacheDetailButtonColors();
             BindDetailButtons();
+            runtimeInitialized = true;
         }
 
         private void Update()
         {
+            if (!runtimeInitialized)
+                return;
             TacticalEntity selected = inputController != null ? inputController.SelectedEntity : null;
             if (selected != previousSelection)
             {
@@ -248,9 +260,7 @@ namespace GridSquad
                 float cooldownDuration = state.Definition != null
                     ? state.Definition.CooldownSeconds
                     : 0f;
-                actionViews[index].SetCooldownProgress(
-                    state.CooldownRemaining,
-                    cooldownDuration);
+                actionViews[index].SetExecutionProgress(state, cooldownDuration);
                 if (state.Definition != null)
                 {
                     actionViews[index].SetTooltipContent(

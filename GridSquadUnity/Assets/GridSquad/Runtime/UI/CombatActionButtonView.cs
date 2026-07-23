@@ -62,6 +62,7 @@ namespace GridSquad
         {
             EnsureReferences();
             bool coolingDown = remainingSeconds > 0f && durationSeconds > 0f;
+            cooldownFill.color = new Color(0.015f, 0.025f, 0.04f, 0.82f);
             cooldownFill.gameObject.SetActive(coolingDown);
             cooldownText.gameObject.SetActive(coolingDown);
             if (!coolingDown)
@@ -75,6 +76,56 @@ namespace GridSquad
             cooldownText.text = remainingSeconds >= 10f
                 ? Mathf.CeilToInt(remainingSeconds).ToString()
                 : remainingSeconds.ToString("0.0");
+        }
+
+        public void SetExecutionProgress(
+            CombatActionRuntimeState state,
+            float cooldownDuration)
+        {
+            EnsureReferences();
+            if (state.IsReloading)
+            {
+                float duration = state.ReloadProgress < 1f
+                    ? state.ReloadRemaining / Mathf.Max(0.001f, 1f - state.ReloadProgress)
+                    : state.ReloadRemaining;
+                SetPhaseProgress(
+                    "장전",
+                    state.ReloadRemaining,
+                    duration,
+                    new Color(0.08f, 0.24f, 0.42f, 0.86f));
+                return;
+            }
+
+            switch (state.ExecutionPhase)
+            {
+                case CombatActionExecutionPhase.Windup:
+                    SetPhaseProgress(
+                        "준비",
+                        state.PhaseRemaining,
+                        state.PhaseDuration,
+                        new Color(0.42f, 0.28f, 0.04f, 0.86f));
+                    return;
+                case CombatActionExecutionPhase.Active:
+                    SetPhaseProgress(
+                        "실행",
+                        1f,
+                        1f,
+                        new Color(0.48f, 0.08f, 0.06f, 0.86f));
+                    return;
+                case CombatActionExecutionPhase.Recovery:
+                    SetPhaseProgress(
+                        "후딜",
+                        state.PhaseRemaining,
+                        state.PhaseDuration,
+                        new Color(0.04f, 0.3f, 0.38f, 0.86f));
+                    return;
+                case CombatActionExecutionPhase.Cooldown:
+                    SetCooldownProgress(state.CooldownRemaining, cooldownDuration);
+                    return;
+                default:
+                    SetCooldownProgress(0f, 0f);
+                    return;
+            }
         }
 
         public void SetTooltipContent(
@@ -189,10 +240,11 @@ namespace GridSquad
             hotkeyRect.offsetMin = hotkeyRect.offsetMax = Vector2.zero;
             hotkeyText.alignment = TextAnchor.LowerLeft;
             hotkeyText.fontStyle = FontStyle.Bold;
-            cooldownText.rectTransform.anchorMin = new Vector2(0.48f, 0f);
-            cooldownText.rectTransform.anchorMax = new Vector2(0.96f, 0.38f);
+            cooldownText.rectTransform.anchorMin = Vector2.zero;
+            cooldownText.rectTransform.anchorMax = Vector2.one;
             cooldownText.rectTransform.offsetMin = cooldownText.rectTransform.offsetMax = Vector2.zero;
-            cooldownText.alignment = TextAnchor.LowerRight;
+            cooldownText.alignment = TextAnchor.MiddleCenter;
+            cooldownText.fontSize = 12;
             nameText.gameObject.SetActive(false);
             statusText.gameObject.SetActive(false);
             if (cooldownText.transform.GetSiblingIndex() != transform.childCount - 1)
@@ -235,6 +287,24 @@ namespace GridSquad
             destination.sizeDelta = source.sizeDelta;
             destination.offsetMin = source.offsetMin;
             destination.offsetMax = source.offsetMax;
+        }
+
+        private void SetPhaseProgress(
+            string label,
+            float remainingSeconds,
+            float durationSeconds,
+            Color fillColor)
+        {
+            bool visible = durationSeconds > 0f || !string.IsNullOrEmpty(label);
+            cooldownFill.gameObject.SetActive(visible);
+            cooldownText.gameObject.SetActive(visible);
+            cooldownFill.color = fillColor;
+            cooldownFill.fillAmount = durationSeconds > 0f
+                ? Mathf.Clamp01(remainingSeconds / durationSeconds)
+                : 1f;
+            cooldownText.text = remainingSeconds > 0.05f
+                ? $"{label} {remainingSeconds:0.0}"
+                : label;
         }
 
         private static string GetTargetingLabel(CombatActionTargetingMode targetingMode)

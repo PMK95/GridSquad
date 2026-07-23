@@ -26,14 +26,16 @@ namespace GridSquad
         private readonly List<string> selectedUnitIds = new();
         private readonly List<Toggle> rosterToggles = new();
         private PrototypeGameApplication application;
+        private bool runtimeInitialized;
 
-        private void Start()
+        public void InitializeRuntime(PrototypeGameApplication newApplication)
         {
-            application = PrototypeGameApplication.Instance;
+            if (runtimeInitialized)
+                return;
+            application = newApplication;
             if (application == null)
             {
                 Debug.LogError("[프로토타입 UI] PrototypeGameApplication을 찾지 못했습니다.", this);
-                enabled = false;
                 return;
             }
             application.StateChanged += Refresh;
@@ -43,12 +45,20 @@ namespace GridSquad
             extractButton.onClick.AddListener(application.ExtractToBase);
             BuildRoster();
             Refresh();
+            runtimeInitialized = true;
         }
 
         private void OnDestroy()
         {
             if (application != null)
                 application.StateChanged -= Refresh;
+            launchButton?.onClick.RemoveListener(LaunchMission);
+            repairAllButton?.onClick.RemoveListener(RepairAll);
+            if (application != null)
+            {
+                continueButton?.onClick.RemoveListener(application.ContinueToNextStage);
+                extractButton?.onClick.RemoveListener(application.ExtractToBase);
+            }
         }
 
         private void BuildRoster()

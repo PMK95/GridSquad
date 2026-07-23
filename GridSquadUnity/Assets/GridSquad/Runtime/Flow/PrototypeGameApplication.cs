@@ -12,12 +12,23 @@ namespace GridSquad
     {
         [SerializeField] private GameContentCatalog catalog;
         [SerializeField] private string baseScenePath = "Assets/GridSquad/Scenes/BasePrototype.unity";
+        [SerializeField] private bool persistAcrossSingleSceneLoads = true;
 
         private readonly List<MissionCombatantStateBridge> activeBridges = new();
         private GameFlowCoordinator flow;
+        private CombatDirector activeDirector;
+        private GameSceneTransitionManager sceneTransitionManager;
+        private StageLaunchRequest pendingStageRequest;
+        private PendingSceneTransition pendingSceneTransition;
         private bool transitionRunning;
-        private bool requestedStageSceneLoaded;
-        private string requestedStageScenePath;
+        private bool applicationInitialized;
+
+        private enum PendingSceneTransition
+        {
+            None,
+            Stage,
+            Base
+        }
 
         public static PrototypeGameApplication Instance { get; private set; }
         public event Action StateChanged;
@@ -53,24 +64,51 @@ namespace GridSquad
                 return;
             }
             Instance = this;
-            DontDestroyOnLoad(gameObject);
+            if (persistAcrossSingleSceneLoads)
+                DontDestroyOnLoad(gameObject);
+        }
+
+        public void InitializeApplication()
+        {
+            if (applicationInitialized)
+                return;
             if (catalog == null)
             {
                 Debug.LogError("[게임 흐름] 콘텐츠 카탈로그가 지정되지 않았습니다.", this);
-                enabled = false;
-                return;
+                throw new InvalidOperationException("콘텐츠 카탈로그가 지정되지 않았습니다.");
             }
             catalog.BuildIndexes();
             GameSessionState session = new(new BaseStateFactory().Create(catalog));
             flow = new GameFlowCoordinator(session, catalog);
             flow.StateChanged += HandleFlowStateChanged;
-            flow.EnterBase();
+            sceneTransitionManager =
+                GetComponent<GameSceneTransitionManager>()
+                ?? gameObject.AddComponent<GameSceneTransitionManager>();
+            sceneTransitionManager.InitializeRuntime();
+            sceneTransitionManager.DestinationSceneLoaded -= HandleDestinationSceneLoaded;
+            sceneTransitionManager.DestinationSceneLoaded += HandleDestinationSceneLoaded;
+            InitializeApplicationUserInterface();
+            applicationInitialized = true;
+        }
+
+        public void InitializeLoadedBaseScene(Scene scene)
+        {
+            if (!applicationInitialized || !scene.IsValid() || !scene.isLoaded)
+                return;
+            if (!MatchesBaseScene(scene))
+                return;
+            InitializeApplicationUserInterface();
+            if (!transitionRunning && flow.State == GameFlowState.Booting)
+                flow.EnterBase();
         }
 
         private void OnDestroy()
         {
+            if (sceneTransitionManager != null)
+                sceneTransitionManager.DestinationSceneLoaded -= HandleDestinationSceneLoaded;
             if (flow != null)
                 flow.StateChanged -= HandleFlowStateChanged;
+            ReleaseActiveCombatSceneBindings(false);
             if (Instance == this)
                 Instance = null;
         }
@@ -79,6 +117,11 @@ namespace GridSquad
             IReadOnlyList<string> selectedUnitIds,
             out string failureReason)
         {
+            if (!applicationInitialized || flow == null)
+            {
+                failureReason = "게임 애플리케이션 초기화가 완료되지 않았습니다.";
+                return false;
+            }
             if (transitionRunning)
             {
                 failureReason = "현재 화면을 전환하고 있습니다.";
@@ -93,15 +136,15 @@ namespace GridSquad
             {
                 return false;
             }
-            StartCoroutine(LoadNextStage());
-            return true;
+            return BeginLoadNextStage(out failureReason);
         }
 
         public void ContinueToNextStage()
         {
             if (!CanContinueStage || transitionRunning)
                 return;
-            StartCoroutine(LoadNextStage());
+            if (!BeginLoadNextStage(out string failureReason))
+                Debug.LogError($"[게임 흐름] 다음 스테이지 이동에 실패했습니다: {failureReason}", this);
         }
 
         public void ExtractToBase()
@@ -141,76 +184,122 @@ namespace GridSquad
             return repaired;
         }
 
-        private IEnumerator LoadNextStage()
+        public bool TryLoadInitialBaseScene(out string failureReason)
+        {
+            if (!applicationInitialized || flow == null)
+            {
+                failureReason = "게임 애플리케이션 초기화가 완료되지 않았습니다.";
+                return false;
+            }
+            if (flow.State != GameFlowState.Booting)
+            {
+                failureReason = flow.State == GameFlowState.BaseReady
+                    ? string.Empty
+                    : $"초기 기지 이동을 시작할 수 없는 상태입니다: {flow.State}";
+                return flow.State == GameFlowState.BaseReady;
+            }
+            flow.NotifyBaseSceneLoading();
+            return BeginSceneTransition(
+                PendingSceneTransition.Base,
+                baseScenePath,
+                true,
+                out failureReason);
+        }
+
+        private bool BeginLoadNextStage(out string failureReason)
         {
             transitionRunning = true;
-            StageLaunchRequest request = flow.CreateNextStageLaunchRequest();
-            flow.NotifyStageInitializationStarted();
-            Time.timeScale = 1f;
-            requestedStageSceneLoaded = false;
-            requestedStageScenePath = request.Stage.ScenePath;
-            SceneManager.sceneLoaded += HandleRequestedStageSceneLoaded;
-            AsyncOperation load = SceneManager.LoadSceneAsync(request.Stage.ScenePath);
-            if (load == null)
-            {
-                SceneManager.sceneLoaded -= HandleRequestedStageSceneLoaded;
-                flow.NotifyFailure($"스테이지 씬 로드를 시작하지 못했습니다: {request.Stage.ScenePath}");
-                transitionRunning = false;
-                yield break;
-            }
-
-            float timeoutAt = Time.realtimeSinceStartup + 30f;
-            while (!requestedStageSceneLoaded && Time.realtimeSinceStartup < timeoutAt)
-                yield return null;
-            SceneManager.sceneLoaded -= HandleRequestedStageSceneLoaded;
-            if (!requestedStageSceneLoaded)
-            {
-                flow.NotifyFailure($"스테이지 씬 로드 시간이 초과되었습니다: {request.Stage.ScenePath}");
-                transitionRunning = false;
-                yield break;
-            }
-            yield return null;
-
+            StageLaunchRequest request;
             try
             {
-                ConfigureLoadedCombatStage(request);
-                flow.NotifyStageStarted();
+                request = flow.CreateNextStageLaunchRequest();
+                flow.NotifyStageInitializationStarted();
             }
             catch (Exception exception)
             {
                 flow.NotifyFailure(exception.Message);
                 transitionRunning = false;
-                yield break;
+                failureReason = exception.Message;
+                return false;
             }
+            pendingStageRequest = request;
+            return BeginSceneTransition(
+                PendingSceneTransition.Stage,
+                request.Stage.ScenePath,
+                false,
+                out failureReason);
+        }
+
+        private bool BeginSceneTransition(
+            PendingSceneTransition transition,
+            string scenePath,
+            bool preserveActiveScene,
+            out string failureReason)
+        {
+            if (transitionRunning && pendingSceneTransition != PendingSceneTransition.None)
+            {
+                failureReason = "이미 다른 씬으로 이동하고 있습니다.";
+                return false;
+            }
+            transitionRunning = true;
+            pendingSceneTransition = transition;
+            if (sceneTransitionManager.TryLoadScene(
+                    scenePath,
+                    preserveActiveScene,
+                    out failureReason))
+                return true;
+
+            pendingSceneTransition = PendingSceneTransition.None;
             transitionRunning = false;
+            flow.NotifyFailure(failureReason);
+            return false;
         }
 
-        private void HandleRequestedStageSceneLoaded(Scene scene, LoadSceneMode mode)
+        private void HandleDestinationSceneLoaded(Scene scene)
         {
-            requestedStageSceneLoaded =
-                string.Equals(
-                    scene.path,
-                    requestedStageScenePath,
-                    StringComparison.Ordinal)
-                || string.Equals(
-                    scene.name,
-                    System.IO.Path.GetFileNameWithoutExtension(requestedStageScenePath),
-                    StringComparison.Ordinal);
+            PendingSceneTransition completedTransition = pendingSceneTransition;
+            pendingSceneTransition = PendingSceneTransition.None;
+            try
+            {
+                switch (completedTransition)
+                {
+                    case PendingSceneTransition.Stage:
+                        ConfigureLoadedCombatStage(pendingStageRequest, scene);
+                        flow.NotifyStageStarted();
+                        break;
+                    case PendingSceneTransition.Base:
+                        InitializeLoadedBaseScene(scene);
+                        flow.NotifyReturnedToBase();
+                        break;
+                    case PendingSceneTransition.None:
+                        return;
+                    default:
+                        throw new ArgumentOutOfRangeException();
+                }
+            }
+            catch (Exception exception)
+            {
+                ReleaseActiveCombatSceneBindings(false);
+                flow.NotifyFailure(exception.Message);
+            }
+            finally
+            {
+                transitionRunning = false;
+            }
         }
 
-        private void ConfigureLoadedCombatStage(StageLaunchRequest request)
+        private void ConfigureLoadedCombatStage(
+            StageLaunchRequest request,
+            Scene combatScene)
         {
-            CombatDirector director = FindFirstObjectByType<CombatDirector>()
-                ?? throw new InvalidOperationException("전투 씬에 CombatDirector가 없습니다.");
-            List<Combatant> allies = FindObjectsByType<Combatant>(
-                    FindObjectsInactive.Include,
-                    FindObjectsSortMode.None)
+            CombatSceneRuntimeContext runtime =
+                CombatSceneRuntimeInitializer.PrepareCombatScene(combatScene);
+            CombatDirector director = runtime.Director;
+            List<Combatant> allies = runtime.Combatants
                 .Where(unit => unit.Team == Team.Ally)
                 .OrderBy(unit => unit.name, StringComparer.Ordinal)
                 .ToList();
-            List<Combatant> enemies = FindObjectsByType<Combatant>(
-                    FindObjectsInactive.Include,
-                    FindObjectsSortMode.None)
+            List<Combatant> enemies = runtime.Combatants
                 .Where(unit => unit.Team == Team.Enemy)
                 .OrderBy(unit => unit.name, StringComparer.Ordinal)
                 .ToList();
@@ -258,20 +347,37 @@ namespace GridSquad
             }
 
             director.ConfigureCombatants(stageCombatants);
-            director.BattleConcluded += HandleBattleConcluded;
+            if (activeDirector != null)
+                activeDirector.BattleConcluded -= HandleBattleConcluded;
+            activeDirector = director;
+            activeDirector.BattleConcluded -= HandleBattleConcluded;
+            activeDirector.BattleConcluded += HandleBattleConcluded;
             director.SetAllyControlMode(CombatControlMode.PlayerMovementAutomaticActions);
-            director.StartBattleWithCurrentLoadouts();
+            CombatSceneRuntimeInitializer.InitializeCombatUserInterface(runtime);
+            if (!director.TryStartBattleWithCurrentLoadouts(out string failureReason))
+                throw new InvalidOperationException(failureReason);
         }
 
         private void HandleBattleConcluded(BattleResult result)
         {
-            CombatDirector director = FindFirstObjectByType<CombatDirector>();
-            if (director != null)
-                director.BattleConcluded -= HandleBattleConcluded;
-            foreach (MissionCombatantStateBridge bridge in activeBridges)
-                bridge?.CommitCurrentHealth();
-            activeBridges.Clear();
+            ReleaseActiveCombatSceneBindings(true);
             StartCoroutine(CompleteBattleAfterPresentation(result));
+        }
+
+        private void ReleaseActiveCombatSceneBindings(bool commitMissionState)
+        {
+            if (activeDirector != null)
+                activeDirector.BattleConcluded -= HandleBattleConcluded;
+            activeDirector = null;
+            foreach (MissionCombatantStateBridge bridge in activeBridges)
+            {
+                if (bridge == null)
+                    continue;
+                if (commitMissionState)
+                    bridge.CommitCurrentHealth();
+                bridge.UnbindFromMission();
+            }
+            activeBridges.Clear();
         }
 
         private IEnumerator CompleteBattleAfterPresentation(BattleResult result)
@@ -294,19 +400,33 @@ namespace GridSquad
         private void SettleAndReturnToBase(MissionEndReason reason)
         {
             flow.SettleMission(reason);
-            StartCoroutine(LoadBaseScene());
+            if (!BeginSceneTransition(
+                    PendingSceneTransition.Base,
+                    baseScenePath,
+                    false,
+                    out string failureReason))
+            {
+                Debug.LogError($"[게임 흐름] 기지 복귀에 실패했습니다: {failureReason}", this);
+            }
         }
 
-        private IEnumerator LoadBaseScene()
+        private void InitializeApplicationUserInterface()
         {
-            transitionRunning = true;
-            Time.timeScale = 1f;
-            AsyncOperation load = SceneManager.LoadSceneAsync(baseScenePath);
-            while (load != null && !load.isDone)
-                yield return null;
-            flow.NotifyReturnedToBase();
-            transitionRunning = false;
+            PrototypeLoopUiController[] controllers =
+                GetComponentsInChildren<PrototypeLoopUiController>(true);
+            foreach (PrototypeLoopUiController controller in controllers)
+            {
+                if (controller != null)
+                    controller.InitializeRuntime(this);
+            }
         }
+
+        private bool MatchesBaseScene(Scene scene)
+            => string.Equals(scene.path, baseScenePath, StringComparison.Ordinal)
+               || string.Equals(
+                   scene.name,
+                   System.IO.Path.GetFileNameWithoutExtension(baseScenePath),
+                   StringComparison.Ordinal);
 
         private void HandleFlowStateChanged(GameFlowState state)
         {
@@ -316,10 +436,12 @@ namespace GridSquad
 #if UNITY_EDITOR
         public void SetEditorConfiguration(
             GameContentCatalog newCatalog,
-            string newBaseScenePath)
+            string newBaseScenePath,
+            bool shouldPersistAcrossSingleSceneLoads = true)
         {
             catalog = newCatalog;
             baseScenePath = newBaseScenePath;
+            persistAcrossSingleSceneLoads = shouldPersistAcrossSingleSceneLoads;
         }
 #endif
     }

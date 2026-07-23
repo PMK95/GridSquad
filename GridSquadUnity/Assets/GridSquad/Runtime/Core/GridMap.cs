@@ -19,6 +19,7 @@ namespace GridSquad
         private readonly Dictionary<GridCoordinate, TacticalEntity> reservations = new();
         private readonly Dictionary<GridCoordinate, TacticalEntity> transitReservations = new();
         private readonly Dictionary<GridCoordinate, DestructibleCover> destructibleCovers = new();
+        private bool runtimeInitialized;
 
         public int Width => width;
         public int Height => height;
@@ -30,10 +31,13 @@ namespace GridSquad
             new(1, 0), new(-1, 0), new(0, 1), new(0, -1)
         };
 
-        private void Awake()
+        public void InitializeRuntime()
         {
+            if (runtimeInitialized)
+                return;
             RebuildBlockedCellLookup();
             AddRuntimeComponentsToLegacyCoverObjects();
+            runtimeInitialized = true;
         }
 
         public void RebuildBlockedCellLookup()

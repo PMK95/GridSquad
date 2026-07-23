@@ -13,6 +13,12 @@ namespace GridSquad
         public readonly bool IsRunning;
         public readonly int RemainingCharges;
         public readonly float CooldownRemaining;
+        public readonly CombatActionExecutionPhase ExecutionPhase;
+        public readonly float PhaseDuration;
+        public readonly float PhaseRemaining;
+        public readonly bool IsReloading;
+        public readonly float ReloadProgress;
+        public readonly float ReloadRemaining;
         public readonly string StatusText;
         public readonly string RuntimeKey;
         public readonly string SourceDisplayName;
@@ -26,6 +32,12 @@ namespace GridSquad
             bool isRunning,
             int remainingCharges,
             float cooldownRemaining,
+            CombatActionExecutionPhase executionPhase,
+            float phaseDuration,
+            float phaseRemaining,
+            bool isReloading,
+            float reloadProgress,
+            float reloadRemaining,
             string statusText,
             string runtimeKey = null,
             string sourceDisplayName = null,
@@ -38,6 +50,12 @@ namespace GridSquad
             IsRunning = isRunning;
             RemainingCharges = remainingCharges;
             CooldownRemaining = cooldownRemaining;
+            ExecutionPhase = executionPhase;
+            PhaseDuration = phaseDuration;
+            PhaseRemaining = phaseRemaining;
+            IsReloading = isReloading;
+            ReloadProgress = reloadProgress;
+            ReloadRemaining = reloadRemaining;
             StatusText = statusText;
             RuntimeKey = runtimeKey;
             SourceDisplayName = sourceDisplayName;
@@ -90,7 +108,6 @@ namespace GridSquad
         private void Awake()
         {
             EnsureReferences();
-            BuildRuntimeActions();
         }
 
         private void OnEnable()
@@ -233,21 +250,35 @@ namespace GridSquad
 
             CombatActionExecutionStatus status = currentRuntime.Executor.Tick(deltaTime);
             if (status != CombatActionExecutionStatus.Running)
+            {
+                if (status == CombatActionExecutionStatus.Failed)
+                {
+                    if (currentRuntime.EffectCommitted)
+                        currentRuntime.PreserveRecoveryAfterInterruption();
+                    else
+                        currentRuntime.CancelBeforeEffect();
+                }
                 currentRuntime = null;
+            }
             return status;
         }
 
         public void TickCooldowns(float deltaTime)
         {
             foreach (CombatActionRuntime action in actions)
-                action.TickCooldown(deltaTime);
+                action.TickTimers(deltaTime);
         }
 
         public void InterruptCurrentIntent(CombatActionInterruptReason reason)
         {
             if (currentRuntime == null)
                 return;
-            currentRuntime.Executor.Interrupt(reason);
+            CombatActionRuntime interruptedRuntime = currentRuntime;
+            interruptedRuntime.Executor.Interrupt(reason);
+            if (interruptedRuntime.EffectCommitted)
+                interruptedRuntime.PreserveRecoveryAfterInterruption();
+            else
+                interruptedRuntime.CancelBeforeEffect();
             currentRuntime = null;
         }
 
@@ -424,16 +455,32 @@ namespace GridSquad
                     false,
                     0,
                     0f,
+                    CombatActionExecutionPhase.Idle,
+                    0f,
+                    0f,
+                    false,
+                    0f,
+                    0f,
                     "미장착");
-            bool isRunning = currentRuntime == runtime;
+            bool isRunning = currentRuntime == runtime
+                || runtime.Phase is CombatActionExecutionPhase.Windup
+                    or CombatActionExecutionPhase.Active
+                    or CombatActionExecutionPhase.Recovery;
             bool currentActionAllowsReplacement = currentRuntime == null
                 || isRunning
                 || currentRuntime.Definition.HasCapability(CombatActionCapabilityFlags.ChangesPosition);
+            bool actionUsesWeapon = definition.HasCapability(
+                CombatActionCapabilityFlags.DefaultAttack);
+            bool isReloading = actionUsesWeapon
+                && combatant != null
+                && combatant.IsReloading;
             bool isInteractable = combatant != null
                 && combatant.IsAlive
                 && currentActionAllowsReplacement
                 && runtime.RemainingCharges != 0
-                && runtime.CooldownRemaining <= 0f;
+                && runtime.Phase == CombatActionExecutionPhase.Idle
+                && runtime.CooldownRemaining <= 0f
+                && !isReloading;
             return new CombatActionRuntimeState(
                 definition,
                 playerSlotIndex,
@@ -442,13 +489,21 @@ namespace GridSquad
                 isRunning,
                 runtime.RemainingCharges,
                 runtime.CooldownRemaining,
-                BuildActionStatusText(runtime),
+                runtime.Phase,
+                runtime.PhaseDuration,
+                runtime.PhaseRemaining,
+                isReloading,
+                isReloading ? combatant.ReloadProgress : 0f,
+                isReloading ? combatant.FireStateRemainingSeconds : 0f,
+                BuildActionStatusText(runtime, isReloading),
                 runtime.RuntimeKey,
                 runtime.SourceDisplayName,
                 definition.DisplayKind == CombatActionDisplayKind.Passive);
         }
 
-        private string BuildActionStatusText(CombatActionRuntime runtime)
+        private string BuildActionStatusText(
+            CombatActionRuntime runtime,
+            bool isReloading)
         {
             if (runtime == null)
                 return "미장착";
@@ -456,6 +511,14 @@ namespace GridSquad
                 return "다른 행동 실행 중";
             if (runtime.RemainingCharges == 0)
                 return "수량 없음";
+            if (isReloading)
+                return $"재장전 {combatant.FireStateRemainingSeconds:0.0}s";
+            if (runtime.Phase == CombatActionExecutionPhase.Windup)
+                return $"준비 {runtime.PhaseRemaining:0.0}s";
+            if (runtime.Phase == CombatActionExecutionPhase.Active)
+                return "실행";
+            if (runtime.Phase == CombatActionExecutionPhase.Recovery)
+                return $"후딜 {runtime.PhaseRemaining:0.0}s";
             if (runtime.CooldownRemaining > 0f)
                 return $"재사용 {runtime.CooldownRemaining:0.0}s";
             string behaviorStatus = runtime.Definition.Behavior.GetRuntimeStatusText(this, runtime);

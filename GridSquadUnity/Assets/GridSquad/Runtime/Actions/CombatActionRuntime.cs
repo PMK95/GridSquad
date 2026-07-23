@@ -24,6 +24,13 @@ namespace GridSquad
             : CombatActionCapabilityFlags.None;
         public int RemainingCharges { get; private set; }
         public float CooldownRemaining { get; private set; }
+        public CombatActionExecutionPhase Phase { get; private set; }
+        public float PhaseDuration { get; private set; }
+        public float PhaseRemaining { get; private set; }
+        public bool EffectCommitted { get; private set; }
+
+        private bool completeRecoveryAfterInterruption;
+        private float committedRecoveryDuration;
 
         public void Attach(
             ICombatActionCandidateProvider candidateProvider,
@@ -36,17 +43,40 @@ namespace GridSquad
         public TBehavior GetBehavior<TBehavior>() where TBehavior : CombatActionBehaviorDefinition
             => Definition != null ? Definition.Behavior as TBehavior : null;
 
-        public void TickCooldown(float deltaTime)
+        public void TickTimers(float deltaTime)
         {
-            CooldownRemaining = Mathf.Max(0f, CooldownRemaining - deltaTime);
+            float elapsed = Mathf.Max(0f, deltaTime);
+            switch (Phase)
+            {
+                case CombatActionExecutionPhase.Windup:
+                case CombatActionExecutionPhase.Recovery:
+                    PhaseRemaining = Mathf.Max(0f, PhaseRemaining - elapsed);
+                    if (Phase == CombatActionExecutionPhase.Recovery
+                        && completeRecoveryAfterInterruption
+                        && PhaseRemaining <= 0f)
+                    {
+                        CompleteActionAndStartCooldown();
+                    }
+                    break;
+                case CombatActionExecutionPhase.Cooldown:
+                    CooldownRemaining = Mathf.Max(0f, CooldownRemaining - elapsed);
+                    PhaseRemaining = CooldownRemaining;
+                    if (CooldownRemaining <= 0f)
+                        EnterIdle();
+                    break;
+            }
         }
 
         public bool CanUse(out string failureReason)
         {
             if (RemainingCharges == 0)
                 return Fail("수량 없음", out failureReason);
-            if (CooldownRemaining > 0f)
+            if (Phase == CombatActionExecutionPhase.Recovery)
+                return Fail("후딜레이 중", out failureReason);
+            if (Phase == CombatActionExecutionPhase.Cooldown || CooldownRemaining > 0f)
                 return Fail("재사용 대기 중", out failureReason);
+            if (Phase != CombatActionExecutionPhase.Idle)
+                return Fail("행동 실행 중", out failureReason);
             failureReason = string.Empty;
             return true;
         }
@@ -61,16 +91,98 @@ namespace GridSquad
                     && Definition.AutomaticInSemiAuto;
         }
 
-        public void ConsumeChargeAndStartCooldown()
+        public void BeginWindup(float durationSeconds)
         {
+            EffectCommitted = false;
+            completeRecoveryAfterInterruption = false;
+            committedRecoveryDuration = 0f;
+            EnterPhase(CombatActionExecutionPhase.Windup, durationSeconds);
+        }
+
+        public void CommitEffect(float recoveryDurationSeconds = 0f)
+        {
+            if (EffectCommitted)
+                return;
             if (RemainingCharges > 0)
                 RemainingCharges--;
             Grant.ConsumeOnSuccessfulUse?.Invoke();
-            StartCooldown();
+            EffectCommitted = true;
+            committedRecoveryDuration = Mathf.Max(
+                Definition != null ? Definition.RecoverySeconds : 0f,
+                recoveryDurationSeconds);
+            EnterPhase(CombatActionExecutionPhase.Active, 0f);
         }
 
-        internal void StartCooldown()
-            => CooldownRemaining = Definition != null ? Definition.CooldownSeconds : 0f;
+        public void BeginRecovery(float durationSeconds)
+        {
+            if (!EffectCommitted)
+                throw new InvalidOperationException("효과 발생 전에는 후딜레이를 시작할 수 없습니다.");
+            committedRecoveryDuration = Mathf.Max(
+                committedRecoveryDuration,
+                durationSeconds);
+            EnterPhase(CombatActionExecutionPhase.Recovery, durationSeconds);
+        }
+
+        public void CompleteActionAndStartCooldown()
+        {
+            completeRecoveryAfterInterruption = false;
+            EffectCommitted = false;
+            committedRecoveryDuration = 0f;
+            float duration = Definition != null ? Definition.CooldownSeconds : 0f;
+            CooldownRemaining = Mathf.Max(0f, duration);
+            if (CooldownRemaining > 0f)
+                EnterPhase(CombatActionExecutionPhase.Cooldown, CooldownRemaining);
+            else
+                EnterIdle();
+        }
+
+        public void CancelBeforeEffect()
+        {
+            if (EffectCommitted)
+                return;
+            completeRecoveryAfterInterruption = false;
+            committedRecoveryDuration = 0f;
+            EnterIdle();
+        }
+
+        public void PreserveRecoveryAfterInterruption()
+        {
+            if (!EffectCommitted)
+            {
+                CancelBeforeEffect();
+                return;
+            }
+            if (Phase != CombatActionExecutionPhase.Recovery)
+                BeginRecovery(committedRecoveryDuration);
+            completeRecoveryAfterInterruption = true;
+            if (PhaseRemaining <= 0f)
+                CompleteActionAndStartCooldown();
+        }
+
+        public void SynchronizePhase(
+            CombatActionExecutionPhase phase,
+            float remainingSeconds,
+            float durationSeconds)
+        {
+            Phase = phase;
+            PhaseDuration = Mathf.Max(0f, durationSeconds);
+            PhaseRemaining = Mathf.Clamp(remainingSeconds, 0f, PhaseDuration);
+        }
+
+        private void EnterPhase(CombatActionExecutionPhase phase, float durationSeconds)
+        {
+            Phase = phase;
+            PhaseDuration = Mathf.Max(0f, durationSeconds);
+            PhaseRemaining = PhaseDuration;
+        }
+
+        private void EnterIdle()
+        {
+            Phase = CombatActionExecutionPhase.Idle;
+            PhaseDuration = 0f;
+            PhaseRemaining = 0f;
+            CooldownRemaining = 0f;
+        }
 
         private static bool Fail(string reason, out string failureReason)
         {
@@ -186,8 +298,8 @@ namespace GridSquad
 
     internal sealed class BasicAttackExecutor : CombatActionExecutorBase
     {
-        private float remainingDuration;
         private ShootableTarget target;
+        private float recoveryDuration;
 
         public BasicAttackExecutor(CombatActionController owner, CombatActionRuntime runtime)
             : base(owner, runtime) { }
@@ -227,24 +339,52 @@ namespace GridSquad
             if (!CanBegin(intent.Candidate, out failureReason))
                 return false;
             target = intent.Candidate.Target;
-            remainingDuration = Mathf.Max(
-                Owner.Tuning != null ? Owner.Tuning.EvaluationRefreshInterval : 0.2f,
-                intent.ExecutionDurationSeconds);
             Actor.SetBehaviorTarget(target);
             Actor.UpdateAutomaticPeekForCurrentTarget(Owner.AutomaticPeekAllowed);
             Actor.RefreshShotEvaluationForCurrentTarget();
+            if (!Actor.TryBeginPreparedShot(
+                    target,
+                    out float windupDuration,
+                    out failureReason))
+            {
+                return false;
+            }
+            Runtime.BeginWindup(windupDuration);
             return true;
         }
 
         public override CombatActionExecutionStatus Tick(float deltaTime)
         {
-            Actor.TickAutomaticFireCycleFromBehavior();
             if (target == null || !target.IsAlive || target.TargetTeam == Actor.Team)
                 return CombatActionExecutionStatus.Failed;
-            remainingDuration -= deltaTime;
-            if (remainingDuration > 0f)
+
+            if (!Runtime.EffectCommitted)
+            {
+                PreparedShotStatus shotStatus = Actor.TickPreparedShot(
+                    deltaTime,
+                    out _);
+                Runtime.SynchronizePhase(
+                    CombatActionExecutionPhase.Windup,
+                    Actor.FireStateRemainingSeconds,
+                    Runtime.PhaseDuration);
+                if (shotStatus == PreparedShotStatus.Waiting)
+                    return CombatActionExecutionStatus.Running;
+                if (shotStatus == PreparedShotStatus.Failed)
+                    return CombatActionExecutionStatus.Failed;
+
+                recoveryDuration = Actor.GetPreparedShotRecoveryDuration();
+                Runtime.CommitEffect(recoveryDuration);
                 return CombatActionExecutionStatus.Running;
-            Runtime.StartCooldown();
+            }
+            if (Runtime.Phase == CombatActionExecutionPhase.Active)
+                Runtime.BeginRecovery(recoveryDuration);
+            if (Actor.IsReloading)
+                Actor.TickAutomaticFireCycleFromBehavior();
+            if (Runtime.PhaseRemaining > 0f)
+                return CombatActionExecutionStatus.Running;
+            Actor.CompletePreparedShotRecovery();
+            Runtime.CompleteActionAndStartCooldown();
+            target = null;
             return CombatActionExecutionStatus.Completed;
         }
 
@@ -252,7 +392,9 @@ namespace GridSquad
         {
             if (reason == CombatActionInterruptReason.TargetInvalid
                 || reason == CombatActionInterruptReason.CombatEnded
-                || reason == CombatActionInterruptReason.OwnerDied)
+                || reason == CombatActionInterruptReason.OwnerDied
+                || reason == CombatActionInterruptReason.Stunned
+                || reason == CombatActionInterruptReason.HitReaction)
             {
                 Actor.ResetBehaviorFireCycle();
             }
@@ -334,6 +476,7 @@ namespace GridSquad
     internal sealed class RepositionExecutor : CombatActionExecutorBase
     {
         private bool stopRequested;
+        private bool recoveryStarted;
 
         public RepositionExecutor(CombatActionController owner, CombatActionRuntime runtime)
             : base(owner, runtime) { }
@@ -355,10 +498,15 @@ namespace GridSquad
             if (!CanBegin(intent.Candidate, out failureReason))
                 return false;
             stopRequested = false;
+            recoveryStarted = false;
             Actor.SetBehaviorTarget(intent.Candidate.Target);
             Actor.SetPeekEnabled(false);
             if (Actor.SetMoveDestination(intent.Candidate.TargetCell))
+            {
+                Runtime.BeginWindup(0f);
+                Runtime.CommitEffect();
                 return true;
+            }
             return Fail("이동 경로를 시작하지 못했습니다.", out failureReason);
         }
 
@@ -368,7 +516,14 @@ namespace GridSquad
                 Actor.RequestStopMovementAfterCurrentCell();
             if (Actor.IsMoving)
                 return CombatActionExecutionStatus.Running;
-            Runtime.StartCooldown();
+            if (!recoveryStarted)
+            {
+                recoveryStarted = true;
+                Runtime.BeginRecovery(Runtime.Definition.RecoverySeconds);
+            }
+            if (Runtime.PhaseRemaining > 0f)
+                return CombatActionExecutionStatus.Running;
+            Runtime.CompleteActionAndStartCooldown();
             return CombatActionExecutionStatus.Completed;
         }
 
@@ -389,8 +544,7 @@ namespace GridSquad
             List<CombatActionCandidate> results)
         {
             if (!Runtime.IsAutomaticUseAllowed(context)
-                || Runtime.RemainingCharges == 0
-                || Runtime.CooldownRemaining > 0f)
+                || !Runtime.CanUse(out _))
             {
                 return;
             }
@@ -457,7 +611,7 @@ namespace GridSquad
     internal sealed class GrenadeExecutor : CombatActionExecutorBase
     {
         private CombatActionIntent intent;
-        private float windupRemaining;
+        private float recoveryDuration;
 
         public GrenadeExecutor(CombatActionController owner, CombatActionRuntime runtime)
             : base(owner, runtime) { }
@@ -490,17 +644,32 @@ namespace GridSquad
             Actor.StopMovementAtCurrentCell();
             Actor.PrepareForExclusiveCombatAction();
             float animationDuration = Actor.PlayThrowAnimation();
-            windupRemaining = Mathf.Max(Runtime.Definition.WindupSeconds, animationDuration * 0.55f);
+            float windupDuration = Mathf.Max(
+                Runtime.Definition.WindupSeconds,
+                animationDuration * 0.55f);
+            recoveryDuration = Mathf.Max(
+                Runtime.Definition.RecoverySeconds,
+                animationDuration - windupDuration);
+            Runtime.BeginWindup(windupDuration);
             return true;
         }
 
         public override CombatActionExecutionStatus Tick(float deltaTime)
         {
-            windupRemaining -= deltaTime;
-            if (windupRemaining > 0f)
+            if (Runtime.Phase == CombatActionExecutionPhase.Windup
+                && Runtime.PhaseRemaining > 0f)
                 return CombatActionExecutionStatus.Running;
-            Runtime.ConsumeChargeAndStartCooldown();
-            LaunchProjectile(intent.Candidate.TargetCell);
+            if (!Runtime.EffectCommitted)
+            {
+                Runtime.CommitEffect(recoveryDuration);
+                LaunchProjectile(intent.Candidate.TargetCell);
+                return CombatActionExecutionStatus.Running;
+            }
+            if (Runtime.Phase == CombatActionExecutionPhase.Active)
+                Runtime.BeginRecovery(recoveryDuration);
+            if (Runtime.PhaseRemaining > 0f)
+                return CombatActionExecutionStatus.Running;
+            Runtime.CompleteActionAndStartCooldown();
             return CombatActionExecutionStatus.Completed;
         }
 
@@ -542,8 +711,7 @@ namespace GridSquad
             List<CombatActionCandidate> results)
         {
             if (!Runtime.IsAutomaticUseAllowed(context)
-                || Runtime.RemainingCharges == 0
-                || Runtime.CooldownRemaining > 0f
+                || !Runtime.CanUse(out _)
                 || context.Actor.IsStimActive)
             {
                 return;
@@ -585,7 +753,7 @@ namespace GridSquad
 
     internal sealed class StimExecutor : CombatActionExecutorBase
     {
-        private float windupRemaining;
+        private float recoveryDuration;
 
         public StimExecutor(CombatActionController owner, CombatActionRuntime runtime)
             : base(owner, runtime) { }
@@ -606,23 +774,38 @@ namespace GridSquad
             Actor.StopMovementAtCurrentCell();
             Actor.PrepareForExclusiveCombatAction();
             float animationDuration = Actor.PlayUseItemAnimation();
-            windupRemaining = Mathf.Max(Runtime.Definition.WindupSeconds, animationDuration * 0.5f);
+            float windupDuration = Mathf.Max(
+                Runtime.Definition.WindupSeconds,
+                animationDuration * 0.5f);
+            recoveryDuration = Mathf.Max(
+                Runtime.Definition.RecoverySeconds,
+                animationDuration - windupDuration);
+            Runtime.BeginWindup(windupDuration);
             return true;
         }
 
         public override CombatActionExecutionStatus Tick(float deltaTime)
         {
-            windupRemaining -= deltaTime;
-            if (windupRemaining > 0f)
+            if (Runtime.Phase == CombatActionExecutionPhase.Windup
+                && Runtime.PhaseRemaining > 0f)
                 return CombatActionExecutionStatus.Running;
-            Runtime.ConsumeChargeAndStartCooldown();
-            Actor.ApplyStim(
-                $"action:{Runtime.RuntimeKey}:stim",
-                Runtime.Definition.DisplayName,
-                Runtime.Definition.Icon,
-                Runtime.GetBehavior<StimActionBehaviorDefinition>().DurationSeconds,
-                Runtime.GetBehavior<StimActionBehaviorDefinition>().MovementSpeedMultiplier,
-                Runtime.GetBehavior<StimActionBehaviorDefinition>().FireIntervalMultiplier);
+            if (!Runtime.EffectCommitted)
+            {
+                Runtime.CommitEffect(recoveryDuration);
+                Actor.ApplyStim(
+                    $"action:{Runtime.RuntimeKey}:stim",
+                    Runtime.Definition.DisplayName,
+                    Runtime.Definition.Icon,
+                    Runtime.GetBehavior<StimActionBehaviorDefinition>().DurationSeconds,
+                    Runtime.GetBehavior<StimActionBehaviorDefinition>().MovementSpeedMultiplier,
+                    Runtime.GetBehavior<StimActionBehaviorDefinition>().FireIntervalMultiplier);
+                return CombatActionExecutionStatus.Running;
+            }
+            if (Runtime.Phase == CombatActionExecutionPhase.Active)
+                Runtime.BeginRecovery(recoveryDuration);
+            if (Runtime.PhaseRemaining > 0f)
+                return CombatActionExecutionStatus.Running;
+            Runtime.CompleteActionAndStartCooldown();
             return CombatActionExecutionStatus.Completed;
         }
     }
@@ -657,7 +840,7 @@ namespace GridSquad
         {
             if (context.ControlMode != CombatControlMode.FullAutomatic
                 || !Runtime.IsAutomaticUseAllowed(context)
-                || Runtime.CooldownRemaining > 0f)
+                || !Runtime.CanUse(out _))
             {
                 return;
             }
@@ -764,6 +947,7 @@ namespace GridSquad
         private UnitStatModifierHandle speedModifierHandle;
         private DashPathPlan pathPlan;
         private bool collisionHandled;
+        private bool recoveryStarted;
 
         public DashExecutor(CombatActionController owner, CombatActionRuntime runtime)
             : base(owner, runtime) { }
@@ -852,13 +1036,15 @@ namespace GridSquad
                 : intent.Candidate.Target);
             ApplyActionRunningSpeedModifier();
             collisionHandled = false;
+            recoveryStarted = false;
             if (!Actor.SetMoveDestination(pathPlan.ApproachCell))
             {
                 RemoveActionRunningSpeedModifier();
                 return Fail("돌진 이동을 시작하지 못했습니다.", out failureReason);
             }
             Actor.PlayDashAnimation();
-            Runtime.ConsumeChargeAndStartCooldown();
+            Runtime.BeginWindup(0f);
+            Runtime.CommitEffect();
             return true;
         }
 
@@ -889,6 +1075,14 @@ namespace GridSquad
                 }
             }
             RemoveActionRunningSpeedModifier();
+            if (!recoveryStarted)
+            {
+                recoveryStarted = true;
+                Runtime.BeginRecovery(Runtime.Definition.RecoverySeconds);
+            }
+            if (Runtime.PhaseRemaining > 0f)
+                return CombatActionExecutionStatus.Running;
+            Runtime.CompleteActionAndStartCooldown();
             return CombatActionExecutionStatus.Completed;
         }
 
